@@ -71,7 +71,8 @@
   function clipPlayers(list) {
     if (!list || !list.length) return '';
     return '<div class="clips"><span class="eyebrow">🎧 Your recording</span>' + list.map((c) =>
-      '<div class="clip"><span class="clip-label">' + esc(c.label) + '</span><audio controls preload="metadata" src="' + esc(c.url) + '"></audio></div>').join('') + '</div>';
+      '<div class="clip"><span class="clip-label">' + esc(c.label) + '</span><audio controls preload="metadata" src="' + esc(c.url) + '"></audio>' +
+      (c.file ? '<a class="clip-dl" href="' + esc(c.url) + '" download="' + esc(c.file) + '">Download</a>' : '') + '</div>').join('') + '</div>';
   }
 
   function questionDetail(q, i, clips) {

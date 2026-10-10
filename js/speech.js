@@ -4,15 +4,18 @@
  *   TTS: window.speechSynthesis (the interviewer's and customer's voices)
  *   STT: SpeechRecognition / webkitSpeechRecognition (Chrome, Edge, Safari)
  *
- * No API keys. Note: Chrome and Edge transcribe through their vendor's cloud
- * speech service, so voice mode needs an internet connection; typing mode
- * works fully offline.
+ * No API keys. Chrome and Edge transcribe through their vendor's cloud speech
+ * service, so this engine needs an internet connection; js/whisper.js is the
+ * offline alternative.
  */
 (function (root) {
   'use strict';
 
   const synth = root.speechSynthesis || null;
   const Recognition = root.SpeechRecognition || root.webkitSpeechRecognition || null;
+  const Voice = root.AII && root.AII.Voice;
+  const doc = root.document || null;
+  const isAndroid = /Android/i.test((root.navigator && root.navigator.userAgent) || '');
 
   // Name fragments used to guess a voice's style (the API has no gender field).
   const FEMALE = /female|zira|aria|jenny|sonia|neerja|libby|natasha|clara|samantha|karen|moira|tessa|veena|serena|victoria|fiona|susan|hazel|heera|emma|ava|allison|joanna|salli|kimberly|google uk english female|google us english/i;
@@ -20,6 +23,7 @@
 
   let voicesCache = [];
 
+  /** Voices load asynchronously (and Safari < 16 has no voiceschanged event): poll briefly. */
   function loadVoices(timeoutMs) {
     if (!synth) return Promise.resolve([]);
     const now = synth.getVoices();
@@ -29,15 +33,23 @@
     }
     return new Promise((resolve) => {
       let done = false;
+      const t0 = Date.now();
       const finish = () => {
         if (done) return;
         done = true;
+        clearInterval(poll);
         voicesCache = synth.getVoices();
         resolve(voicesCache);
       };
-      synth.addEventListener('voiceschanged', finish, { once: true });
-      setTimeout(finish, timeoutMs || 1500);
+      const poll = setInterval(() => {
+        if (synth.getVoices().length || Date.now() - t0 > (timeoutMs || 2000)) finish();
+      }, 100);
+      try { synth.addEventListener('voiceschanged', finish, { once: true }); } catch (e) { /* ignore */ }
     });
+  }
+
+  function hasVoices() {
+    return voicesCache.length > 0;
   }
 
   function englishVoices() {
@@ -50,6 +62,7 @@
     const all = englishVoices();
     const byName = (n) => all.find((v) => v.name === n) || null;
     const accent = (p.accent || 'en-US').toLowerCase().replace('_', '-');
+    const offline = root.navigator && root.navigator.onLine === false;
     const score = (v, wantFemale) => {
       let s = 0;
       const lang = v.lang.toLowerCase().replace('_', '-');
@@ -57,6 +70,7 @@
       else if (lang.slice(0, 2) === 'en') s += 1;
       if (/natural|neural|online|premium|enhanced/i.test(v.name)) s += 3;
       if (/google/i.test(v.name)) s += 1;
+      if (offline && v.localService === false) s -= 10; // network voices fail offline
       if (wantFemale && FEMALE.test(v.name) && !/\bmale\b/i.test(v.name.replace(/female/i, ''))) s += 2;
       if (!wantFemale && MALE.test(v.name) && !/female/i.test(v.name)) s += 2;
       return s;
@@ -68,71 +82,111 @@
     return { interviewer, customer };
   }
 
-  // Split long text into sentences: Chrome cuts off utterances longer than ~15s.
-  function chunks(text) {
-    const parts = String(text).match(/[^.!?]+[.!?]*["')\]]*\s*/g) || [String(text)];
-    const out = [];
-    for (const p of parts) {
-      if (out.length && (out[out.length - 1].length + p.length) < 140) out[out.length - 1] += p;
-      else out.push(p);
-    }
-    return out.map((s) => s.trim()).filter(Boolean);
+  function chunks(text, maxChars) {
+    if (Voice && Voice.splitForSpeech) return Voice.splitForSpeech(text, maxChars);
+    return (String(text).match(/[^.!?]+[.!?]*\s*/g) || [String(text)]).map((s) => s.trim()).filter(Boolean);
   }
 
   let speakToken = 0;
+  // Keep utterances referenced until they finish: some engines lost "end" events
+  // when the utterance object was garbage-collected.
+  const live = new Set();
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
   /**
-   * Speak text and resolve when finished (or cancelled / failed / timed out).
-   * opts: { voice, rate, pitch, volume, onBoundary(charIndexInText), onStart, onEnd }
+   * Speak text and resolve when finished, cancelled or failed.
+   * opts: { voice, rate, pitch, volume, muted, mutedDelayMs, onBoundary(charIndexInText), onStart, onEnd }
+   * Resolves { ok, blocked?, failed? }: blocked means the browser silently refused to
+   * speak (iOS before a user gesture), so the app can ask for a tap.
    */
   function speak(text, opts) {
     const o = opts || {};
     const token = ++speakToken;
     if (!synth || o.muted) {
       if (o.onStart) o.onStart();
-      return new Promise((r) => setTimeout(() => { if (o.onEnd) o.onEnd(); r(); }, o.mutedDelayMs || 400));
+      return sleep(o.mutedDelayMs || 400).then(() => {
+        if (o.onEnd) o.onEnd();
+        return { ok: true, muted: true };
+      });
     }
-    synth.cancel();
-    const pieces = chunks(text);
-    let offset = 0;
-    let started = false;
+    const rate = o.rate || 1;
+    const pieces = chunks(text, Math.round(160 * rate));
+
     const sayOne = (piece, base) => new Promise((resolve) => {
-      if (token !== speakToken) return resolve();
+      if (token !== speakToken) return resolve('cancelled');
       const u = new SpeechSynthesisUtterance(piece);
+      live.add(u);
       if (o.voice) {
         u.voice = o.voice;
         u.lang = o.voice.lang;
       }
-      u.rate = o.rate || 1;
+      u.rate = rate;
       u.pitch = o.pitch || 1;
       u.volume = o.volume == null ? 1 : o.volume;
-      // Safety net: some engines never fire "end".
+      let started = false;
+      let settled = false;
+      const t0 = Date.now();
       const words = piece.split(/\s+/).length;
-      const guard = setTimeout(resolve, ((words / 2.3) * 1000) / u.rate + 4000);
-      const finish = () => {
-        clearTimeout(guard);
-        resolve();
+      const lastResort = ((words / 2) * 1000) / rate + 6000;
+      const finish = (why) => {
+        if (settled) return;
+        settled = true;
+        clearInterval(poll);
+        live.delete(u);
+        resolve(why);
       };
+      // Poll instead of trusting "end" alone: some engines drop it.
+      const poll = setInterval(() => {
+        if (token !== speakToken) return finish('cancelled');
+        const busy = synth.speaking || synth.pending;
+        if (started && !busy) return finish('end');
+        if (!started && !busy && Date.now() - t0 > 2500) return finish('blocked');
+        if (Date.now() - t0 > lastResort) return finish('end');
+      }, 250);
       u.onstart = () => {
-        if (!started && o.onStart) o.onStart();
         started = true;
+        if (o.onStart && base === 0) o.onStart();
       };
       u.onboundary = (e) => {
+        started = true;
         if (o.onBoundary && e.name !== 'sentence') o.onBoundary(base + (e.charIndex || 0));
       };
-      u.onend = finish;
-      u.onerror = finish;
-      synth.speak(u);
+      u.onend = () => finish('end');
+      u.onerror = (e) => {
+        const err = (e && e.error) || '';
+        if (err === 'not-allowed') return finish('blocked');
+        if (err === 'interrupted' || err === 'canceled') return finish('cancelled');
+        finish(started ? 'end' : 'failed');
+      };
+      try {
+        synth.speak(u);
+      } catch (e) {
+        finish('failed');
+      }
     });
+
     return (async () => {
-      for (const piece of pieces) {
+      // Cancel leftovers only when something is queued; WebKit has raced on stale cancels.
+      if (synth.speaking || synth.pending) {
+        synth.cancel();
+        await sleep(60);
+      }
+      let offset = 0;
+      let result = { ok: true };
+      for (let i = 0; i < pieces.length; i++) {
+        const piece = pieces[i];
         const at = text.indexOf(piece, offset);
         const base = at === -1 ? offset : at;
-        await sayOne(piece, base);
+        const why = await sayOne(piece, i === 0 ? 0 : base);
         offset = base + piece.length;
-        if (token !== speakToken) break;
+        if (why === 'blocked' || why === 'failed') {
+          result = { ok: false, blocked: why === 'blocked', failed: why === 'failed' };
+          break;
+        }
+        if (token !== speakToken || why === 'cancelled') break;
       }
       if (o.onEnd) o.onEnd();
+      return result;
     })();
   }
 
@@ -155,103 +209,150 @@
     } catch (e) { /* ignore */ }
   }
 
-  // Chrome pauses speech in background tabs and occasionally gets stuck "paused".
-  if (synth && root.document) {
-    root.document.addEventListener('visibilitychange', () => {
-      if (!root.document.hidden && synth.paused) synth.resume();
+  if (synth && doc) {
+    // Chrome pauses speech in background tabs and occasionally gets stuck "paused".
+    doc.addEventListener('visibilitychange', () => {
+      if (!doc.hidden && synth.paused) synth.resume();
     });
+    root.addEventListener('pagehide', () => synth.cancel());
   }
 
   // ------------------------------------------------------------ recognition
 
-  const FATAL = { 'not-allowed': 'Microphone permission was denied.', 'service-not-allowed': 'Speech recognition is blocked in this browser.', 'audio-capture': 'No microphone was found.', 'language-not-supported': 'This accent/language is not supported by the speech engine.' };
+  const FATAL = {
+    'not-allowed': 'Microphone permission was denied.',
+    'service-not-allowed': 'Speech recognition is turned off in this browser. On iPhone, enable Dictation (Settings → General → Keyboard) and allow Speech Recognition for Safari.',
+    'audio-capture': 'No microphone was found.',
+    'language-not-supported': 'This accent/language is not supported by the speech engine.',
+  };
+
+  function onceVisible() {
+    if (!doc || !doc.hidden) return Promise.resolve();
+    return new Promise((resolve) => {
+      const h = () => {
+        if (!doc.hidden) {
+          doc.removeEventListener('visibilitychange', h);
+          resolve();
+        }
+      };
+      doc.addEventListener('visibilitychange', h);
+    });
+  }
 
   /**
-   * A recogniser that keeps listening until stop() — it silently restarts when
-   * the browser ends a session early, and merges results across restarts.
-   * opts: { lang, onUpdate(finalText, interimText), onError(code, message, fatal) }
+   * A recogniser that keeps listening until stop(): it silently restarts when the
+   * browser ends a session early (Chrome does after ~8-15 s of silence) and merges
+   * results across restarts.
+   * opts: { lang, track (MediaStreamTrack to listen to, Chrome 135+), onUpdate(finalText, interimText),
+   *         onError(code, message, fatal) }
    */
   function createRecognizer(opts) {
     const o = opts || {};
     if (!Recognition) return null;
-    let rec = null;
     let active = false;
+    let current = null;          // the live session
+    const sessions = new Set();  // sessions that have not ended yet
     let committed = '';
-    let finals = [];
-    let interim = '';
     let firstResultAt = null;
     let lastResultAt = null;
-    let networkErrors = 0;
+    let networkErrors = [];
     let restarts = [];
+    let transientFailures = 0;
     let endWaiters = [];
 
-    const sessionText = () => {
-      // De-duplicate engines (Android) that repeat earlier finals inside later ones.
-      const out = [];
-      for (const f of finals) {
-        if (!f) continue;
-        const prev = out[out.length - 1];
-        if (prev && f.toLowerCase().startsWith(prev.toLowerCase())) out[out.length - 1] = f;
-        else if (!(prev && prev.toLowerCase().startsWith(f.toLowerCase()))) out.push(f);
-      }
-      return out.join(' ');
-    };
-    const finalText = () => (committed + ' ' + sessionText()).replace(/\s+/g, ' ').trim();
-    const emit = () => o.onUpdate && o.onUpdate(finalText(), interim.trim());
+    const merge = (list) => (Voice && Voice.mergeCumulative ? Voice.mergeCumulative(list) : list.filter(Boolean).join(' '));
+    const join = (a, b) => (a + ' ' + b).replace(/\s+/g, ' ').trim();
+    const sessionText = (s) => (s ? merge(s.finals) : '');
+    const finalText = () => join(committed, sessionText(current));
+    const interimText = () => (current ? current.interim.trim() : '');
+    const emit = () => o.onUpdate && o.onUpdate(finalText(), interimText());
 
-    function build() {
+    function startSession() {
       const r = new Recognition();
+      const s = { r, finals: [], interim: '', started: false };
       r.lang = o.lang || 'en-US';
       r.continuous = true;
       r.interimResults = true;
       r.maxAlternatives = 1;
+      r.onstart = () => {
+        s.started = true;
+        transientFailures = 0;
+      };
       r.onresult = (e) => {
         const now = performance.now();
         if (firstResultAt == null) firstResultAt = now;
         lastResultAt = now;
-        interim = '';
+        networkErrors = [];
+        s.interim = '';
         for (let i = e.resultIndex; i < e.results.length; i++) {
           const res = e.results[i];
           const t = res[0] ? res[0].transcript.trim() : '';
-          if (res.isFinal) finals[i] = t;
-          else interim += ' ' + t;
+          if (res.isFinal) s.finals[i] = t;
+          else s.interim += ' ' + t;
         }
-        emit();
+        if (s === current) emit();
       };
       r.onerror = (e) => {
         const code = e.error || 'unknown';
         if (code === 'no-speech' || code === 'aborted') return;
         if (code === 'network') {
-          networkErrors++;
-          if (networkErrors >= 2) fail(code, 'Speech recognition needs an internet connection in this browser.');
+          const now = Date.now();
+          networkErrors = networkErrors.filter((t) => now - t < 20000);
+          networkErrors.push(now);
+          if (networkErrors.length >= 3) fail(code, 'Speech recognition needs an internet connection in this browser.');
+          return;
+        }
+        // "not-allowed" is also reported for a hidden page (Safari) or a busy recogniser
+        // (Android). Retry those a few times before treating it as a real denial.
+        if (code === 'not-allowed' && (doc && doc.hidden || s.started || o.micGranted) && transientFailures < 3) {
+          transientFailures++;
+          s.transient = [300, 700, 1500][transientFailures - 1];
           return;
         }
         if (FATAL[code]) fail(code, FATAL[code]);
         else if (o.onError) o.onError(code, 'Speech recognition error: ' + code, false);
       };
       r.onend = () => {
-        // Bank this session's text, then restart if we are still listening.
-        committed = finalText();
-        finals = [];
-        if (interim.trim()) committed = (committed + ' ' + interim.trim()).trim();
-        interim = '';
-        if (active) {
-          const now = Date.now();
-          restarts = restarts.filter((t) => now - t < 10000);
-          restarts.push(now);
-          if (restarts.length > 8) return fail('unstable', 'Speech recognition keeps stopping.');
-          setTimeout(() => {
-            if (!active) return flushEnd();
-            try {
-              rec = build();
-              rec.start();
-            } catch (err) {
-              fail('start-failed', String(err && err.message));
-            }
-          }, 120);
-        } else flushEnd();
+        // Bank this session's words (including unfinished ones), then restart if still listening.
+        sessions.delete(s);
+        committed = join(committed, join(sessionText(s), s.interim.trim()));
+        const wasCurrent = s === current;
+        if (wasCurrent) current = null;
+        if (active && wasCurrent) scheduleRestart(s.transient);
+        else if (!active && !sessions.size) flushEnd();
+        emit();
       };
-      return r;
+      sessions.add(s);
+      current = s;
+      try {
+        const track = o.track;
+        if (track && track.readyState === 'live') {
+          try {
+            r.start(track); // Chrome 135+: listen to the same (echo-cancelled) mic track
+          } catch (e) {
+            r.start();
+          }
+        } else r.start();
+      } catch (err) {
+        sessions.delete(s);
+        current = null;
+        fail('start-failed', String((err && err.message) || err));
+      }
+    }
+
+    function scheduleRestart(extraDelay) {
+      const now = Date.now();
+      restarts = restarts.filter((t) => now - t < 10000);
+      restarts.push(now);
+      if (restarts.length > 8 && !extraDelay) return fail('unstable', 'Speech recognition keeps stopping.');
+      const delay = (extraDelay || 0) + (isAndroid ? 350 : 120);
+      setTimeout(() => {
+        if (!active || current) return;
+        // Never restart while the page is hidden: browsers refuse, and the retries pile up.
+        onceVisible().then(() => {
+          if (active && !current) startSession();
+        });
+      }, delay);
     }
 
     function flushEnd() {
@@ -262,56 +363,58 @@
 
     function fail(code, message) {
       active = false;
-      try { if (rec) rec.abort(); } catch (e) { /* ignore */ }
+      sessions.forEach((s) => {
+        try { s.r.abort(); } catch (e) { /* ignore */ }
+      });
       if (o.onError) o.onError(code, message, true);
       flushEnd();
+    }
+
+    function stopSessions(method) {
+      sessions.forEach((s) => {
+        try { s.r[method](); } catch (e) { /* ignore */ }
+      });
     }
 
     return {
       start() {
         committed = '';
-        finals = [];
-        interim = '';
         firstResultAt = null;
         lastResultAt = null;
-        networkErrors = 0;
+        networkErrors = [];
         restarts = [];
+        transientFailures = 0;
         active = true;
-        rec = build();
-        try {
-          rec.start();
-        } catch (err) {
-          fail('start-failed', String(err && err.message));
-        }
+        startSession();
       },
-      /** Pause without losing text (e.g. while the question is repeated). */
+      /** Stop listening without losing words (e.g. while the interviewer speaks mid-answer). */
       pause() {
         active = false;
-        try { if (rec) rec.stop(); } catch (e) { /* ignore */ }
+        stopSessions('stop');
       },
       resume() {
         active = true;
-        rec = build();
-        try { rec.start(); } catch (err) { fail('start-failed', String(err && err.message)); }
+        if (!current) startSession();
       },
       /** Stop and resolve with the final transcript once the engine flushes. */
       stop() {
         active = false;
         return new Promise((resolve) => {
+          if (!sessions.size) return resolve(finalText());
           const t = setTimeout(() => resolve(finalText()), 1500);
           endWaiters.push((text) => {
             clearTimeout(t);
             resolve(text);
           });
-          try { if (rec) rec.stop(); } catch (e) { resolve(finalText()); }
+          stopSessions('stop');
         });
       },
       abort() {
         active = false;
-        try { if (rec) rec.abort(); } catch (e) { /* ignore */ }
+        stopSessions('abort');
       },
       text: finalText,
-      interim: () => interim.trim(),
+      interim: interimText,
       live: true, // gives words while the candidate is speaking
       get firstResultAt() { return firstResultAt; },
       get lastResultAt() { return lastResultAt; },
@@ -323,6 +426,7 @@
     ttsSupported: !!synth,
     sttSupported: !!Recognition,
     loadVoices,
+    hasVoices,
     englishVoices,
     pickVoices,
     speak,
@@ -330,5 +434,6 @@
     unlock,
     chunks,
     createRecognizer,
+    onceVisible,
   };
 })(typeof window !== 'undefined' ? window : globalThis);
