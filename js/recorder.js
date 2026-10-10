@@ -358,7 +358,8 @@
   /**
    * Save all clips of one scoresheet (replaces any earlier copy).
    * opts.evict: async () => sheetId|null — called on a quota error to free space
-   * (e.g. return the oldest history entry's id); we retry up to 3 times.
+   * (e.g. return the oldest history entry's id). Entries with nothing stored are
+   * passed over, so only evictions that actually free space use up a retry.
    * Resolves { ok, where: 'idb' | 'memory', error? } and never rejects.
    */
   async function saveClips(sheetId, clips, opts) {
@@ -376,7 +377,7 @@
       return { ok: false, where: 'memory', error: e };
     }
     const evict = opts && opts.evict;
-    for (let attempt = 0; attempt < 4; attempt++) {
+    for (let freed = 0; ; ) {
       try {
         await tx('readwrite', (s) => {
           s.delete(rangeOf(sheetId));
@@ -385,10 +386,17 @@
         memory.delete(sheetId);
         return { ok: true, where: 'idb' };
       } catch (e) {
-        if (isQuota(e) && evict && attempt < 3) {
-          const victim = await Promise.resolve(evict()).catch(() => null);
-          if (victim && victim !== sheetId) {
-            await deleteClips(victim);
+        if (isQuota(e) && evict && freed < 6) {
+          // Skip victims that hold no recordings: deleting them frees nothing.
+          let removed = 0;
+          for (;;) {
+            const victim = await Promise.resolve(evict()).catch(() => null);
+            if (!victim || victim === sheetId) break;
+            removed = await evictStored(victim);
+            if (removed > 0) break;
+          }
+          if (removed > 0) {
+            freed++;
             continue;
           }
         }
@@ -396,8 +404,15 @@
         return { ok: false, where: 'memory', error: e, quota: isQuota(e) };
       }
     }
-    memory.set(sheetId, list);
-    return { ok: false, where: 'memory' };
+  }
+
+  /** Delete one scoresheet's stored recordings; resolves how many were removed (0 on error). */
+  function evictStored(sheetId) {
+    return tx('readwrite', (s, out) => {
+      const c = s.count(rangeOf(sheetId));
+      c.onsuccess = () => { out.value = c.result; };
+      s.delete(rangeOf(sheetId));
+    }).then((n) => n || 0, () => 0);
   }
 
   /** Clips of one scoresheet in answer order (Blob rebuilt), [] if none. */

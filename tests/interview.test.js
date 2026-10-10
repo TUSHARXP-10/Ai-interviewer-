@@ -185,3 +185,25 @@ test('a click picked up by the mic never turns audio stats into NaN', () => {
   const audio = s.results()[0].response.audio;
   for (const k of ['longPauses', 'snrDb', 'voicedRatio', 'longestPauseMs']) assert.ok(Number.isFinite(audio[k]), k);
 });
+
+test('follow-ups that already thank the candidate get no second "Thanks."', () => {
+  for (let seed = 1; seed < 40; seed++) {
+    const s = Engine.createSession({ length: 'quick', role: 'voice', mode: 'text', seed });
+    s.current();
+    const res = s.submit(text('I am Sam.'));
+    if (res.step.kind !== 'followup') continue;
+    const spoken = res.step.speak[0].text;
+    assert.doesNotMatch(spoken, /^(Thanks|Okay|I see|Alright)\. (Thank|Thanks|That's a good)/, spoken);
+  }
+});
+
+test('skipping the last question does not say "let\'s move on" before the goodbye', () => {
+  const s = Engine.createSession({ length: 'quick', role: 'voice', mode: 'text', seed: 4, maxFollowUps: 0 });
+  let res = { step: s.current() };
+  while (!res.done) {
+    const last = s.index === s.total - 1;
+    res = s.submit(last ? { text: '', mode: 'text', events: { skipped: true } } : text('I would stay calm, listen, apologise and help the customer with a refund.'));
+  }
+  assert.doesNotMatch(res.speak[0].text, /move on|next one/i, res.speak[0].text);
+  assert.match(res.speak[0].text, /end of the interview/);
+});

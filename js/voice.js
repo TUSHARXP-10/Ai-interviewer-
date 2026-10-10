@@ -69,7 +69,8 @@
     const total = n.split(' ').length;
     // A request on its own, or right after a short false start ("I think... sorry, can you repeat that?").
     if ((total <= 10 && REPEAT.test(n)) || (total <= 18 && c && REPEAT.test(c))) return { command: 'repeat', text: '' };
-    if (total <= 8 && SKIP.test(n)) return { command: 'skip', text: '' };
+    // "skip" said on its own after a pause also counts ("I don't know… skip").
+    if ((total <= 8 && SKIP.test(n)) || (total <= 12 && c && c !== n && SKIP.test(c))) return { command: 'skip', text: '' };
     if (total <= 8 && UNSURE.test(n)) return { command: 'unsure', text: raw };
     const strong = n.match(DONE_STRONG);
     if (strong) {
@@ -100,8 +101,9 @@
    *   roleplay,       true during the mock call (snappier turn-taking)
    *   cue,            'strong' | 'weak' | 'punct' | null — a closing phrase or final punctuation
    *   trailingFiller  true when the words so far end on "and", "so", "um"…
- *   startMs         voice needed before the answer counts as started (default 1200; lower
- *                   for engines with no live words, so short replies like "No, thank you" count)
+   *   startMs         voice needed before the answer counts as started (default 1200; lower
+   *                   for engines with no live words, so short replies like "No, thank you" count)
+   *   started         overrides the "has the answer started" test (e.g. a settled one-word "No.")
    * }
    * returns { end, waitMs, quietMs }
    */
@@ -109,7 +111,9 @@
     const i = input || {};
     const base = i.patienceMs || 3000;
     const words = i.words;
-    const started = (words != null && words >= 2) || (i.spokeMs != null && i.spokeMs >= (i.startMs || 1200));
+    const started = i.started != null
+      ? !!i.started
+      : (words != null && words >= 2) || (i.spokeMs != null && i.spokeMs >= (i.startMs || 1200));
     const quiet = [i.sinceVoiceMs, i.sinceResultMs].filter((x) => x != null && Number.isFinite(x));
     const quietMs = quiet.length ? Math.min.apply(null, quiet) : 0;
     if (!started) return { end: false, waitMs: Infinity, quietMs };
@@ -117,8 +121,9 @@
     let wait = base;
     const soFar = words != null ? words : Math.round(((i.spokeMs || 0) / 1000) * 2.2);
     if (i.cue === 'strong') wait = Math.min(wait, 1200);
+    else if (soFar < 8) wait += 2000;                             // a short start is usually a thinking pause,
+                                                                  // even after "Thank you, ma'am…"
     else if (i.cue === 'weak' || i.cue === 'punct') wait = Math.min(wait, Math.max(1500, base - 1000));
-    else if (soFar < 8) wait += 2000;                             // a short start is usually a thinking pause
     else if (i.idealWords && soFar >= i.idealWords) wait -= 600;  // a full answer: reply a little sooner
     if (i.roleplay) wait -= 500;                                  // calls move faster
     if (i.trailingFiller && i.cue !== 'strong') wait += 1500;     // "...and" means more is coming
@@ -159,12 +164,33 @@
     return { action: 'none' };
   }
 
+  /** How many leading words two results share. */
+  function sharedLead(a, b) {
+    let k = 0;
+    while (k < a.length && k < b.length && a[k] === b[k]) k++;
+    return k;
+  }
+
   /**
-   * Merge recognition results where some engines (Chrome on Android, some Safari
-   * versions) resend the growing text of one utterance as new "final" results.
-   * A later result replaces the previous one when it starts with (almost) the same words.
+   * True when a later final result simply grows the previous one ("I am" → "I am Ravi"),
+   * the signature of engines that resend the whole utterance as each new final.
    */
-  function mergeCumulative(finals) {
+  function looksCumulative(prev, next) {
+    const a = normWords(prev);
+    const b = normWords(next);
+    return a.length >= 2 && b.length > a.length && sharedLead(a, b) === a.length;
+  }
+
+  /**
+   * Join a session's final results. Some engines (Chrome on Android, some Safari
+   * versions) resend the growing text of one utterance as new "final" results, so
+   * with opts.cumulative a later result replaces the previous one when it starts with
+   * (almost) the same words. Desktop engines send each phrase once, and phrases often
+   * start alike ("I can speak English." / "I can speak Hindi."), so without that
+   * flag only exact growth or an exact stale copy is merged.
+   */
+  function mergeCumulative(finals, opts) {
+    const cumulative = !!(opts && opts.cumulative);
     const out = [];
     for (const f of finals) {
       if (!f || !String(f).trim()) continue;
@@ -172,15 +198,16 @@
       if (prev) {
         const a = normWords(prev);
         const b = normWords(f);
-        let k = 0;
-        while (k < a.length && k < b.length && a[k] === b[k]) k++;
+        const k = sharedLead(a, b);
         // b continues a (its last 1-2 words may have been revised), or b is a stale shorter copy.
-        const revisedTail = a.length - k <= 2 && k >= Math.max(1, Math.ceil(a.length * 0.5));
-        if (revisedTail && b.length >= a.length - 1) {
+        const grows = cumulative
+          ? a.length - k <= 2 && k >= Math.max(1, Math.ceil(a.length * 0.5)) && b.length >= a.length - 1
+          : k === a.length && b.length > a.length;
+        if (grows) {
           out[out.length - 1] = f;
           continue;
         }
-        if (k === b.length && b.length <= a.length) continue;
+        if (k === b.length && b.length <= a.length && (cumulative || b.length >= 2)) continue;
       }
       out.push(f);
     }
@@ -206,7 +233,10 @@
       }
     }
     if (!best) return heard;
-    return String(heard).trim().split(/\s+/).slice(best).join(' ');
+    const rest = String(heard).trim().split(/\s+/).slice(best).join(' ');
+    // Listening only starts after Aria has finished, so an answer that is nothing but
+    // her last words is far more likely a real answer (repeating a phrase) than an echo.
+    return rest ? rest : heard;
   }
 
   /**
@@ -241,7 +271,7 @@
     return out;
   }
 
-  const api = { parseCommand, endOfTurn, idleAction, mergeCumulative, stripEcho, trailingFiller, splitForSpeech, wordCount, norm, normWords };
+  const api = { parseCommand, endOfTurn, idleAction, mergeCumulative, looksCumulative, stripEcho, trailingFiller, splitForSpeech, wordCount, norm, normWords };
   if (isNode) module.exports = api;
   else (root.AII = root.AII || {}).Voice = api;
 })(typeof window !== 'undefined' ? window : globalThis);

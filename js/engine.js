@@ -40,6 +40,9 @@
 
   const MAX_FOLLOWUPS = { quick: 2, standard: 4, full: 6 };
 
+  // Follow-ups that already open with an acknowledgement get no extra "Thanks." in front.
+  const ACK_START = /^(?:thank(?:s| you)\b|that'?s (?:a good|fine|okay|alright)|that is (?:completely )?fine|i understand|i see\b|good to hear|okay\b|alright\b|great\b|understood\b|salary matters)/i;
+
   function createSession(opts) {
     const o = Object.assign({ length: 'standard', role: 'general', experience: 'fresher', mode: 'voice', interviewerName: 'Aria' }, opts);
     const rand = Text.rng(o.seed != null ? o.seed : Date.now());
@@ -149,8 +152,13 @@
       return null;
     }
 
+    // "Let's move on" makes no sense right before "That brings us to the end".
+    function skippedAck() {
+      return idx >= items.length - 1 ? 'No problem.' : pick('skipped');
+    }
+
     function ackFor(analysis, q) {
-      if (analysis.events.skipped || analysis.skipped) return pick('skipped');
+      if (analysis.events.skipped || analysis.skipped) return skippedAck();
       if (q.type === 'closing') {
         return analysis.askedQuestion && analysis.askedQuestion.asks
           ? "That's a great question. The HR team will share those details with you in the next round."
@@ -207,7 +215,7 @@
           return { done: false, step };
         }
         const analysis = Analyzer.analyzeAnswer(q, combine(item));
-        return Object.assign(advance(skippedAll ? pick('skipped') : "Thank you, that's the end of the mock call. " + (analysis.quality >= 70 ? 'You handled that well.' : '')), { analysis });
+        return Object.assign(advance(skippedAll ? skippedAck() : "Thank you, that's the end of the mock call. " + (analysis.quality >= 70 ? 'You handled that well.' : '')), { analysis });
       }
 
       item.parts.push({ kind: step && step.kind === 'followup' ? 'followup' : 'main', prompt: step ? step.prompt : q.text, answer: ans });
@@ -220,8 +228,8 @@
       const fu = chooseFollowUp(q, analysis);
       if (fu) {
         followUpsUsed++;
-        const lead = ACKS.followUpLead[(ackCursor.followUpLead++) % ACKS.followUpLead.length];
-        step = makeStep('followup', item, [{ text: lead + ' ' + fu.text, voice: 'interviewer' }], fu.text);
+        const lead = ACK_START.test(fu.text) ? '' : ACKS.followUpLead[(ackCursor.followUpLead++) % ACKS.followUpLead.length] + ' ';
+        step = makeStep('followup', item, [{ text: lead + fu.text, voice: 'interviewer' }], fu.text);
         step.followUpOf = q.id;
         return { done: false, step, analysis };
       }

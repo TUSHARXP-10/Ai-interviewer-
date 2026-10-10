@@ -103,10 +103,16 @@
     const o = opts || {};
     const token = ++speakToken;
     if (!synth || o.muted) {
+      // Captions-only: wait the reading time, but stop at once on cancel() (End).
       if (o.onStart) o.onStart();
-      return sleep(o.mutedDelayMs || 400).then(() => {
-        if (o.onEnd) o.onEnd();
-        return { ok: true, muted: true };
+      const until = Date.now() + (o.mutedDelayMs || 400);
+      return new Promise((resolve) => {
+        const t = setInterval(() => {
+          if (token === speakToken && Date.now() < until) return;
+          clearInterval(t);
+          if (o.onEnd) o.onEnd();
+          resolve({ ok: true, muted: true, cancelled: token !== speakToken });
+        }, 100);
       });
     }
     const rate = o.rate || 1;
@@ -141,7 +147,8 @@
         const busy = synth.speaking || synth.pending;
         if (started && !busy) return finish('end');
         if (!started && !busy && Date.now() - t0 > 2500) return finish('blocked');
-        if (Date.now() - t0 > lastResort) return finish('end');
+        // Stuck engine: speech that never started was not heard, so report it as failed.
+        if (Date.now() - t0 > lastResort) return finish(started ? 'end' : 'failed');
       }, 250);
       u.onstart = () => {
         started = true;
@@ -260,7 +267,9 @@
     let transientFailures = 0;
     let endWaiters = [];
 
-    const merge = (list) => (Voice && Voice.mergeCumulative ? Voice.mergeCumulative(list) : list.filter(Boolean).join(' '));
+    // Engines that resend the growing utterance as each new final (Android, some Safari).
+    let cumulative = isAndroid;
+    const merge = (list) => (Voice && Voice.mergeCumulative ? Voice.mergeCumulative(list, { cumulative }) : list.filter(Boolean).join(' '));
     const join = (a, b) => (a + ' ' + b).replace(/\s+/g, ' ').trim();
     const sessionText = (s) => (s ? merge(s.finals) : '');
     const finalText = () => join(committed, sessionText(current));
@@ -287,8 +296,11 @@
         for (let i = e.resultIndex; i < e.results.length; i++) {
           const res = e.results[i];
           const t = res[0] ? res[0].transcript.trim() : '';
-          if (res.isFinal) s.finals[i] = t;
-          else s.interim += ' ' + t;
+          if (res.isFinal) {
+            const prev = s.finals[i - 1];
+            if (!cumulative && prev && Voice && Voice.looksCumulative && Voice.looksCumulative(prev, t)) cumulative = true;
+            s.finals[i] = t;
+          } else s.interim += ' ' + t;
         }
         if (s === current) emit();
       };
@@ -296,10 +308,17 @@
         const code = e.error || 'unknown';
         if (code === 'no-speech' || code === 'aborted') return;
         if (code === 'network') {
+          // Offline sessions fail within milliseconds, so retry with backoff and give up
+          // only after the connection has been gone for a while (a Wi-Fi blip keeps the answer).
           const now = Date.now();
-          networkErrors = networkErrors.filter((t) => now - t < 20000);
+          const last = networkErrors[networkErrors.length - 1];
+          if (last && now - last > 20000) networkErrors = [];
           networkErrors.push(now);
-          if (networkErrors.length >= 3) fail(code, 'Speech recognition needs an internet connection in this browser.');
+          if (networkErrors.length >= 3 && now - networkErrors[0] >= 8000) {
+            fail(code, 'Speech recognition needs an internet connection in this browser.');
+          } else {
+            s.transient = Math.min(3000, 400 * Math.pow(2, networkErrors.length - 1));
+          }
           return;
         }
         // "not-allowed" is also reported for a hidden page (Safari) or a busy recogniser
@@ -401,7 +420,8 @@
         active = false;
         return new Promise((resolve) => {
           if (!sessions.size) return resolve(finalText());
-          const t = setTimeout(() => resolve(finalText()), 1500);
+          // The engine never flushed: keep the words still on screen as well.
+          const t = setTimeout(() => resolve(join(finalText(), interimText())), 1500);
           endWaiters.push((text) => {
             clearTimeout(t);
             resolve(text);

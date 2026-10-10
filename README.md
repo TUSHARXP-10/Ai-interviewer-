@@ -42,15 +42,16 @@ Open **http://localhost:8080**, enter your name, press **📞 Start voice interv
 
 1. **Mic check.** Aria greets you and asks you to say *"I'm ready"*. If she can't hear you, she tells you what to check.
 2. **Questions.** Aria speaks each question. The orb turns green while she listens, and the ring around it shows the time left.
-3. **Turn-taking.** When you stop talking, Aria waits a moment, then replies. She waits longer if you've only just started, so thinking pauses are safe. You can set how patient she is (2, 3 or 5 seconds), or make her wait until you say *"that's all"*.
-4. **Voice commands.** Say *"Can you repeat the question?"* or *"pardon?"* to hear it again (even after a false start), *"skip this one"* or *"next"* to move on, or end your answer with *"that's all"* or *"I'm done"*. Aria confirms out loud, so you never need to look at the screen. If you say *"I don't know"*, she gives you a moment; if you're silent for a while, she gently nudges you. In the mock call, the customer asks *"Hello? Are you still there?"*
+3. **Turn-taking.** When you stop talking, Aria waits a moment, then replies. She waits longer if you've only just started, so thinking pauses are safe. Short replies such as *"No."* count as answers too. You can set how patient she is (2, 3 or 5 seconds), or make her wait until you say *"that's all"* (with the offline Whisper engine, which only reads your words after you finish, a long pause of about 8 seconds ends the answer instead).
+4. **Voice commands.** Say *"Can you repeat the question?"* or *"pardon?"* to hear it again (even after a false start), *"skip this one"* or *"next"* to move on, or end your answer with *"that's all"* or *"I'm done"*. Aria confirms out loud, so you never need to look at the screen. If you say *"I don't know"*, she gives you time to think (or say *"skip"*); if you're silent for a while, she gently nudges you. In the mock call, the customer asks *"Hello? Are you still there?"*
 5. **Spoken feedback.** After the last question, Aria reads out your score, your strongest area, and your top tip. The full scoresheet opens with ▶ playback (and download) of each of your answers.
 
 **If something goes wrong, Aria handles it:**
 
 - **Can't hear your words:** if the mic hears you but no words come through, she asks you to repeat once, then switches to the offline Whisper engine.
+- **Internet drops for a moment:** the built-in recogniser retries quietly, so a short Wi-Fi blip doesn't lose your answer; only a longer outage switches to Whisper.
 - **You switch tabs:** the call pauses. When you return, she says *"Welcome back"* and picks up where you left off.
-- **Browser blocks her voice:** some phones (iPhone Safari) block it until you tap; a *"Tap to hear Aria"* button appears.
+- **Browser blocks her voice:** some phones (iPhone Safari) block it until you tap; a *"Tap to hear Aria"* button appears. If speech still won't play, captions take over.
 - **Background noise:** if a TV or fan keeps the mic busy after you've stopped, she goes by your words instead.
 
 On-screen buttons (Captions, Repeat, Skip, I'm done, End) are there if you want them; the **CC** button shows subtitles. Keyboard: <kbd>Enter</kbd> finishes an answer, <kbd>R</kbd> repeats, <kbd>C</kbd> toggles captions.

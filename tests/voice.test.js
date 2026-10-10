@@ -82,10 +82,23 @@ test('a trailing "and" or "so" means more is coming', () => {
 });
 
 test('Android-style growing results are merged without duplicates', () => {
-  assert.equal(Voice.mergeCumulative(['I', 'I am', 'I am rabbi', 'I am Ravi and', 'I am Ravi and I studied', 'I am Ravi and I studied commerce']), 'I am Ravi and I studied commerce');
-  assert.equal(Voice.mergeCumulative(['my name', 'my name is Priya', 'My name is Priya.', 'my name is Priya I have', 'my name is Priya I have two years']), 'my name is Priya I have two years');
-  assert.equal(Voice.mergeCumulative(['I studied commerce', 'then I worked at a call centre']), 'I studied commerce then I worked at a call centre');
-  assert.equal(Voice.mergeCumulative(['I would apologise', 'and then I would apologise again']), 'I would apologise and then I would apologise again');
+  const cum = { cumulative: true };
+  assert.equal(Voice.mergeCumulative(['I', 'I am', 'I am rabbi', 'I am Ravi and', 'I am Ravi and I studied', 'I am Ravi and I studied commerce'], cum), 'I am Ravi and I studied commerce');
+  assert.equal(Voice.mergeCumulative(['my name', 'my name is Priya', 'My name is Priya.', 'my name is Priya I have', 'my name is Priya I have two years'], cum), 'my name is Priya I have two years');
+  assert.equal(Voice.mergeCumulative(['I studied commerce', 'then I worked at a call centre'], cum), 'I studied commerce then I worked at a call centre');
+  assert.equal(Voice.mergeCumulative(['I would apologise', 'and then I would apologise again'], cum), 'I would apologise and then I would apologise again');
+  assert.equal(Voice.mergeCumulative(['I am Ravi and I studied', 'I am Ravi'], cum), 'I am Ravi and I studied');
+  assert.equal(Voice.looksCumulative('I am', 'I am Ravi'), true);
+  assert.equal(Voice.looksCumulative('okay', 'okay so I would'), false, 'one word is not proof');
+  assert.equal(Voice.looksCumulative('I can speak English', 'I can speak Hindi and Tamil'), false);
+});
+
+test('desktop phrases that start alike are all kept', () => {
+  assert.equal(Voice.mergeCumulative(['I can speak English.', 'I can speak Hindi and Tamil.']), 'I can speak English. I can speak Hindi and Tamil.');
+  assert.equal(Voice.mergeCumulative(['my name is Ravi', 'I am from Pune', 'I am a commerce graduate', 'I am good at Excel']), 'my name is Ravi I am from Pune I am a commerce graduate I am good at Excel');
+  assert.equal(Voice.mergeCumulative(['I am a team player', 'I am a quick learner']), 'I am a team player I am a quick learner');
+  // Exact growth and exact stale copies are still merged.
+  assert.equal(Voice.mergeCumulative(['I am Ravi', 'I am Ravi and I studied commerce']), 'I am Ravi and I studied commerce');
   assert.equal(Voice.mergeCumulative(['I am Ravi and I studied', 'I am Ravi']), 'I am Ravi and I studied');
 });
 
@@ -93,6 +106,30 @@ test('echo of the interviewer\'s last words is removed', () => {
   const prompt = 'Tell me about a time you handled an angry customer. Take your time.';
   assert.equal(Voice.stripEcho('take your time so last year a customer', prompt), 'so last year a customer');
   assert.equal(Voice.stripEcho('so last year a customer', prompt), 'so last year a customer');
+  // An answer that is nothing but the prompt's words is an answer, not an echo.
+  const fix = 'Please correct this sentence: I completed all my tasks yesterday.';
+  assert.equal(Voice.stripEcho('I completed all my tasks yesterday.', fix), 'I completed all my tasks yesterday.');
+});
+
+test('"thank you" at the start of an answer does not cut it short', () => {
+  const opening = Voice.endOfTurn({ words: 5, sinceVoiceMs: 2600, sinceResultMs: 2600, patienceMs: 3000, cue: 'weak' });
+  assert.equal(opening.end, false, 'a 5-word "Good morning ma\'am, thank you" is a thinking pause');
+  assert.equal(opening.waitMs, 5000);
+  const closing = Voice.endOfTurn({ words: 40, sinceVoiceMs: 2100, sinceResultMs: 2100, patienceMs: 3000, cue: 'weak' });
+  assert.equal(closing.end, true, 'a full answer ending in thank you ends sooner');
+});
+
+test('the app can declare a one-word reply as a started answer', () => {
+  assert.equal(Voice.endOfTurn({ words: 1, sinceVoiceMs: 6000, sinceResultMs: 6000, patienceMs: 3000 }).end, false);
+  const r = Voice.endOfTurn({ words: 1, started: true, sinceVoiceMs: 5200, sinceResultMs: 5200, patienceMs: 3000 });
+  assert.equal(r.end, true);
+  assert.equal(r.waitMs, 5000);
+});
+
+test('"skip" after "I don\'t know" still skips', () => {
+  assert.equal(Voice.parseCommand("I don't know skip", 'skip').command, 'skip');
+  assert.equal(Voice.parseCommand("I don't know. Next question please", 'next question please').command, 'skip');
+  assert.equal(Voice.parseCommand('I would first apologise and then move on', 'and then move on').command, null);
 });
 
 test('long sentences are split for speech synthesis without losing words', () => {
