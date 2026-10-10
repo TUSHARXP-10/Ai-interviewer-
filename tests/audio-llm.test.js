@@ -63,3 +63,9 @@ test('local AI: scores are parsed and scaled, failures return null', async () =>
     globalThis.fetch = realFetch;
   }
 });
+
+test('a segment with only a click or breath reports nothing', () => {
+  const frames = [];
+  for (let i = 0; i < 40; i++) frames.push({ t: i * FRAME_MS, db: i === 10 || i === 11 ? -20 : -70, voiced: i === 10 || i === 11, hz: null });
+  assert.equal(summarize(frames, -70), null);
+});

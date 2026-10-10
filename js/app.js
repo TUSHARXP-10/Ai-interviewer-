@@ -113,6 +113,8 @@
   $('#brand-home').addEventListener('click', (e) => {
     e.preventDefault();
     if (state.running && !confirm('Leave the interview? Your answers so far will be lost.')) return;
+    // Leaving while the scoresheet is being prepared: it is still saved to history, just sooner.
+    if (!$('#screen-processing').hidden) state.skipLlm = true;
     abortInterview();
     stopFeedbackAudio();
     goHome();
@@ -355,9 +357,12 @@
     store.set(HISTORY_KEY, list);
     if (!clips || !clips.length) return { ok: true, where: 'none' };
     // If storage is full, make room by dropping the oldest interview's recordings.
+    const tried = new Set([sheet.id]);
     const evict = () => {
-      const others = store.get(HISTORY_KEY, []).filter((h) => h.id !== sheet.id);
-      return others.length ? others[others.length - 1].id : null;
+      const ids = store.get(HISTORY_KEY, []).map((h) => h.id).reverse(); // oldest first
+      const victim = ids.find((id) => !tried.has(id)) || null;
+      if (victim) tried.add(victim);
+      return victim;
     };
     return Recorder.saveClips(sheet.id, clips, { evict });
   }
@@ -368,12 +373,18 @@
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       return { ok: false, message: 'This browser cannot use the microphone on this page. Open it in Chrome or Edge on https or http://localhost.' };
     }
+    const m = Audio.createMeter();
+    state.meter = m;
     try {
-      state.meter = Audio.createMeter();
-      await state.meter.start();
+      await m.start();
+      // The call was left while the microphone was opening: release it straight away.
+      if (state.meter !== m) {
+        m.stop();
+        return { ok: false, aborted: true, message: 'The interview was closed.' };
+      }
       return { ok: true };
     } catch (err) {
-      state.meter = null;
+      if (state.meter === m) state.meter = null;
       const denied = err && (err.name === 'NotAllowedError' || err.name === 'SecurityError');
       return {
         ok: false,
@@ -385,11 +396,18 @@
     }
   }
 
-  async function startCamera() {
+  async function startCamera(alive) {
     try {
-      state.camStream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480, facingMode: 'user' } });
+      const s = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480, facingMode: 'user' } });
+      // The camera opened after the call ended (slow permission prompt): turn it straight off.
+      if (!alive() || !state.running) {
+        s.getTracks().forEach((t) => t.stop());
+        return;
+      }
+      if (state.camStream) state.camStream.getTracks().forEach((t) => t.stop());
+      state.camStream = s;
       const v = $('#cam');
-      v.srcObject = state.camStream;
+      v.srcObject = s;
       v.hidden = false;
     } catch (e) {
       $('#cam').hidden = true;
@@ -415,7 +433,18 @@
     orb.dataset.state = mode === 'speaking' && $('#avatar').classList.contains('customer') ? 'customer' : mode;
     const st = $('#state-pill');
     st.dataset.state = mode;
-    st.textContent = text || STATE_TEXT[mode] || '';
+    const t = text || STATE_TEXT[mode] || '';
+    if (st.textContent !== t) st.textContent = t;
+  }
+
+  /**
+   * Announce to screen readers only states that have no sound of their own.
+   * (The visible status is not a live region: a screen reader reading "Listening"
+   * aloud into the open microphone would be transcribed as the answer.)
+   */
+  function announce(text) {
+    const el = $('#sr-status');
+    if (el.textContent !== text) el.textContent = text;
   }
 
   function setPersona(who) {
@@ -449,9 +478,12 @@
     $('#roleplay-banner').hidden = step.kind !== 'roleplay';
   }
 
-  function setCaptions(on) {
-    settings.captions = on;
-    store.set(SETTINGS_KEY, settings);
+  /** persist=false for automatic fallbacks, so only the candidate's own choice is remembered. */
+  function setCaptions(on, persist) {
+    if (persist !== false) {
+      settings.captions = on;
+      store.set(SETTINGS_KEY, settings);
+    }
     $('#captions').hidden = !on;
     $('#btn-cc').setAttribute('aria-pressed', on ? 'true' : 'false');
   }
@@ -467,10 +499,14 @@
   /** Wait for "Try again" (true) or "Continue anyway" (false). */
   function waitForUser(message) {
     notice(message, true);
+    announce(message);
+    $('#btn-retry-mic').focus();
     return new Promise((resolve) => {
       state.userAction = (v) => {
         state.userAction = null;
         notice('');
+        // Keep keyboard focus inside the call rather than dropping it to the page.
+        if (!$('#screen-interview').hidden) $('#btn-cc').focus();
         resolve(v);
       };
     });
@@ -645,7 +681,7 @@
         if (r && r.failed) {
           // The voice engine is broken (e.g. no voices installed): continue with captions.
           state.ttsOk = false;
-          setCaptions(true);
+          setCaptions(true, false);
           continue;
         }
         if (state.hiddenCount !== hiddenBefore && !state.endRequested && attempt < 2) {
@@ -666,7 +702,7 @@
     // No voices at all (some Linux browsers): use captions with reading-time pacing.
     if (Speech.ttsSupported && !Speech.hasVoices()) {
       state.ttsOk = false;
-      setCaptions(true);
+      if (!$('#screen-interview').hidden) setCaptions(true, false);
     }
   }
 
@@ -703,12 +739,18 @@
       let settledText = '';
       let fatal = null;
       let hiddenAt = 0;
+      let resumedAt = performance.now(); // silence is only counted from when listening (re)started
+      const pauses = [];                 // [from, to] while listening was paused, excluded from speaking time
+      let pausedAt = 0;
 
       function begin() {
         if (state.endRequested) return finish({ command: 'end' });
         lastText = '';
         settledText = '';
         lastTextAt = performance.now();
+        resumedAt = performance.now();
+        pauses.length = 0;
+        pausedAt = 0;
         renderYou('', '');
         rec = makeRecognizer({
           onUpdate: (fin, interim) => {
@@ -736,11 +778,15 @@
 
       function pauseListening() {
         clearInterval(timer);
+        pausedAt = performance.now();
         if (rec) rec.pause();
         if (state.meter) state.meter.pauseSegment();
         if (state.recorder) state.recorder.pause();
       }
       function resumeListening() {
+        if (pausedAt) pauses.push([pausedAt, performance.now()]);
+        pausedAt = 0;
+        resumedAt = performance.now();
         if (state.meter) state.meter.resumeSegment();
         if (state.recorder) state.recorder.resume();
         if (rec) rec.resume();
@@ -771,8 +817,12 @@
         const live = !!rec && rec.live !== false;
         const words = live ? Voice.wordCount(text) : null;
         const spokeMs = state.meter ? state.meter.segmentVoicedMs() : null;
-        const sinceVoiceMs = state.meter && state.meterTrusted !== false ? state.meter.msSinceVoice() : null;
-        const sinceResultMs = live && rec.lastResultAt ? now - rec.lastResultAt : null;
+        // Engines without live words need less voice before an answer counts as started,
+        // so short replies ("No, thank you") still end normally.
+        const startMs = live ? 1200 : 600;
+        const sinceResume = now - resumedAt;
+        const sinceVoiceMs = state.meter && state.meterTrusted !== false ? Math.min(state.meter.msSinceVoice(), sinceResume) : null;
+        const sinceResultMs = live && rec.lastResultAt ? Math.min(now - rec.lastResultAt, sinceResume) : null;
         const current = text.startsWith(settledText) ? text.slice(settledText.length) : text;
 
         // Spoken commands, acted on once the words have settled for a moment.
@@ -796,17 +846,19 @@
         const quiet = Math.min(sinceVoiceMs == null ? Infinity : sinceVoiceMs, sinceResultMs == null ? Infinity : sinceResultMs);
         if (quiet >= 1200 && text) settledText = text;
 
-        const started = (words != null && words >= 2) || (spokeMs != null && spokeMs >= 1200);
+        const started = (words != null && words >= 2) || (spokeMs != null && spokeMs >= startMs);
         if (!started) {
           // The mic hears a voice but the recogniser returns nothing: ask again, then switch engine.
           if (live && words === 0 && spokeMs >= 2500 && elapsed > 6000 && ctl.recoveries < 3) return recover();
-          const idle = Voice.idleAction({ elapsedMs: elapsed, maxMs, nudgesGiven: ctl.nudges, roleplay, variant: step.index });
+          const idle = Voice.idleAction({ elapsedMs: elapsed, maxMs, nudgesGiven: ctl.nudges, roleplay, variant: step.index, noRepeatOffer: !!step.hideText });
           if (idle.action === 'none') {
             // keep waiting
           } else if ((sinceVoiceMs != null && sinceVoiceMs < 1500) || (rec && rec.interim())) {
             // Someone just started talking: never talk over them.
           } else if (idle.action === 'give-up') {
             ctl.nudges++;
+            // Something was said (offline engine, very short reply): transcribe it rather than discard it.
+            if (!live && spokeMs >= 150) return finish({ timedOut: true });
             return finish({ skipped: true, timedOut: true });
           } else {
             ctl.nudges++;
@@ -824,6 +876,7 @@
             roleplay,
             cue,
             trailingFiller: live && Voice.trailingFiller(text),
+            startMs,
           });
           if (eot.end) return finish({ auto: true });
           // Background noise (TV, fan) can keep the mic "voiced" after the candidate stops: trust the words.
@@ -872,7 +925,7 @@
         if (state.recorder) state.recorder.discard();
         setButtons(false);
         const again = state.session.repeatSpeak();
-        const lead = roleplay ? [] : [{ text: fromVoice ? 'Sure, here it is again.' : 'Sure.', voice: 'interviewer' }];
+        const lead = roleplay ? [] : [{ text: step.hideText ? 'Okay, one more time.' : fromVoice ? 'Sure, here it is again.' : 'Sure.', voice: 'interviewer' }];
         await say(lead.concat(again), { hideText: step.hideText, hiddenText: q && q.text, display: step.prompt });
         if (ctl.done) return;
         await sleep(GUARD_MS);
@@ -891,12 +944,15 @@
         hiddenAt = performance.now();
         pauseListening();
         setUi('idle', 'Paused. Come back to this tab to continue.');
+        announce('Interview paused.');
       };
       ctl.onVisible = async () => {
         if (!hiddenAt || ctl.done) return;
         const away = performance.now() - hiddenAt;
         ctl.busy = true;
-        const spokeSoFar = rec && Voice.wordCount(rec.text()) > 2;
+        const spokeSoFar = !!rec && (rec.live === false
+          ? !!(state.meter && state.meter.segmentVoicedMs() >= 1200)
+          : Voice.wordCount(rec.text()) > 2);
         const lines = spokeSoFar
           ? [{ text: 'Welcome back. Please carry on with your answer.', voice: 'interviewer' }]
           : [{ text: "Welcome back. Here's the question again.", voice: 'interviewer' }].concat(state.session.repeatSpeak());
@@ -962,17 +1018,20 @@
         if (state.userAction) state.userAction(false);
         setButtons(false);
         setUi('thinking', state.engine === 'whisper' && !x.skipped ? 'Transcribing your answer…' : 'One moment…');
+        // Close the measurements first: the offline engine can take seconds to transcribe,
+        // and nothing heard meanwhile belongs to the answer.
+        const audio = state.meter ? state.meter.endSegment() : null;
+        let clipPromise = null;
+        if (state.recorder) {
+          if (x.skipped) state.recorder.discard();
+          else clipPromise = state.recorder.stop();
+        }
         let text = '';
         if (rec) {
           if (x.skipped) rec.abort();
           else text = (await rec.stop()) || rec.interim() || '';
         }
-        const audio = state.meter ? state.meter.endSegment() : null;
-        let clip = null;
-        if (state.recorder) {
-          if (x.skipped) state.recorder.discard();
-          else clip = await state.recorder.stop();
-        }
+        const clip = clipPromise ? await clipPromise : null;
 
         // If the mic picked up Aria's last words, drop them from the start of the answer.
         text = Voice.stripEcho(text, state.lastSpoken || step.prompt);
@@ -992,7 +1051,8 @@
         const lastRes = rec && rec.lastResultAt;
         const trusted = state.meterTrusted !== false ? audio : null;
         const onset = trusted && trusted.onsetMs != null ? trusted.onsetMs : first ? first - t0 - 500 : null;
-        const recSpan = first && lastRes ? lastRes - first + 800 : 0;
+        const pausedMs = first && lastRes ? pauses.reduce((sum, [a, b]) => sum + (a >= first && b <= lastRes ? b - a : 0), 0) : 0;
+        const recSpan = first && lastRes ? lastRes - first + 800 - pausedMs : 0;
         const speakingMs = Math.max(trusted && trusted.speakingMs ? trusted.speakingMs : 0, recSpan);
         resolve({
           text: skipped ? '' : text,
@@ -1014,11 +1074,16 @@
   $('#btn-repeat').addEventListener('click', () => state.ctl && state.ctl.repeat && state.ctl.repeat());
   document.addEventListener('keydown', (e) => {
     if ($('#screen-interview').hidden) return;
+    if (e.ctrlKey || e.metaKey || e.altKey) return; // leave copy/paste and browser shortcuts alone
     const tag = (e.target.tagName || '').toLowerCase();
     if (tag === 'input' || tag === 'select' || tag === 'textarea') return;
+    const onLink = !!(e.target.closest && e.target.closest('a'));
+    // Enter on a focused control should activate that control, not finish the answer.
+    const onControl = !!(e.target.closest && e.target.closest('a,button,summary,[role=button]'));
+    if (onLink) return;
     if (e.key === 'c' || e.key === 'C') return setCaptions(!settings.captions);
     if (!state.ctl || state.ctl.done) return;
-    if (e.key === 'Enter' && tag !== 'button' && !$('#btn-done').disabled) {
+    if (e.key === 'Enter' && !onControl && !$('#btn-done').disabled) {
       e.preventDefault();
       state.ctl.finish({ command: 'button' });
     } else if ((e.key === 'r' || e.key === 'R') && !$('#btn-repeat').disabled) {
@@ -1078,7 +1143,7 @@
       if (heard.ok) {
         // Words arrived but the level meter heard nothing: its pause/tone figures would be wrong.
         if (heard.live && !heard.voicedMs) state.meterTrusted = false;
-        return true;
+        return 'heard';
       }
       // The meter hears a voice but the recogniser returns no words: try the offline engine.
       const deaf = !heard.fatal && heard.live && heard.voicedMs >= 1500;
@@ -1087,8 +1152,9 @@
       const micOk = !!(state.meter && state.meter.running);
       if ((heard.fatal || deaf) && state.engine === 'browser' && hasWhisper() && (micOk || (heard.code !== 'not-allowed' && heard.code !== 'audio-capture'))) {
         state.engine = 'whisper';
-        const ok = await prepareWhisper();
+        const ok = await prepareWhisper(alive);
         if (!alive()) return false;
+        if (ok === null) return false; // ended meanwhile
         if (ok) {
           attempt = 0;
           continue;
@@ -1101,7 +1167,7 @@
           ? heard.message + ' Press Try again when ready.'
           : 'Aria can’t hear you yet. Check that the right microphone is selected and not muted (headset switch, system settings), then press Try again.');
         if (!alive()) return false;
-        if (!retry) return true;
+        if (!retry) return 'skipped';
         if (!state.meter || !state.meter.running) await ensureMic();
         attempt = 0;
       }
@@ -1153,15 +1219,27 @@
     });
   }
 
-  async function prepareWhisper() {
+  /**
+   * Download/prepare the offline model. Resolves true when ready, false if it failed,
+   * or null when the call was ended or left meanwhile (End never waits for a download).
+   */
+  async function prepareWhisper(alive) {
+    const live = () => alive() && !state.endRequested;
     setUi('thinking', 'Preparing the offline speech engine…');
+    announce('Preparing the offline speech engine. This can take a minute the first time.');
     if (!(AII.Whisper.isCached && AII.Whisper.isCached())) {
       await say([{ text: 'Give me a moment while I get my offline listening ready. This only happens the first time.', voice: 'interviewer' }]);
+      if (!live()) return null;
     }
-    const ok = await AII.Whisper.preload(whisperProgress);
-    if (!ok) {
-      notice('The offline speech model could not be downloaded. Check your internet connection, or open this page in Chrome or Edge.');
-    }
+    let poll;
+    const ended = new Promise((resolve) => {
+      poll = setInterval(() => { if (!live()) resolve(null); }, 200);
+    });
+    const ok = await Promise.race([AII.Whisper.preload(whisperProgress), ended]);
+    clearInterval(poll);
+    if (ok === null || !live()) return null;
+    announce(ok ? 'Offline speech engine ready.' : 'The offline speech model could not be downloaded.');
+    if (!ok) notice('The offline speech model could not be downloaded. Check your internet connection, or open this page in Chrome or Edge.');
     return ok;
   }
 
@@ -1190,7 +1268,7 @@
     state.startedAt = Date.now();
     notice('');
     show('interview');
-    setCaptions(settings.captions || !Speech.ttsSupported);
+    setCaptions(settings.captions || !Speech.ttsSupported, false);
     setButtons(false);
     setPersona('interviewer');
     setTimer(1);
@@ -1214,23 +1292,29 @@
     }
     if (!alive()) return;
     if (settings.record && Recorder && state.meter && state.meter.stream) state.recorder = Recorder.createRecorder(state.meter.stream);
-    if (settings.camera) startCamera();
+    if (settings.camera) startCamera(alive);
     await pickVoices();
     if (!alive()) return;
-    if (state.engine === 'whisper' && !(await prepareWhisper())) {
+    if (state.engine === 'whisper') {
+      const ok = await prepareWhisper(alive);
       if (!alive()) return;
-      if (!Speech.sttSupported) return endWithoutAnswers('The offline speech model could not be downloaded. Check your internet connection and try again, or use Chrome or Edge.');
-      state.engine = 'browser';
+      if (ok === false) {
+        if (!Speech.sttSupported) return endWithoutAnswers('The offline speech model could not be downloaded. Check your internet connection and try again, or use Chrome or Edge.');
+        state.engine = 'browser';
+      }
     }
 
     const session = state.session;
     const first = String(settings.name).trim().split(/\s+/)[0];
     await say([{ text: 'Hi ' + first + "! I'm Aria, and I'll be interviewing you today. You can just talk to me normally, no buttons needed.", voice: 'interviewer' }]);
     if (!alive()) return;
-    await micCheck(alive);
+    const check = await micCheck(alive);
     if (!alive()) return;
     if (!state.endRequested) {
-      await say([{ text: 'Perfect, I can hear you clearly. ' + session.briefing(), voice: 'interviewer' }]);
+      const opener = check === 'heard'
+        ? 'Perfect, I can hear you clearly. '
+        : "Okay, let's carry on. If I can't hear you, I'll let you know. ";
+      await say([{ text: opener + session.briefing({ pauseEnds: settings.silenceSec > 0 }), voice: 'interviewer' }]);
       if (!alive()) return;
     }
 
@@ -1271,6 +1355,11 @@
     if (!alive()) return;
     if (state.endRequested && !session.finished) {
       session.endEarly();
+      if (!session.results().length) {
+        await say([{ text: "Alright, we'll stop here. Thank you for your time.", voice: 'interviewer' }], { force: true });
+        if (!alive()) return;
+        return endWithoutAnswers('The interview ended before any answers were recorded.');
+      }
       await say([{ text: "Alright, we'll stop here. Thank you for your time. I'm preparing your scoresheet now.", voice: 'interviewer' }], { force: true });
     }
     if (!alive()) return;
@@ -1302,75 +1391,89 @@
     });
   }
 
+  /**
+   * Score and save the interview. Everything it needs is captured up front, so a
+   * finished interview is always saved, even if the candidate leaves this screen
+   * or starts a new call meanwhile; only the on-screen steps depend on staying here.
+   */
   async function finishInterview(gen) {
     const alive = () => gen == null || gen === state.callGen;
+    const session = state.session;
+    const clips = state.clips;
+    const startedAt = state.startedAt;
+    const integrity = state.integrity;
+    const engine = state.engine;
+    const cfg = Object.assign({}, settings);
+    const ui = (fn) => { if (alive()) fn(); };
     stopMedia();
-    show('processing');
-    $('#proc-title').textContent = 'Preparing your scoresheet…';
-    const useLlm = settings.llmEnabled && settings.llmModel;
+    ui(() => {
+      show('processing');
+      $('#proc-title').textContent = 'Preparing your scoresheet…';
+    });
+    const useLlm = cfg.llmEnabled && cfg.llmModel;
     const steps = ['Collecting your answers', 'Analysing communication & confidence', 'Scoring thought process & content'].concat(useLlm ? ['Local AI review', 'Writing the summary'] : []).concat(['Building your scoresheet']);
-    procSteps(steps, 0);
-    await sleep(250);
-    if (!alive()) return;
-    const items = state.session.results();
+    ui(() => procSteps(steps, 0));
+    const items = session.results();
     if (!items.length) {
-      alert('No answers were recorded, so there is nothing to score.');
-      goHome();
+      ui(() => endWithoutAnswers('The interview ended before any answers were recorded.'));
       return;
     }
-    procSteps(steps, 1);
+    await sleep(250);
+    ui(() => procSteps(steps, 1));
     await sleep(300);
-    procSteps(steps, 2);
+    ui(() => procSteps(steps, 2));
     await sleep(300);
-    if (!alive()) return;
 
-    const llmCfg = { url: settings.llmUrl, model: settings.llmModel, timeoutMs: 120000 };
-    if (useLlm) {
+    const llmCfg = { url: cfg.llmUrl, model: cfg.llmModel, timeoutMs: 120000 };
+    if (useLlm && alive()) {
       state.skipLlm = false;
       $('#proc-skip').hidden = false;
       procSteps(steps, 3);
       const reviewable = items.filter((it) => !it.analysis.skipped && ['listening', 'correction'].indexOf(it.question.type) === -1);
       let i = 0;
       for (const it of reviewable) {
-        if (state.skipLlm) break;
+        if (state.skipLlm || !alive()) break;
         i++;
         $('#proc-title').textContent = 'Local AI is reviewing answer ' + i + ' of ' + reviewable.length + '…';
         it.llm = await LLM.evaluate(llmCfg, {
-          role: (Questions.ROLES[settings.role] || Questions.ROLES.general).label,
+          role: (Questions.ROLES[cfg.role] || Questions.ROLES.general).label,
           question: it.question.text,
           answer: it.mainText != null ? it.mainText : it.response.text,
           followUps: it.followUps,
           turns: it.question.type === 'roleplay' ? it.response.turns : null,
         });
-        if (!alive()) return;
       }
     }
 
     const sheet = Scoring.buildScoresheet({
-      candidate: { name: settings.name, role: settings.role, experience: settings.experience },
-      config: { length: settings.length, mode: 'voice', accent: settings.accent, engine: state.engine },
+      candidate: { name: cfg.name, role: cfg.role, experience: cfg.experience },
+      config: { length: cfg.length, mode: 'voice', accent: cfg.accent, engine },
       items,
-      startedAt: state.startedAt,
+      startedAt,
       endedAt: Date.now(),
-      integrity: state.integrity,
+      integrity,
     });
 
-    if (useLlm && !state.skipLlm && sheet.llmUsed) {
+    if (useLlm && alive() && !state.skipLlm && sheet.llmUsed) {
       procSteps(steps, 4);
       $('#proc-title').textContent = 'Local AI is writing the summary…';
       const summary = await LLM.summarize(llmCfg, sheet);
-      if (!alive()) return;
       if (summary) {
         sheet.rulesSummary = sheet.summary;
         sheet.summary = summary;
         sheet.summarySource = 'llm';
       }
     }
-    $('#proc-skip').hidden = true;
-    procSteps(steps, steps.length - 1);
-    const saved = await saveSheet(sheet, state.clips);
-    if (!alive()) return;
-    showReport(sheet, { clips: state.clips, speak: true, clipsNotSaved: !!(state.clips.length && saved && saved.where === 'memory') });
+    ui(() => {
+      $('#proc-skip').hidden = true;
+      procSteps(steps, steps.length - 1);
+    });
+    const saved = await saveSheet(sheet, clips);
+    if (!alive()) {
+      if (!$('#screen-home').hidden) renderHistory();
+      return;
+    }
+    showReport(sheet, { clips, speak: true, clipsNotSaved: !!(clips.length && saved && saved.where === 'memory') });
   }
   $('#proc-skip').addEventListener('click', () => {
     state.skipLlm = true;
@@ -1422,7 +1525,8 @@
     btn.setAttribute('aria-pressed', 'true');
     $$('#report-root audio').forEach((a) => a.pause());
     await pickVoices();
-    await Speech.speak(Scoring.spokenFeedback(state.sheet), { voice: state.voices.interviewer, rate: settings.rate });
+    const recordings = $$('#report-root .clips audio').length > 0;
+    await Speech.speak(Scoring.spokenFeedback(state.sheet, { recordings }), { voice: state.voices.interviewer, rate: settings.rate });
     if (feedbackPlaying) stopFeedbackAudio();
   }
   function stopFeedbackAudio() {

@@ -33,3 +33,10 @@ test('the offline engine pins an exact library version', () => {
   assert.equal(W.config.model, 'onnx-community/whisper-tiny.en');
   assert.equal(W.config.multilingual, false, 'English-only models must not receive language/task');
 });
+
+test('typical Whisper hallucinations on noise are dropped', () => {
+  for (const s of ['Thank you.', 'and I hope you enjoyed the video.', 'Please subscribe', '[BLANK_AUDIO]', "I'll see you in the next video."]) {
+    assert.ok(W.JUNK.test(s), s);
+  }
+  assert.ok(!W.JUNK.test('Thank you for calling, how can I help you?'));
+});

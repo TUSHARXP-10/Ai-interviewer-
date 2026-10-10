@@ -69,7 +69,8 @@
   function summarize(frames, noiseFloor) {
     const voicedIdx = [];
     frames.forEach((f, i) => { if (f.voiced) voicedIdx.push(i); });
-    if (voicedIdx.length < 3) return { voicedFrames: voicedIdx.length, onsetMs: null };
+    // Too little voice to measure anything (a click or a breath): report nothing rather than partial stats.
+    if (voicedIdx.length < 3) return null;
 
     // Onset: first run of ≥3 voiced frames (150 ms) — ignores clicks and coughs.
     let onset = null;
@@ -221,10 +222,17 @@
       },
       /** Ignore the mic while the interviewer speaks mid-answer (e.g. a nudge). */
       pauseSegment() {
-        if (segment) segment.paused = true;
+        if (segment && !segment.paused) {
+          segment.paused = true;
+          segment.pausedAt = performance.now();
+        }
       },
       resumeSegment() {
-        if (segment) segment.paused = false;
+        if (segment && segment.paused) {
+          // Shift the segment clock so time spent paused never counts as speaking or as a pause.
+          segment.start += performance.now() - segment.pausedAt;
+          segment.paused = false;
+        }
       },
       /** How long voice has been heard in the current answer. */
       segmentVoicedMs() {

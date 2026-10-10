@@ -482,7 +482,8 @@
   }
 
   /** A short spoken debrief the interviewer reads aloud at the end of the call. */
-  function spokenFeedback(sheet) {
+  function spokenFeedback(sheet, opts) {
+    const o = Object.assign({ recordings: true }, opts);
     const first = String((sheet.candidate && sheet.candidate.name) || '').trim().split(/\s+/)[0];
     const dims = sheet.dimensions.filter((d) => d.score != null).slice().sort((a, b) => b.score - a.score);
     const best = dims[0];
@@ -494,7 +495,9 @@
     if (worst && worst !== best && worst.score < 85) parts.push('The main area to work on is ' + lower(worst.short) + '.');
     if (sheet.improvements && sheet.improvements.length) parts.push('My top tip: ' + speakable(sheet.improvements[0]));
     if (sheet.redFlags && sheet.redFlags.some((f) => f.severity !== 'low')) parts.push('Also, be careful with answers like ' + speakable(sheet.redFlags[0].label.toLowerCase()) + '.');
-    parts.push('You can replay each of your answers and read detailed feedback on your scoresheet. Good luck!');
+    parts.push(o.recordings
+      ? 'You can replay each of your answers and read detailed feedback on your scoresheet. Good luck!'
+      : 'You can read detailed feedback for every answer on your scoresheet. Good luck!');
     return parts.join(' ').replace(/\.\./g, '.');
   }
 

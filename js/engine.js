@@ -77,12 +77,16 @@
     }
 
     /** Spoken briefing for the hands-free voice interview. */
-    function briefing() {
+    function briefing(opts) {
+      const b = Object.assign({ pauseEnds: true }, opts);
       const role = Questions.ROLES[o.role] || Questions.ROLES.general;
       const p = Questions.PLANS[o.length] || Questions.PLANS.standard;
+      const ending = b.pauseEnds
+        ? "When you finish an answer, simply pause, or say that's all."
+        : "When you finish an answer, say that's all, or press I'm done.";
       return 'This interview is for the ' + role.short + ' position. It has ' + items.length + ' questions and takes about ' +
         p.minutes.replace(/\s*[–-]\s*/, ' to ') + ' minutes. If you want to hear a question again, just say repeat. ' +
-        "When you finish an answer, simply pause, or say that's all. Let's get started.";
+        ending + " Let's get started.";
     }
 
     function questionStep(item, lead) {
@@ -245,7 +249,7 @@
         events.timedOut = events.timedOut || !!e.timedOut;
         if (i === 0) events.skipped = !!e.skipped;
         if (s.mode) mode = s.mode;
-        if (s.audio && s.audio.voicedFrames) audio = mergeAudio(audio, s.audio);
+        if (s.audio && s.audio.voicedFrames && s.audio.onsetMs != null) audio = mergeAudio(audio, s.audio);
       });
       // Latency of the main answer (or the average across mock-call turns).
       if (lat.length) timing.latencyMs = q.type === 'roleplay' ? lat.reduce((a, b) => a + b, 0) / lat.length : lat[0];

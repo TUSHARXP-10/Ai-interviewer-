@@ -100,6 +100,8 @@
    *   roleplay,       true during the mock call (snappier turn-taking)
    *   cue,            'strong' | 'weak' | 'punct' | null — a closing phrase or final punctuation
    *   trailingFiller  true when the words so far end on "and", "so", "um"…
+ *   startMs         voice needed before the answer counts as started (default 1200; lower
+ *                   for engines with no live words, so short replies like "No, thank you" count)
    * }
    * returns { end, waitMs, quietMs }
    */
@@ -107,7 +109,7 @@
     const i = input || {};
     const base = i.patienceMs || 3000;
     const words = i.words;
-    const started = (words != null && words >= 2) || (i.spokeMs != null && i.spokeMs >= 1200);
+    const started = (words != null && words >= 2) || (i.spokeMs != null && i.spokeMs >= (i.startMs || 1200));
     const quiet = [i.sinceVoiceMs, i.sinceResultMs].filter((x) => x != null && Number.isFinite(x));
     const quietMs = quiet.length ? Math.min.apply(null, quiet) : 0;
     if (!started) return { end: false, waitMs: Infinity, quietMs };
@@ -132,7 +134,7 @@
 
   /**
    * What to do while the candidate has not started answering.
-   * input: { elapsedMs, maxMs, nudgesGiven, roleplay, variant }
+   * input: { elapsedMs, maxMs, nudgesGiven, roleplay, variant, noRepeatOffer }
    * returns { action: 'none' | 'nudge' | 'offer-repeat' | 'give-up', say?: string }
    */
   function idleAction(input) {
@@ -146,6 +148,8 @@
       return { action: 'give-up', say: "That's okay, let's move on to the next question." };
     }
     if (i.elapsedMs >= secondAt && given === 1) {
+      // Spoken-only tests (listening) cost points when repeated, so don't invite it.
+      if (i.noRepeatOffer) return { action: 'nudge', say: "Whenever you're ready, tell me what you remember." };
       return { action: 'offer-repeat', say: "If you'd like me to repeat the question, just say repeat. Otherwise, go ahead whenever you're ready." };
     }
     if (i.elapsedMs >= firstAt && given === 0) {

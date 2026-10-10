@@ -160,3 +160,28 @@ test('the spoken briefing explains the hands-free commands', () => {
   assert.match(b, /say repeat/);
   assert.match(b, /that's all/);
 });
+
+test('the briefing matches how answers end', () => {
+  const s = Engine.createSession({ length: 'quick', role: 'voice', mode: 'voice', seed: 2 });
+  assert.match(s.briefing({ pauseEnds: true }), /simply pause/);
+  const manual = s.briefing({ pauseEnds: false });
+  assert.ok(!/simply pause/.test(manual));
+  assert.match(manual, /that's all, or press I'm done/);
+});
+
+test('spoken feedback only promises recordings that exist', () => {
+  const { sheet } = runInterview('strong', { length: 'quick' });
+  assert.match(Scoring.spokenFeedback(sheet), /replay each of your answers/);
+  assert.ok(!/replay/.test(Scoring.spokenFeedback(sheet, { recordings: false })));
+});
+
+test('a click picked up by the mic never turns audio stats into NaN', () => {
+  const s = Engine.createSession({ length: 'quick', role: 'voice', mode: 'voice', seed: 1, maxFollowUps: 1 });
+  s.current();
+  const full = { voicedFrames: 200, onsetMs: 300, longPauses: 1, longestPauseMs: 2100, snrDb: 18, trailOffDb: 2, voicedRatio: 0.7, pitchFrames: 80, pitchSdSemitones: 2.4 };
+  let res = s.submit({ text: 'I am Sam.', mode: 'voice', timing: { latencyMs: 900, speakingMs: 1500 }, audio: full, events: {} });
+  assert.equal(res.step.kind, 'followup');
+  s.submit({ text: '', mode: 'voice', timing: {}, audio: { voicedFrames: 2, onsetMs: null }, events: { skipped: true } });
+  const audio = s.results()[0].response.audio;
+  for (const k of ['longPauses', 'snrDb', 'voicedRatio', 'longestPauseMs']) assert.ok(Number.isFinite(audio[k]), k);
+});

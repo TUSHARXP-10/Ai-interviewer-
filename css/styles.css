@@ -234,7 +234,7 @@ details.advanced[open] > summary { margin-bottom: 16px; }
 .screen.call {
   position: relative; display: flex; flex-direction: column; gap: 8px;
   min-height: calc(100vh - 150px); min-height: calc(100dvh - 150px);
-  padding: 18px 16px 22px; border-radius: 22px; overflow: hidden;
+  padding: 18px 16px 22px; border-radius: 22px; overflow: hidden; overflow: clip; /* clip: keeps the sticky controls working */
   color: #f0efec;
   background: radial-gradient(120% 85% at 50% 22%, #17345c 0%, #0c1626 58%, #070b12 100%);
 }
@@ -460,6 +460,8 @@ details.qa[open] .qa-q { white-space: normal; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
+  /* The orb and mouth are driven from script; hold them still too. */
+  .orb-wave, .orb .avatar, .avatar .av-mouth { transform: none !important; }
 }
 
 .engine-status { min-height: 44px; padding: 10px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface-2); font-size: 0.9rem; color: var(--ink-2); }
@@ -472,13 +474,18 @@ details.qa[open] .qa-q { white-space: normal; }
 
 /* Keep the call controls reachable on small screens. */
 body.in-call footer { display: none; }
-.call-controls { position: sticky; bottom: 0; z-index: 3; padding: 12px 0 2px; background: linear-gradient(to top, rgba(7, 11, 18, 0.96) 65%, rgba(7, 11, 18, 0)); }
+.call-controls { position: sticky; bottom: 0; z-index: 3; padding: 12px 0 2px; background: linear-gradient(to top, rgba(7, 11, 18, 0.98) 75%, rgba(7, 11, 18, 0)); }
 @media (max-width: 700px) {
   body.in-call main { padding: 8px 8px 12px; }
   body.in-call .pill-note { display: none; }
   .screen.call { border-radius: 16px; min-height: calc(100vh - 84px); min-height: calc(100dvh - 84px); padding-bottom: 8px; }
   .call-stage { padding: 8px 0; gap: 10px; }
   .orb { width: min(200px, 52vw); }
+  /* Keep the self-view beside the orb, clear of the captions. */
+  .cam-pip { top: 110px; bottom: auto; right: 12px; width: 76px; }
+}
+@media (max-width: 360px) {
+  .cam-pip { display: none; }
 }
 .clip-dl { font-size: 0.82rem; font-weight: 600; }
 .call #btn-tap-audio { background: #256abf; color: #fff; border-color: transparent; }

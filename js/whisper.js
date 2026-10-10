@@ -264,7 +264,7 @@
   }
 
   // Typical Whisper hallucinations on near-silence.
-  const JUNK = /^\s*(\[(blank_audio|music|silence|inaudible)\]|\((music|silence|inaudible|background noise)\)|thank you\.?|thanks for watching!?|you\.?)\s*$/i;
+  const JUNK = /^\s*(?:and\s+)?(\[(blank_audio|music|silence|inaudible)\]|\((music|silence|inaudible|background noise)\)|thank you\.?|thanks for watching!?|you\.?|i hope you (?:enjoyed|liked) (?:the|this) video\.?|please (?:like and )?subscribe\.?|(?:see you|i'?ll see you) in the next (?:video|one)\.?)\s*$/i;
 
   /**
    * Transcribe one finished answer. Resolves '' for silence; rejects if the model fails.
@@ -367,7 +367,7 @@
     };
   }
 
-  const api = { supported, isCached, preload, transcribe, createRecognizer, to16k, trim, splitAtPauses, collapseRepeats, MODEL_MB, TJS_VERSION, config: CFG };
+  const api = { supported, isCached, preload, transcribe, createRecognizer, to16k, trim, splitAtPauses, collapseRepeats, JUNK, MODEL_MB, TJS_VERSION, config: CFG };
   if (typeof module === 'object' && module.exports) module.exports = api;
   (root.AII = root.AII || {}).Whisper = api;
 })(typeof window !== 'undefined' ? window : globalThis);

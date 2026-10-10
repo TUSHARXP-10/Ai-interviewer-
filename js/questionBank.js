@@ -572,7 +572,7 @@
     // ---------------- Listening
     {
       id: 'listen_order', slot: 'listening', type: 'listening', hideText: true,
-      text: "Here is a quick listening test. Listen carefully, I'll say this only once. A customer named Priya Sharma is calling about order number 4, 5, 7, 2, which was delivered to the wrong address in Pune. Now please tell me: the customer's name, the order number, and the city.",
+      text: "Here is a quick listening test. Listen carefully. A customer named Priya Sharma is calling about order number 4, 5, 7, 2, which was delivered to the wrong address in Pune. Now please tell me: the customer's name, the order number, and the city.",
       display: 'Listening test — the details are spoken only. Answer with the customer\'s name, the order number and the city.',
       expected: [
         { id: 'name', label: 'Customer name: Priya Sharma', terms: ['priya', 'sharma'] },
@@ -584,7 +584,7 @@
     },
     {
       id: 'listen_ticket', slot: 'listening', type: 'listening', hideText: true,
-      text: "Here is a quick listening test. Listen carefully, I'll say this only once. Mr. David Miller called on Tuesday about a refund of 350 dollars. His ticket number is 8, 1, 9, 3. Now please tell me: the customer's name, the refund amount, and the ticket number.",
+      text: "Here is a quick listening test. Listen carefully. Mr. David Miller called on Tuesday about a refund of 350 dollars. His ticket number is 8, 1, 9, 3. Now please tell me: the customer's name, the refund amount, and the ticket number.",
       display: 'Listening test — the details are spoken only. Answer with the customer\'s name, the refund amount and the ticket number.',
       expected: [
         { id: 'name', label: 'Customer name: David Miller', terms: ['david', 'miller'] },
@@ -596,7 +596,7 @@
     },
     {
       id: 'listen_booking', slot: 'listening', type: 'listening', hideText: true,
-      text: "Here is a quick listening test. Listen carefully, I'll say this only once. Customer Anita Rao wants to change her flight from Mumbai to Delhi, moving it from the 12th of March to the 15th of March. Her booking reference is 7, 4, 9. Now please tell me: the new travel date, the destination city, and the booking reference.",
+      text: "Here is a quick listening test. Listen carefully. Customer Anita Rao wants to change her flight from Mumbai to Delhi, moving it from the 12th of March to the 15th of March. Her booking reference is 7, 4, 9. Now please tell me: the new travel date, the destination city, and the booking reference.",
       display: 'Listening test — the details are spoken only. Answer with the new travel date, the destination city and the booking reference.',
       expected: [
         { id: 'date', label: 'New date: 15th March', terms: ['15', '15th', 'fifteen', 'fifteenth'] },

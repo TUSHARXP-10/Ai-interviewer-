@@ -135,3 +135,15 @@ test('idle nudges escalate, then move on', () => {
   // Short questions (listening test, 45 s) nudge proportionally sooner.
   assert.equal(Voice.idleAction({ elapsedMs: 12000, maxMs: 45000, nudgesGiven: 0 }).action, 'nudge');
 });
+
+test('engines without live words count a short reply as started', () => {
+  const short = { words: null, spokeMs: 800, sinceVoiceMs: 3500, sinceResultMs: null, patienceMs: 3000 };
+  assert.equal(Voice.endOfTurn(short).end, false, 'default threshold: 0.8 s of voice is not an answer yet');
+  assert.equal(Voice.endOfTurn(Object.assign({ startMs: 600 }, short, { sinceVoiceMs: 5200 })).end, true);
+});
+
+test('spoken-only listening tests never invite a repeat', () => {
+  const r = Voice.idleAction({ elapsedMs: 26000, maxMs: 45000, nudgesGiven: 1, noRepeatOffer: true });
+  assert.equal(r.action, 'nudge');
+  assert.ok(!/repeat/i.test(r.say));
+});
