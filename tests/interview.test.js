@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const Engine = require('../js/engine.js');
 const Scoring = require('../js/scoring.js');
 const Q = require('../js/questionBank.js');
-const { runInterview } = require('../tools/simulate.js');
+const { runScripted: runInterview, PROFILES } = require('../js/demo.js');
 
 const text = (t) => ({ text: t, mode: 'text', events: {} });
 
@@ -122,7 +122,7 @@ test('a hostile answer caps the verdict even when the rest is strong', () => {
     const isSituational = step.type === 'situational';
     const answer = isSituational
       ? 'Honestly if the customer shouts at me I will shout back and cut the call.'
-      : require('./fixtures/candidates.js').strong.answers[step.questionId] || 'Thank you for calling, I am sorry, may I have your order number? I will refund it within 3 days. Anything else? Have a great day!';
+      : PROFILES.strong.answers[step.questionId] || 'Thank you for calling, I am sorry, may I have your order number? I will refund it within 3 days. Anything else? Have a great day!';
     const res = s.submit(text(answer));
     step = res.done ? null : res.step;
   }

@@ -33,7 +33,10 @@
 
   function countBy(hits) {
     const m = new Map();
-    for (const h of hits) m.set(h.text, (m.get(h.text) || 0) + 1);
+    for (const h of hits) {
+      const term = h.text.replace(/\bi\b/g, 'I'); // display form: "i think" -> "I think"
+      m.set(term, (m.get(term) || 0) + 1);
+    }
     return [...m.entries()].sort((a, b) => b[1] - a[1]).map(([term, count]) => ({ term, count }));
   }
 
@@ -248,7 +251,8 @@
 
     const timing = resp.timing || {};
     const speakingMs = timing.speakingMs || 0;
-    const wpm = mode === 'voice' && speakingMs >= 4000 && wc >= 8 ? wc / (speakingMs / 60000) : null;
+    let wpm = mode === 'voice' && speakingMs >= 4000 && wc >= 8 ? wc / (speakingMs / 60000) : null;
+    if (wpm != null && (wpm < 40 || wpm > 260)) wpm = null; // implausible: timing was unreliable
     const latencySec = mode === 'voice' && timing.latencyMs != null ? timing.latencyMs / 1000 : null;
     const audio = mode === 'voice' && resp.audio && resp.audio.voicedFrames > 10 ? resp.audio : null;
 

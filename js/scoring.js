@@ -232,46 +232,51 @@
 
   function strengthsAndImprovements(dims, speech, items, grammar, flags, call) {
     const strengths = [];
-    const improvements = [];
     const d = dims;
+    const pausesPerMin = speech.speakingSec >= 30 ? speech.longPauses / (speech.speakingSec / 60) : 0;
 
-    if (d.communication != null && d.communication >= 72) {
+    if (d.communication != null && d.communication >= 72 && speech.fillerPer100 < 3) {
       const bits = [];
       if (speech.fillerPer100 < 2 && speech.words > 60) bits.push('very few filler words');
       if (speech.avgWpm && speech.avgWpm >= 115 && speech.avgWpm <= 170) bits.push('a comfortable pace of about ' + speech.avgWpm + ' words per minute');
       strengths.push('Clear, fluent communicator' + (bits.length ? ', with ' + list(bits) : '') + '.');
     }
-    if (d.confidence != null && d.confidence >= 72) strengths.push('Comes across as confident: answers directly and owns achievements.');
+    if (d.confidence != null && d.confidence >= 72 && speech.hedgePer100 < 2.5) strengths.push('Comes across as confident: answers directly and owns achievements.');
     if (d.thought != null && d.thought >= 72) strengths.push('Structured thinker who explains reasons and backs points with examples.');
     if (d.relevance != null && d.relevance >= 75) strengths.push('Stays on point and covers what interviewers look for in each answer.');
     if (d.customer != null && d.customer >= 72) strengths.push('Strong customer-handling instincts: empathy, ownership and clear solutions.');
     if (d.attitude != null && d.attitude >= 75) strengths.push('Positive, motivated attitude towards the role.');
     if (d.language != null && d.language >= 75) strengths.push('Accurate English and sharp listening: caught the key details.');
+    if (speech.avgLatencySec != null && speech.avgLatencySec <= 2.5 && speech.voiceAnswers >= 3) strengths.push('Responds promptly: usually started answering within ' + speech.avgLatencySec + ' seconds.');
 
-    // Improvements: driven by the weakest measured signals.
-    if (d.communication != null && d.communication < 65) {
-      if (speech.fillerPer100 >= 3) improvements.push('Cut filler words (' + speech.topFillers.slice(0, 3).map((t) => '“' + t.term + '” ×' + t.count).join(', ') + '). Pause silently instead and practise 60-second answers out loud.');
-      else improvements.push('Build fluency and range: give fuller answers in complete sentences, and practise speaking on everyday topics for 1–2 minutes daily.');
+    // Improvements are ranked by priority so the most important ones lead.
+    const ranked = [];
+    const add = (priority, text) => ranked.push({ priority, text });
+    const fillerTip = speech.fillerPer100 >= 3;
+    const hedgeTip = speech.hedgePer100 >= 2.5;
+    const latencyTip = speech.avgLatencySec != null && speech.avgLatencySec > 5;
+    if (fillerTip) add(60 + speech.fillerPer100 * 3, 'Cut filler words (' + speech.topFillers.slice(0, 3).map((t) => '“' + t.term + '” ×' + t.count).join(', ') + '). Pause silently instead and practise 60-second answers out loud.');
+    if (hedgeTip) add(55 + speech.hedgePer100 * 3, 'Sound more certain: replace ' + (speech.topHedges.length ? speech.topHedges.slice(0, 3).map((t) => '“' + t.term + '”').join(', ') : '“I think / maybe”') + ' with direct statements (“I would…”, “I can…”).');
+    if (latencyTip) add(50 + speech.avgLatencySec * 2, 'Start answers sooner (average wait ' + speech.avgLatencySec + 's). Use a bridge sentence such as “That\'s a good question. In my experience…” while you organise your thoughts.');
+    if (speech.avgWpm && speech.avgWpm > 185) add(58, 'Slow down: you averaged ' + speech.avgWpm + ' wpm. 130–160 wpm is easier for customers to follow.');
+    if (speech.avgWpm && speech.avgWpm < 95) add(56, 'Speak a little faster and more continuously (averaged ' + speech.avgWpm + ' wpm).');
+    if (pausesPerMin > 2) add(48 + pausesPerMin * 2, 'Reduce long mid-answer pauses (' + speech.longPauses + ' in total). Plan your 2–3 main points before you start speaking.');
+    if (speech.pitchVariation != null && speech.pitchVariation < 1.2) add(45, 'Add warmth and variety to your tone. A flat voice can sound disinterested on calls.');
+
+    if (d.communication != null && d.communication < 65 && !fillerTip) add(100 - d.communication, 'Build fluency and range: give fuller answers in complete sentences, and practise speaking on everyday topics for 1–2 minutes daily.');
+    if (d.confidence != null && d.confidence < 65 && !hedgeTip && !latencyTip) add(100 - d.confidence, 'Project confidence: give complete answers, speak up, and avoid trailing off at the end.');
+    if (d.thought != null && d.thought < 62) add(100 - d.thought, 'Structure answers: use STAR (Situation, Task, Action, Result) for experience questions, and “first… then… finally” for situations.');
+    if (d.relevance != null && d.relevance < 62) add(100 - d.relevance, 'Answer the exact question first, then cover the key points. Each question in the breakdown below lists what a strong answer includes.');
+    const missing = call ? call.items.filter((i) => !i.hit).map((i) => i.label.toLowerCase()) : [];
+    if (d.customer != null && (d.customer < 65 || missing.length >= 2)) {
+      add(Math.max(40, 100 - d.customer), 'Practise the call flow Greet → Empathise → Probe → Resolve → Close' + (missing.length ? ' (missed on the mock call: ' + list(missing.slice(0, 3)) + ')' : '') + '.');
     }
-    if (speech.avgWpm && speech.avgWpm > 185) improvements.push('Slow down: you averaged ' + speech.avgWpm + ' wpm. 130–160 wpm is easier for customers to follow.');
-    if (speech.avgWpm && speech.avgWpm < 95) improvements.push('Speak a little faster and more continuously (averaged ' + speech.avgWpm + ' wpm).');
-    if (d.confidence != null && d.confidence < 65) {
-      if (speech.hedgePer100 >= 2) improvements.push('Sound more certain: replace “I think / maybe / I guess” with direct statements (“I would…”, “I can…”).');
-      if (speech.avgLatencySec && speech.avgLatencySec > 5) improvements.push('Start answers sooner (average wait ' + speech.avgLatencySec + 's). Use a bridge sentence while you organise your thoughts.');
-      if (!(speech.hedgePer100 >= 2) && !(speech.avgLatencySec > 5)) improvements.push('Project confidence: give complete answers, speak up, and avoid trailing off at the end.');
-    }
-    if (d.thought != null && d.thought < 62) improvements.push('Structure answers: use STAR (Situation, Task, Action, Result) for experience questions, and “first… then… finally” for situations.');
-    if (d.relevance != null && d.relevance < 62) improvements.push('Answer the exact question first, then cover the key points. Each question in the breakdown below lists what a strong answer includes.');
-    if (d.customer != null && d.customer < 65) {
-      const missing = call ? call.items.filter((i) => !i.hit).map((i) => i.label.toLowerCase()) : [];
-      improvements.push('Practise the call flow Greet → Empathise → Probe → Resolve → Close' + (missing.length ? ' (missed on the mock call: ' + list(missing.slice(0, 3)) + ')' : '') + '.');
-    }
-    if (d.attitude != null && d.attitude < 62) improvements.push('Show genuine motivation: talk about growth, learning and helping customers, and avoid phrases that sound like a last resort.');
-    if (d.language != null && d.language < 65) improvements.push('Polish English accuracy' + (grammar.length ? ' (e.g. “' + grammar[0].evidence + '” → ' + grammar[0].fix + ')' : '') + ' and practise noting down names and numbers while listening.');
-    if (speech.pitchVariation != null && speech.pitchVariation < 1.2) improvements.push('Add warmth and variety to your tone. A flat voice can sound disinterested on calls.');
+    if (d.attitude != null && d.attitude < 62) add(100 - d.attitude, 'Show genuine motivation: talk about growth, learning and helping customers, and avoid phrases that sound like a last resort.');
+    if (d.language != null && d.language < 65) add(100 - d.language, 'Polish English accuracy' + (grammar.length ? ' (e.g. “' + grammar[0].evidence + '” → ' + grammar[0].fix + ')' : '') + ' and practise noting down names and numbers while listening.');
     const skipped = items.filter((it) => it.analysis.skipped).length;
-    if (skipped) improvements.push('Attempt every question: ' + skipped + ' skipped. A reasoned attempt always scores better than silence.');
-    for (const f of flags.filter((x) => x.severity !== 'low').slice(0, 2)) improvements.push('Avoid red-flag answers: ' + f.label.toLowerCase() + ' (“' + f.evidence + '”).');
+    if (skipped) add(85, 'Attempt every question: ' + skipped + ' skipped. A reasoned attempt always scores better than silence.');
+    for (const f of flags.filter((x) => x.severity !== 'low').slice(0, 2)) add(f.severity === 'high' ? 95 : 80, 'Avoid red-flag answers: ' + f.label.toLowerCase() + ' (“' + f.evidence + '”).');
+    const improvements = ranked.sort((a, b) => b.priority - a.priority).map((x) => x.text);
 
     if (!improvements.length) {
       const lowest = DIMENSIONS.filter((x) => d[x.key] != null).sort((a, b) => d[a.key] - d[b.key])[0];
@@ -284,13 +289,18 @@
         attitude: 'Show even more curiosity: prepare two thoughtful questions about the role and growth path.',
         language: 'Keep practising English accuracy, and read details back to customers to confirm them.',
       };
-      if (lowest) improvements.push(polish[lowest.key] + ' (lowest area: ' + lowest.short.toLowerCase() + ', ' + d[lowest.key] + '/100)');
+      if (lowest) improvements.push(polish[lowest.key] + ' (lowest area: ' + lower(lowest.short) + ', ' + d[lowest.key] + '/100)');
     }
     if (!strengths.length) {
       const best = DIMENSIONS.filter((x) => d[x.key] != null).sort((a, b) => d[b.key] - d[a.key])[0];
-      if (best) strengths.push('Relative strength: ' + best.short.toLowerCase() + ' (' + d[best.key] + '/100). Build on this.');
+      if (best) strengths.push('Relative strength: ' + lower(best.short) + ' (' + d[best.key] + '/100). Build on this.');
     }
     return { strengths: strengths.slice(0, 5), improvements: improvements.slice(0, 6) };
+  }
+
+  // "Answer quality" -> "answer quality", but keep "English" capitalised.
+  function lower(label) {
+    return /^English/.test(label) ? label : label.charAt(0).toLowerCase() + label.slice(1);
   }
 
   function summaryText(sheet) {
@@ -301,8 +311,8 @@
     const low = sorted.slice(-2).filter((x) => x.score < 70).reverse();
     const parts = [];
     parts.push(name + ' completed the ' + sheet.plan.label.toLowerCase() + ' for ' + sheet.role.label + ' in ' + minutesText(sheet.durationSec) + ' and scored ' + sheet.overall + '/100 (' + sheet.verdict.label.toLowerCase() + ').');
-    if (top.length) parts.push('The strongest areas were ' + list(top.map((x) => x.short.toLowerCase() + ' (' + x.score + ')')) + '.');
-    if (low.length) parts.push('The main areas to develop are ' + list(low.map((x) => x.short.toLowerCase() + ' (' + x.score + ')')) + '.');
+    if (top.length) parts.push('The strongest areas were ' + list(top.map((x) => lower(x.short) + ' (' + x.score + ')')) + '.');
+    if (low.length) parts.push('The main areas to develop are ' + list(low.map((x) => lower(x.short) + ' (' + x.score + ')')) + '.');
     const s = sheet.speech;
     const obs = [];
     if (s.voiceAnswers) {
@@ -314,7 +324,8 @@
     if (obs.length) parts.push(name + ' ' + list(obs) + '.');
     if (sheet.englishLevel) parts.push('English proficiency is estimated at ' + sheet.englishLevel.code + ' (' + sheet.englishLevel.label.toLowerCase() + ').');
     if (sheet.redFlags.length) parts.push('Points to probe further: ' + list(sheet.redFlags.map((f) => f.label.toLowerCase())) + '.');
-    const weakest = low[0] ? low[0].short.toLowerCase() : 'consistency';
+    const weakestDim = low[0] || sorted[sorted.length - 1];
+    const weakest = weakestDim ? lower(weakestDim.short) : 'consistency';
     const close = {
       strong: 'Recommended to move forward to the next round.',
       hire: 'Recommended for the next round, with coaching on ' + weakest + '.',

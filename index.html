@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AI Interviewer</title>
+  <meta name="description" content="A free AI interviewer for BPO and customer-service jobs. It talks, listens, runs a mock customer call, and gives you a detailed scoresheet — all inside your browser.">
+  <meta name="theme-color" content="#2a78d6">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%232a78d6'/%3E%3Cellipse cx='23' cy='28' rx='4' ry='6' fill='%23fff'/%3E%3Cellipse cx='41' cy='28' rx='4' ry='6' fill='%23fff'/%3E%3Crect x='22' y='41' width='20' height='4' rx='2' fill='%23fff'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#" id="brand-home" aria-label="AI Interviewer home">
+      <svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="30" fill="#2a78d6"/><ellipse cx="23" cy="28" rx="4" ry="6" fill="#fff"/><ellipse cx="41" cy="28" rx="4" ry="6" fill="#fff"/><rect x="22" y="41" width="20" height="4" rx="2" fill="#fff"/></svg>
+      <span>AI Interviewer</span>
+    </a>
+    <div class="topbar-right">
+      <span class="pill-note">Free · private · no sign-up</span>
+      <button class="btn btn-icon btn-ghost" id="theme-toggle" type="button" aria-label="Switch colour theme" title="Switch colour theme"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 3.5a8.5 8.5 0 0 1 0 17z" fill="currentColor"/></svg></button>
+    </div>
+  </header>
+
+  <main>
+    <!-- ======================================================= HOME -->
+    <section id="screen-home" class="screen">
+      <div class="hero-home">
+        <div>
+          <span class="eyebrow">Practice interview · BPO & customer service</span>
+          <h1>An AI interviewer that listens, probes, and scores you like a real recruiter</h1>
+          <p class="lead">Answer out loud, from "Tell me about yourself" to "Why BPO?" to a live mock customer call. The interviewer reacts to your answers, asks follow-ups, and ends with a full scoresheet covering communication, confidence, thought process, and more.</p>
+          <div class="hero-actions">
+            <a class="btn btn-primary btn-big" href="#setup">Start an interview</a>
+            <button class="btn btn-big" type="button" data-sample="average">See a sample scoresheet</button>
+          </div>
+          <div class="badges">
+            <span class="badge">No API keys or payment</span>
+            <span class="badge">Runs in your browser</span>
+            <span class="badge">Voice or typing</span>
+            <span class="badge">Optional free local AI</span>
+          </div>
+        </div>
+        <div class="hero-visual" aria-hidden="true">
+          <svg class="avatar speaking" viewBox="0 0 120 120">
+            <defs>
+              <radialGradient id="hero-grad" cx="38%" cy="32%" r="75%">
+                <stop offset="0" class="av-stop-1" style="stop-color: var(--av-1)"/>
+                <stop offset="1" class="av-stop-2" style="stop-color: var(--av-2)"/>
+              </radialGradient>
+            </defs>
+            <circle class="av-ring" cx="60" cy="60" r="56"/>
+            <circle cx="60" cy="60" r="46" fill="url(#hero-grad)"/>
+            <g class="av-eyes"><ellipse class="av-feature" cx="46" cy="55" rx="5" ry="7"/><ellipse class="av-feature" cx="74" cy="55" rx="5" ry="7"/></g>
+            <rect class="av-mouth av-feature" x="47" y="75" width="26" height="5" rx="2.5"/>
+          </svg>
+        </div>
+      </div>
+
+      <div class="features">
+        <div class="feature"><span class="ico" aria-hidden="true">🎙️</span><h3>Talks and listens</h3><p>The interviewer speaks each question aloud and transcribes your spoken answer live.</p></div>
+        <div class="feature"><span class="ico" aria-hidden="true">🧠</span><h3>Reads your thought process</h3><p>Checks structure, reasoning, examples and STAR stories, and follows up when an answer is thin.</p></div>
+        <div class="feature"><span class="ico" aria-hidden="true">💪</span><h3>Measures confidence</h3><p>Looks at hedging, filler words, how quickly you start, voice strength, pauses and tone.</p></div>
+        <div class="feature"><span class="ico" aria-hidden="true">📞</span><h3>Mock customer call</h3><p>An angry customer reacts to what you actually say: empathise and they calm down; ignore them and they escalate.</p></div>
+        <div class="feature"><span class="ico" aria-hidden="true">🎧</span><h3>English & listening check</h3><p>Note-taking under pressure, sentence correction, and a grammar coach for common slips.</p></div>
+        <div class="feature"><span class="ico" aria-hidden="true">📋</span><h3>Recruiter-style scoresheet</h3><p>Seven skill scores, a verdict, role fit, red flags, and question-by-question feedback.</p></div>
+      </div>
+
+      <section class="card" id="setup" aria-labelledby="setup-title">
+        <h2 id="setup-title">Set up your interview</h2>
+        <form id="setup-form" class="form-grid" autocomplete="off">
+          <div class="field">
+            <label for="f-name">Your name</label>
+            <input type="text" id="f-name" name="name" maxlength="60" placeholder="e.g. Priya Sharma">
+          </div>
+          <div class="field">
+            <label for="f-role">Role you're applying for</label>
+            <select id="f-role" name="role"></select>
+          </div>
+          <div class="field">
+            <span class="label" id="l-exp">Experience</span>
+            <div class="segmented" role="radiogroup" aria-labelledby="l-exp">
+              <label><input type="radio" name="experience" value="fresher"><span>Fresher</span></label>
+              <label><input type="radio" name="experience" value="experienced"><span>Experienced</span></label>
+            </div>
+          </div>
+          <div class="field">
+            <span class="label" id="l-mode">How will you answer?</span>
+            <div class="segmented" role="radiogroup" aria-labelledby="l-mode">
+              <label><input type="radio" name="mode" value="voice"><span>🎙️ Speak</span></label>
+              <label><input type="radio" name="mode" value="text"><span>⌨️ Type</span></label>
+            </div>
+            <div class="hint" id="mode-hint"></div>
+          </div>
+          <div class="field full">
+            <span class="label" id="l-length">Interview length</span>
+            <div class="length-cards" role="radiogroup" aria-labelledby="l-length" id="length-cards"></div>
+          </div>
+          <div class="field">
+            <label for="f-accent">Your accent (helps speech recognition)</label>
+            <select id="f-accent" name="accent">
+              <option value="en-IN">English — India</option>
+              <option value="en-US">English — United States</option>
+              <option value="en-GB">English — United Kingdom</option>
+              <option value="en-PH">English — Philippines</option>
+              <option value="en-AU">English — Australia</option>
+              <option value="en-ZA">English — South Africa</option>
+              <option value="en-NG">English — Nigeria</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="f-silence">Finish my answer automatically after silence</label>
+            <select id="f-silence" name="silenceSec">
+              <option value="0">Off — I'll press Done</option>
+              <option value="3">After 3 seconds</option>
+              <option value="4">After 4 seconds</option>
+              <option value="6">After 6 seconds</option>
+              <option value="8">After 8 seconds</option>
+            </select>
+          </div>
+
+          <details class="advanced full">
+            <summary>Voice, camera & local AI settings</summary>
+            <div class="form-grid">
+              <div class="field">
+                <label for="f-ivoice">Interviewer voice</label>
+                <select id="f-ivoice" name="interviewerVoice"></select>
+              </div>
+              <div class="field">
+                <label for="f-cvoice">Mock-call customer voice</label>
+                <select id="f-cvoice" name="customerVoice"></select>
+              </div>
+              <div class="field">
+                <label for="f-rate">Interviewer speaking speed: <span id="rate-out">1.0×</span></label>
+                <input type="range" id="f-rate" name="rate" min="0.7" max="1.3" step="0.05">
+              </div>
+              <div class="field">
+                <span class="label">Options</span>
+                <label class="check"><input type="checkbox" id="f-speak" name="speakAloud"> Speak the questions aloud</label>
+                <label class="check"><input type="checkbox" id="f-camera" name="camera"> Show my camera (preview only; never recorded)</label>
+              </div>
+              <div class="field full">
+                <label class="check"><input type="checkbox" id="f-llm" name="llmEnabled"> Use a free local AI model (Ollama) as a second opinion</label>
+                <div class="hint">Optional. Install <a href="https://ollama.com" target="_blank" rel="noopener">Ollama</a>, run <kbd>ollama pull llama3.2</kbd>, and keep it running. Everything stays on your computer. Without it, the built-in scoring model is used.</div>
+              </div>
+              <div class="field" data-llm>
+                <label for="f-llm-url">Ollama address</label>
+                <input type="url" id="f-llm-url" name="llmUrl" placeholder="http://localhost:11434">
+              </div>
+              <div class="field" data-llm>
+                <label for="f-llm-model">Model</label>
+                <div style="display:flex; gap:8px">
+                  <select id="f-llm-model" name="llmModel"><option value="">— test connection first —</option></select>
+                  <button class="btn" type="button" id="llm-test">Test</button>
+                </div>
+                <div class="status-line" id="llm-status" role="status"></div>
+              </div>
+            </div>
+          </details>
+
+          <div class="field full" style="display:flex; gap:10px; flex-wrap:wrap; align-items:center">
+            <button class="btn btn-primary btn-big" type="submit" id="btn-continue">Continue</button>
+            <span class="muted small" id="setup-note"></span>
+          </div>
+        </form>
+      </section>
+
+      <section class="card" id="history-card" hidden>
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:10px">
+          <h2 style="margin:0">Your past interviews</h2>
+          <button class="btn btn-ghost btn-danger" type="button" id="history-clear">Clear all</button>
+        </div>
+        <ul class="history-list" id="history-list"></ul>
+        <p class="muted small" style="margin:8px 0 0">Saved only in this browser.</p>
+      </section>
+
+      <section class="card">
+        <h2>How the scoring works</h2>
+        <p>Every answer is analysed for <strong>what</strong> you said (does it cover what a strong answer includes, is it structured, specific, positive) and <strong>how</strong> you said it (fillers, hedging, pace, pauses, start delay, voice strength and tone). The interviewer combines these into seven skill scores, weighted for the role you chose. Speech recognition is done by your browser; all analysis runs locally on your device.</p>
+        <p class="muted small" style="margin:0">Voice answers work best in Chrome or Edge with headphones in a quiet room. Typing mode works in any browser, even offline.</p>
+      </section>
+    </section>
+
+    <!-- ======================================================= DEVICE CHECK -->
+    <section id="screen-check" class="screen" hidden>
+      <h1>Quick device check</h1>
+      <p class="muted">Takes 20 seconds. It makes sure the interviewer can hear you and you can hear the interviewer.</p>
+      <div class="check-grid">
+        <div class="card">
+          <h2>1 · Can you hear the interviewer?</h2>
+          <p>Use headphones if you can, so the mic doesn't pick up the interviewer's voice.</p>
+          <button class="btn" type="button" id="check-voice">▶ Play test voice</button>
+          <div class="status-line" id="check-voice-status" role="status"></div>
+        </div>
+        <div class="card">
+          <h2>2 · Can the interviewer hear you?</h2>
+          <p>Say: <strong>"Hello, I am ready for my interview."</strong></p>
+          <div class="levelbar" aria-hidden="true"><div id="check-level"></div></div>
+          <div class="transcript-box" id="check-transcript" aria-live="polite"><span class="muted">Waiting for your voice…</span></div>
+          <div class="status-line" id="check-mic-status" role="status"></div>
+          <button class="btn btn-ghost" type="button" id="check-retry" hidden>Try again</button>
+        </div>
+      </div>
+      <div class="card">
+        <ul class="tips">
+          <li>Find a quiet place and speak at a normal pace, as if you were on a call.</li>
+          <li>The interviewer waits for you; take a breath before answering.</li>
+          <li>Press <kbd>Enter</kbd> or the <strong>Done</strong> button when you finish an answer.</li>
+        </ul>
+      </div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap">
+        <button class="btn" type="button" id="check-back">← Back</button>
+        <button class="btn" type="button" id="check-typing">Use typing instead</button>
+        <button class="btn btn-primary btn-big" type="button" id="check-start">Start the interview</button>
+      </div>
+    </section>
+
+    <!-- ======================================================= INTERVIEW -->
+    <section id="screen-interview" class="screen" hidden>
+      <div class="room-head">
+        <div class="room-progress">
+          <div class="label"><span id="room-q">Getting ready…</span><span id="room-elapsed">0:00</span></div>
+          <div class="progress" aria-hidden="true"><div id="room-bar"></div></div>
+        </div>
+        <button class="btn btn-ghost btn-danger" type="button" id="btn-end">End interview</button>
+      </div>
+      <div class="notice" id="notice" role="status" hidden></div>
+      <div class="room">
+        <div class="card interviewer-card">
+          <svg class="avatar" id="avatar" viewBox="0 0 120 120" role="img" aria-label="Interviewer avatar">
+            <defs>
+              <radialGradient id="av-grad" cx="38%" cy="32%" r="75%">
+                <stop offset="0" class="av-stop-1" style="stop-color: var(--av-1)"/>
+                <stop offset="1" class="av-stop-2" style="stop-color: var(--av-2)"/>
+              </radialGradient>
+            </defs>
+            <circle class="av-ring" cx="60" cy="60" r="56"/>
+            <circle cx="60" cy="60" r="46" fill="url(#av-grad)"/>
+            <path class="av-headset" d="M22 62 A38 38 0 0 1 98 62 M96 66 Q96 86 78 90"/>
+            <g class="av-eyes"><ellipse class="av-feature" cx="46" cy="55" rx="5" ry="7"/><ellipse class="av-feature" cx="74" cy="55" rx="5" ry="7"/></g>
+            <rect class="av-mouth av-feature" id="av-mouth" x="47" y="75" width="26" height="5" rx="2.5"/>
+          </svg>
+          <div class="who-label" id="who-label">Aria · AI Interviewer</div>
+          <span class="state-pill" id="state-pill" data-state="idle">Getting ready</span>
+          <div class="caption" id="caption" aria-live="polite"></div>
+          <div class="roleplay-banner" id="roleplay-banner" hidden>📞 <strong>Mock call:</strong> you are the support agent. Reply to the customer as you would on a real call.</div>
+          <button class="btn btn-ghost small" type="button" id="btn-skip-voice" hidden>Skip voice ⏭</button>
+        </div>
+
+        <div class="card you-card">
+          <div class="you-top">
+            <video class="cam" id="cam" autoplay muted playsinline hidden></video>
+            <div class="viz" id="viz" aria-hidden="true"></div>
+            <div class="ring" id="ring" title="Time left for this answer">
+              <svg viewBox="0 0 72 72" aria-hidden="true"><circle class="ring-track" cx="36" cy="36" r="30"/><circle class="ring-fill" id="ring-fill" cx="36" cy="36" r="30" stroke-dasharray="188.5" stroke-dashoffset="0"/></svg>
+              <span id="ring-text">–</span>
+            </div>
+          </div>
+          <div id="voice-area">
+            <span class="eyebrow">Your answer (live transcript)</span>
+            <div class="live" id="live" aria-live="polite"><span class="placeholder">The transcript appears here as you speak.</span></div>
+          </div>
+          <div id="text-area" hidden>
+            <label class="eyebrow" for="answer-text">Type your answer</label>
+            <textarea id="answer-text" placeholder="Type your answer here… (Ctrl + Enter to submit)"></textarea>
+          </div>
+          <div class="live-stats" id="live-stats">
+            <span class="stat">Words <strong id="st-words">0</strong></span>
+            <span class="stat" id="st-pace-wrap">Pace <strong id="st-pace">–</strong></span>
+            <span class="stat">Fillers <strong id="st-fillers">0</strong></span>
+          </div>
+          <div class="auto-hint" id="auto-hint" aria-live="polite"></div>
+          <div class="controls">
+            <button class="btn btn-primary btn-big" type="button" id="btn-done" disabled>Done answering</button>
+            <button class="btn" type="button" id="btn-repeat" disabled>↺ Repeat</button>
+            <button class="btn" type="button" id="btn-type" disabled>⌨️ Type instead</button>
+            <button class="btn btn-ghost" type="button" id="btn-skip" disabled>Skip</button>
+          </div>
+          <div class="kbd-hint" id="kbd-hint"><kbd>Enter</kbd> done · <kbd>R</kbd> repeat question</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================================================= PROCESSING -->
+    <section id="screen-processing" class="screen" hidden>
+      <div class="processing card">
+        <div class="spinner" aria-hidden="true"></div>
+        <h2 id="proc-title">Preparing your scoresheet…</h2>
+        <ul class="steps" id="proc-steps"></ul>
+        <div><button class="btn" type="button" id="proc-skip" hidden>Skip AI review</button></div>
+      </div>
+    </section>
+
+    <!-- ======================================================= REPORT -->
+    <section id="screen-report" class="screen" hidden>
+      <div class="report-actions no-print">
+        <button class="btn" type="button" id="rep-home">← Home</button>
+        <span class="spacer"></span>
+        <button class="btn" type="button" id="rep-json">Download data (JSON)</button>
+        <button class="btn" type="button" id="rep-print">Print / Save PDF</button>
+        <button class="btn btn-primary" type="button" id="rep-again">New interview</button>
+      </div>
+      <div class="sample-banner no-print" id="sample-banner" hidden></div>
+      <div id="report-root"></div>
+    </section>
+  </main>
+
+  <footer>Runs entirely in your browser. In voice mode, your browser's own speech service transcribes your answers; nothing else is uploaded.</footer>
+
+  <script src="js/textUtils.js"></script>
+  <script src="js/lexicons.js"></script>
+  <script src="js/questionBank.js"></script>
+  <script src="js/analyzer.js"></script>
+  <script src="js/scoring.js"></script>
+  <script src="js/engine.js"></script>
+  <script src="js/demo.js"></script>
+  <script src="js/speech.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/llm.js"></script>
+  <script src="js/report.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
