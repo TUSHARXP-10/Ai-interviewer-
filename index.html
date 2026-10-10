@@ -26,17 +26,17 @@
     <section id="screen-home" class="screen">
       <div class="hero-home">
         <div>
-          <span class="eyebrow">Practice interview · BPO & customer service</span>
-          <h1>An AI interviewer that listens, probes, and scores you like a real recruiter</h1>
-          <p class="lead">Answer out loud, from "Tell me about yourself" to "Why BPO?" to a live mock customer call. The interviewer reacts to your answers, asks follow-ups, and ends with a full scoresheet covering communication, confidence, thought process, and more.</p>
+          <span class="eyebrow">Voice interview practice · BPO & customer service</span>
+          <h1>Talk to an AI interviewer, just like a real phone interview</h1>
+          <p class="lead">No typing and no chat. Aria asks every question out loud, listens to your spoken answers, asks follow-ups, and plays an upset customer in a mock call. At the end she tells you how you did, and you get a full scoresheet with recordings of your answers.</p>
           <div class="hero-actions">
-            <a class="btn btn-primary btn-big" href="#setup">Start an interview</a>
+            <a class="btn btn-primary btn-big" href="#setup">📞 Start a voice interview</a>
             <button class="btn btn-big" type="button" data-sample="average">See a sample scoresheet</button>
           </div>
           <div class="badges">
             <span class="badge">No API keys or payment</span>
             <span class="badge">Runs in your browser</span>
-            <span class="badge">Voice or typing</span>
+            <span class="badge">100% spoken, hands-free</span>
             <span class="badge">Optional free local AI</span>
           </div>
         </div>
@@ -44,8 +44,8 @@
           <svg class="avatar speaking" viewBox="0 0 120 120">
             <defs>
               <radialGradient id="hero-grad" cx="38%" cy="32%" r="75%">
-                <stop offset="0" class="av-stop-1" style="stop-color: var(--av-1)"/>
-                <stop offset="1" class="av-stop-2" style="stop-color: var(--av-2)"/>
+                <stop offset="0" class="av-stop-1"/>
+                <stop offset="1" class="av-stop-2"/>
               </radialGradient>
             </defs>
             <circle class="av-ring" cx="60" cy="60" r="56"/>
@@ -57,7 +57,7 @@
       </div>
 
       <div class="features">
-        <div class="feature"><span class="ico" aria-hidden="true">🎙️</span><h3>Talks and listens</h3><p>The interviewer speaks each question aloud and transcribes your spoken answer live.</p></div>
+        <div class="feature"><span class="ico" aria-hidden="true">🎙️</span><h3>A real conversation</h3><p>Aria speaks, then listens. She knows when you've finished, and you can say "repeat", "skip" or "that's all", so you never touch the screen.</p></div>
         <div class="feature"><span class="ico" aria-hidden="true">🧠</span><h3>Reads your thought process</h3><p>Checks structure, reasoning, examples and STAR stories, and follows up when an answer is thin.</p></div>
         <div class="feature"><span class="ico" aria-hidden="true">💪</span><h3>Measures confidence</h3><p>Looks at hedging, filler words, how quickly you start, voice strength, pauses and tone.</p></div>
         <div class="feature"><span class="ico" aria-hidden="true">📞</span><h3>Mock customer call</h3><p>An angry customer reacts to what you actually say: empathise and they calm down; ignore them and they escalate.</p></div>
@@ -84,12 +84,14 @@
             </div>
           </div>
           <div class="field">
-            <span class="label" id="l-mode">How will you answer?</span>
-            <div class="segmented" role="radiogroup" aria-labelledby="l-mode">
-              <label><input type="radio" name="mode" value="voice"><span>🎙️ Speak</span></label>
-              <label><input type="radio" name="mode" value="text"><span>⌨️ Type</span></label>
-            </div>
-            <div class="hint" id="mode-hint"></div>
+            <label for="f-silence">When you pause, Aria waits…</label>
+            <select id="f-silence" name="silenceSec">
+              <option value="2">Briefly (about 2 s): snappy, like a real call</option>
+              <option value="3">Normally (about 3 s): recommended</option>
+              <option value="5">Patiently (about 5 s): if you think while speaking</option>
+              <option value="0">Until I say “that’s all” or tap Done</option>
+            </select>
+            <div class="hint">Aria waits longer when you've only just started, so thinking pauses are safe.</div>
           </div>
           <div class="field full">
             <span class="label" id="l-length">Interview length</span>
@@ -108,14 +110,8 @@
             </select>
           </div>
           <div class="field">
-            <label for="f-silence">Finish my answer automatically after silence</label>
-            <select id="f-silence" name="silenceSec">
-              <option value="0">Off — I'll press Done</option>
-              <option value="3">After 3 seconds</option>
-              <option value="4">After 4 seconds</option>
-              <option value="6">After 6 seconds</option>
-              <option value="8">After 8 seconds</option>
-            </select>
+            <span class="label">Voice engine</span>
+            <div class="engine-status" id="engine-status" role="status">Checking your browser…</div>
           </div>
 
           <details class="advanced full">
@@ -135,8 +131,16 @@
               </div>
               <div class="field">
                 <span class="label">Options</span>
-                <label class="check"><input type="checkbox" id="f-speak" name="speakAloud"> Speak the questions aloud</label>
-                <label class="check"><input type="checkbox" id="f-camera" name="camera"> Show my camera (preview only; never recorded)</label>
+                <label class="check"><input type="checkbox" id="f-record" name="record"> Record my answers so I can replay them in the scoresheet (saved only in this browser)</label>
+                <label class="check"><input type="checkbox" id="f-camera" name="camera"> Show my camera like a video call (preview only; never recorded)</label>
+              </div>
+              <div class="field">
+                <label for="f-engine">Speech recognition</label>
+                <select id="f-engine" name="engine">
+                  <option value="auto">Automatic (recommended)</option>
+                  <option value="browser">Browser's built-in recognition (fast, needs internet)</option>
+                  <option value="whisper">Offline Whisper model (any browser, private; one-time download)</option>
+                </select>
               </div>
               <div class="field full">
                 <label class="check"><input type="checkbox" id="f-llm" name="llmEnabled"> Use a free local AI model (Ollama) as a second opinion</label>
@@ -158,7 +162,7 @@
           </details>
 
           <div class="field full" style="display:flex; gap:10px; flex-wrap:wrap; align-items:center">
-            <button class="btn btn-primary btn-big" type="submit" id="btn-continue">Continue</button>
+            <button class="btn btn-primary btn-big" type="submit" id="btn-continue">📞 Start voice interview</button>
             <span class="muted small" id="setup-note"></span>
           </div>
         </form>
@@ -176,107 +180,70 @@
       <section class="card">
         <h2>How the scoring works</h2>
         <p>Every answer is analysed for <strong>what</strong> you said (does it cover what a strong answer includes, is it structured, specific, positive) and <strong>how</strong> you said it (fillers, hedging, pace, pauses, start delay, voice strength and tone). The interviewer combines these into seven skill scores, weighted for the role you chose. Speech recognition is done by your browser; all analysis runs locally on your device.</p>
-        <p class="muted small" style="margin:0">Voice answers work best in Chrome or Edge with headphones in a quiet room. Typing mode works in any browser, even offline.</p>
+        <p class="muted small" style="margin:0">Works best in Chrome or Edge with headphones in a quiet room. Other browsers use a free offline speech model that downloads once.</p>
       </section>
     </section>
 
-    <!-- ======================================================= DEVICE CHECK -->
-    <section id="screen-check" class="screen" hidden>
-      <h1>Quick device check</h1>
-      <p class="muted">Takes 20 seconds. It makes sure the interviewer can hear you and you can hear the interviewer.</p>
-      <div class="check-grid">
-        <div class="card">
-          <h2>1 · Can you hear the interviewer?</h2>
-          <p>Use headphones if you can, so the mic doesn't pick up the interviewer's voice.</p>
-          <button class="btn" type="button" id="check-voice">▶ Play test voice</button>
-          <div class="status-line" id="check-voice-status" role="status"></div>
+    <!-- ======================================================= VOICE CALL -->
+    <section id="screen-interview" class="screen call" hidden aria-label="Voice interview">
+      <div class="call-top">
+        <div class="call-title">
+          <span class="live-dot" aria-hidden="true"></span>
+          <strong id="who-label">Aria · AI Interviewer</strong>
+          <span class="call-time" id="room-elapsed">0:00</span>
         </div>
-        <div class="card">
-          <h2>2 · Can the interviewer hear you?</h2>
-          <p>Say: <strong>"Hello, I am ready for my interview."</strong></p>
-          <div class="levelbar" aria-hidden="true"><div id="check-level"></div></div>
-          <div class="transcript-box" id="check-transcript" aria-live="polite"><span class="muted">Waiting for your voice…</span></div>
-          <div class="status-line" id="check-mic-status" role="status"></div>
-          <button class="btn btn-ghost" type="button" id="check-retry" hidden>Try again</button>
+        <div class="call-progress">
+          <span id="room-q">Connecting…</span>
+          <div class="dots" id="dots" aria-hidden="true"></div>
         </div>
       </div>
-      <div class="card">
-        <ul class="tips">
-          <li>Find a quiet place and speak at a normal pace, as if you were on a call.</li>
-          <li>The interviewer waits for you; take a breath before answering.</li>
-          <li>Press <kbd>Enter</kbd> or the <strong>Done</strong> button when you finish an answer.</li>
-        </ul>
-      </div>
-      <div style="display:flex; gap:10px; flex-wrap:wrap">
-        <button class="btn" type="button" id="check-back">← Back</button>
-        <button class="btn" type="button" id="check-typing">Use typing instead</button>
-        <button class="btn btn-primary btn-big" type="button" id="check-start">Start the interview</button>
-      </div>
-    </section>
 
-    <!-- ======================================================= INTERVIEW -->
-    <section id="screen-interview" class="screen" hidden>
-      <div class="room-head">
-        <div class="room-progress">
-          <div class="label"><span id="room-q">Getting ready…</span><span id="room-elapsed">0:00</span></div>
-          <div class="progress" aria-hidden="true"><div id="room-bar"></div></div>
-        </div>
-        <button class="btn btn-ghost btn-danger" type="button" id="btn-end">End interview</button>
-      </div>
-      <div class="notice" id="notice" role="status" hidden></div>
-      <div class="room">
-        <div class="card interviewer-card">
-          <svg class="avatar" id="avatar" viewBox="0 0 120 120" role="img" aria-label="Interviewer avatar">
+      <div class="call-stage">
+        <div class="orb" id="orb" data-state="idle">
+          <svg class="orb-timer" viewBox="0 0 220 220" aria-hidden="true">
+            <circle class="orb-timer-track" cx="110" cy="110" r="104"/>
+            <circle class="orb-timer-fill" id="ring-fill" cx="110" cy="110" r="104" stroke-dasharray="653.5" stroke-dashoffset="0"/>
+          </svg>
+          <span class="orb-wave w1" aria-hidden="true"></span>
+          <span class="orb-wave w2" aria-hidden="true"></span>
+          <span class="orb-wave w3" aria-hidden="true"></span>
+          <svg class="avatar" id="avatar" viewBox="0 0 120 120" role="img" aria-label="Interviewer">
             <defs>
               <radialGradient id="av-grad" cx="38%" cy="32%" r="75%">
-                <stop offset="0" class="av-stop-1" style="stop-color: var(--av-1)"/>
-                <stop offset="1" class="av-stop-2" style="stop-color: var(--av-2)"/>
+                <stop offset="0" class="av-stop-1"/>
+                <stop offset="1" class="av-stop-2"/>
               </radialGradient>
             </defs>
-            <circle class="av-ring" cx="60" cy="60" r="56"/>
-            <circle cx="60" cy="60" r="46" fill="url(#av-grad)"/>
-            <path class="av-headset" d="M22 62 A38 38 0 0 1 98 62 M96 66 Q96 86 78 90"/>
-            <g class="av-eyes"><ellipse class="av-feature" cx="46" cy="55" rx="5" ry="7"/><ellipse class="av-feature" cx="74" cy="55" rx="5" ry="7"/></g>
-            <rect class="av-mouth av-feature" id="av-mouth" x="47" y="75" width="26" height="5" rx="2.5"/>
+            <circle cx="60" cy="60" r="56" fill="url(#av-grad)"/>
+            <path class="av-headset" d="M18 62 A42 42 0 0 1 102 62 M100 66 Q100 90 80 94"/>
+            <g class="av-eyes"><ellipse class="av-feature" cx="45" cy="54" rx="5.5" ry="7.5"/><ellipse class="av-feature" cx="75" cy="54" rx="5.5" ry="7.5"/></g>
+            <rect class="av-mouth av-feature" id="av-mouth" x="45" y="76" width="30" height="5.5" rx="2.75"/>
           </svg>
-          <div class="who-label" id="who-label">Aria · AI Interviewer</div>
-          <span class="state-pill" id="state-pill" data-state="idle">Getting ready</span>
-          <div class="caption" id="caption" aria-live="polite"></div>
-          <div class="roleplay-banner" id="roleplay-banner" hidden>📞 <strong>Mock call:</strong> you are the support agent. Reply to the customer as you would on a real call.</div>
-          <button class="btn btn-ghost small" type="button" id="btn-skip-voice" hidden>Skip voice ⏭</button>
         </div>
 
-        <div class="card you-card">
-          <div class="you-top">
-            <video class="cam" id="cam" autoplay muted playsinline hidden></video>
-            <div class="viz" id="viz" aria-hidden="true"></div>
-            <div class="ring" id="ring" title="Time left for this answer">
-              <svg viewBox="0 0 72 72" aria-hidden="true"><circle class="ring-track" cx="36" cy="36" r="30"/><circle class="ring-fill" id="ring-fill" cx="36" cy="36" r="30" stroke-dasharray="188.5" stroke-dashoffset="0"/></svg>
-              <span id="ring-text">–</span>
-            </div>
-          </div>
-          <div id="voice-area">
-            <span class="eyebrow">Your answer (live transcript)</span>
-            <div class="live" id="live" aria-live="polite"><span class="placeholder">The transcript appears here as you speak.</span></div>
-          </div>
-          <div id="text-area" hidden>
-            <label class="eyebrow" for="answer-text">Type your answer</label>
-            <textarea id="answer-text" placeholder="Type your answer here… (Ctrl + Enter to submit)"></textarea>
-          </div>
-          <div class="live-stats" id="live-stats">
-            <span class="stat">Words <strong id="st-words">0</strong></span>
-            <span class="stat" id="st-pace-wrap">Pace <strong id="st-pace">–</strong></span>
-            <span class="stat">Fillers <strong id="st-fillers">0</strong></span>
-          </div>
-          <div class="auto-hint" id="auto-hint" aria-live="polite"></div>
-          <div class="controls">
-            <button class="btn btn-primary btn-big" type="button" id="btn-done" disabled>Done answering</button>
-            <button class="btn" type="button" id="btn-repeat" disabled>↺ Repeat</button>
-            <button class="btn" type="button" id="btn-type" disabled>⌨️ Type instead</button>
-            <button class="btn btn-ghost" type="button" id="btn-skip" disabled>Skip</button>
-          </div>
-          <div class="kbd-hint" id="kbd-hint"><kbd>Enter</kbd> done · <kbd>R</kbd> repeat question</div>
+        <p class="call-state" id="state-pill" data-state="idle" role="status" aria-live="polite">Connecting…</p>
+        <p class="call-hint" id="call-hint">Say <strong>“repeat”</strong> to hear a question again · say <strong>“that’s all”</strong> when you finish</p>
+        <div class="roleplay-banner" id="roleplay-banner" hidden>📞 <strong>Mock call:</strong> you are the support agent. Talk to the customer as you would on a real call.</div>
+        <div class="notice" id="notice" role="alert" hidden></div>
+        <div class="notice-actions" id="notice-actions" hidden>
+          <button class="btn" type="button" id="btn-retry-mic">Try again</button>
+          <button class="btn btn-ghost" type="button" id="btn-continue-anyway">Continue anyway</button>
         </div>
+
+        <div class="captions" id="captions" hidden aria-live="off">
+          <p class="cap-line cap-ai"><span class="cap-who" id="cap-who">Aria</span><span id="caption"></span></p>
+          <p class="cap-line cap-you"><span class="cap-who">You</span><span id="live"></span></p>
+        </div>
+      </div>
+
+      <video class="cam-pip" id="cam" autoplay muted playsinline hidden></video>
+
+      <div class="call-controls" role="toolbar" aria-label="Call controls">
+        <button class="cbtn" type="button" id="btn-cc" aria-pressed="false" title="Show captions (C)"><span class="cbtn-ico" aria-hidden="true">CC</span><span class="cbtn-label">Captions</span></button>
+        <button class="cbtn" type="button" id="btn-repeat" disabled title="Repeat the question (R)"><span class="cbtn-ico" aria-hidden="true">↺</span><span class="cbtn-label">Repeat</span></button>
+        <button class="cbtn" type="button" id="btn-skip" disabled title="Skip this question"><span class="cbtn-ico" aria-hidden="true">⏭</span><span class="cbtn-label">Skip</span></button>
+        <button class="cbtn cbtn-done" type="button" id="btn-done" disabled title="I've finished my answer (Enter)"><span class="cbtn-ico" aria-hidden="true">✓</span><span class="cbtn-label">I'm done</span></button>
+        <button class="cbtn cbtn-end" type="button" id="btn-end" title="End the interview"><span class="cbtn-ico" aria-hidden="true">✕</span><span class="cbtn-label">End</span></button>
       </div>
     </section>
 
@@ -295,6 +262,7 @@
       <div class="report-actions no-print">
         <button class="btn" type="button" id="rep-home">← Home</button>
         <span class="spacer"></span>
+        <button class="btn" type="button" id="rep-listen" aria-pressed="false">🔊 Hear my feedback</button>
         <button class="btn" type="button" id="rep-json">Download data (JSON)</button>
         <button class="btn" type="button" id="rep-print">Print / Save PDF</button>
         <button class="btn btn-primary" type="button" id="rep-again">New interview</button>
@@ -304,7 +272,7 @@
     </section>
   </main>
 
-  <footer>Runs entirely in your browser. In voice mode, your browser's own speech service transcribes your answers; nothing else is uploaded.</footer>
+  <footer>Runs in your browser. Your browser's speech service (or the offline Whisper model) transcribes your answers; recordings and scores stay on this device.</footer>
 
   <script src="js/textUtils.js"></script>
   <script src="js/lexicons.js"></script>
@@ -313,8 +281,11 @@
   <script src="js/scoring.js"></script>
   <script src="js/engine.js"></script>
   <script src="js/demo.js"></script>
+  <script src="js/voice.js"></script>
   <script src="js/speech.js"></script>
   <script src="js/audio.js"></script>
+  <script src="js/recorder.js"></script>
+  <script src="js/whisper.js"></script>
   <script src="js/llm.js"></script>
   <script src="js/report.js"></script>
   <script src="js/app.js"></script>

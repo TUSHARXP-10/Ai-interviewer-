@@ -129,6 +129,17 @@
     };
   }
 
+  // One shared AudioContext, created (or resumed) inside a click handler so that
+  // browsers with strict autoplay rules (Safari/iOS) let it run.
+  let sharedCtx = null;
+  function prime() {
+    const AC = root.AudioContext || root.webkitAudioContext;
+    if (!AC) return null;
+    if (!sharedCtx || sharedCtx.state === 'closed') sharedCtx = new AC();
+    if (sharedCtx.state === 'suspended') sharedCtx.resume().catch(() => {});
+    return sharedCtx;
+  }
+
   function createMeter() {
     let ctx = null;
     let stream = null;
@@ -140,8 +151,11 @@
     let voiced = false;
     let lastVoiceAt = 0;
     let segment = null;
+    let source = null;
     const recent = [];
     const listeners = new Set();
+    const taps = new Set();
+    let tapNode = null;
 
     function tick() {
       analyser.getFloatTimeDomainData(buf);
@@ -158,7 +172,8 @@
       const now = performance.now();
       if (voiced) lastVoiceAt = now;
       level = Math.max(0, Math.min(1, (db - noiseFloor) / 40));
-      if (segment) {
+      if (segment && !segment.paused) {
+        if (voiced) segment.voicedMs += FRAME_MS;
         const frame = { t: now - segment.start, db, voiced, hz: null };
         if (voiced) {
           const p = detectPitch(buf, ctx.sampleRate);
@@ -174,13 +189,13 @@
         stream = existingStream || await navigator.mediaDevices.getUserMedia({
           audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: false },
         });
-        const AC = root.AudioContext || root.webkitAudioContext;
-        ctx = new AC();
+        ctx = prime();
+        if (!ctx) throw new Error('Web Audio is not supported');
         if (ctx.state === 'suspended') await ctx.resume().catch(() => {});
-        const src = ctx.createMediaStreamSource(stream);
+        source = ctx.createMediaStreamSource(stream);
         analyser = ctx.createAnalyser();
         analyser.fftSize = 2048;
-        src.connect(analyser);
+        source.connect(analyser);
         buf = new Float32Array(analyser.fftSize);
         timer = setInterval(tick, FRAME_MS);
         return stream;
@@ -188,13 +203,53 @@
       stop() {
         clearInterval(timer);
         timer = null;
+        taps.clear();
+        if (tapNode) {
+          try { tapNode.disconnect(); } catch (e) { /* ignore */ }
+          tapNode = null;
+        }
+        if (source) {
+          try { source.disconnect(); } catch (e) { /* ignore */ }
+          source = null;
+        }
         if (stream) stream.getTracks().forEach((t) => t.stop());
-        if (ctx) ctx.close().catch(() => {});
         stream = null;
-        ctx = null;
+        ctx = null; // the shared context stays open for the next interview
       },
       beginSegment() {
-        segment = { start: performance.now(), frames: [] };
+        segment = { start: performance.now(), frames: [], voicedMs: 0, paused: false };
+      },
+      /** Ignore the mic while the interviewer speaks mid-answer (e.g. a nudge). */
+      pauseSegment() {
+        if (segment) segment.paused = true;
+      },
+      resumeSegment() {
+        if (segment) segment.paused = false;
+      },
+      /** How long voice has been heard in the current answer. */
+      segmentVoicedMs() {
+        return segment ? segment.voicedMs : 0;
+      },
+      /**
+       * Receive raw microphone samples (Float32Array at sampleRate) — used by the
+       * offline speech engine. Returns an unsubscribe function.
+       */
+      tap(fn) {
+        if (!ctx || !source) return () => {};
+        taps.add(fn);
+        if (!tapNode) {
+          tapNode = ctx.createScriptProcessor(4096, 1, 1);
+          tapNode.onaudioprocess = (e) => {
+            const data = e.inputBuffer.getChannelData(0);
+            taps.forEach((f) => f(new Float32Array(data), ctx.sampleRate));
+          };
+          const mute = ctx.createGain();
+          mute.gain.value = 0;
+          source.connect(tapNode);
+          tapNode.connect(mute);
+          mute.connect(ctx.destination);
+        }
+        return () => taps.delete(fn);
       },
       endSegment() {
         if (!segment) return null;
@@ -214,8 +269,10 @@
       get voiced() { return voiced; },
       get running() { return !!timer; },
       get noiseFloor() { return noiseFloor; },
+      get stream() { return stream; },
+      get sampleRate() { return ctx ? ctx.sampleRate : 0; },
     };
   }
 
-  (root.AII = root.AII || {}).Audio = { createMeter, detectPitch, summarize, FRAME_MS };
+  (root.AII = root.AII || {}).Audio = { createMeter, detectPitch, summarize, prime, FRAME_MS };
 })(typeof window !== 'undefined' ? window : globalThis);

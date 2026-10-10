@@ -464,7 +464,41 @@
     return sheet;
   }
 
-  const api = { DIMENSIONS, ROLE_WEIGHTS, VERDICTS, CEFR, band, buildScoresheet, summaryText };
+  /** Make written feedback pleasant to hear through text-to-speech. */
+  function speakable(text) {
+    return String(text || '')
+      .replace(/\s*→\s*/g, ', then ')
+      .replace(/(\d)\s*[–-]\s*(\d)/g, '$1 to $2')
+      .replace(/\s+\/\s+/g, ' or ')
+      .replace(/[“”"]/g, '')
+      .replace(/ ×(\d+)/g, ' $1 times')
+      .replace(/(\d+)\/100/g, '$1 out of 100')
+      .replace(/\bwpm\b/g, 'words per minute')
+      .replace(/\be\.g\.\s*/g, 'for example, ')
+      .replace(/\s*\([^)]*\)/g, '')
+      .replace(/\s+([.,;:])/g, '$1')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  /** A short spoken debrief the interviewer reads aloud at the end of the call. */
+  function spokenFeedback(sheet) {
+    const first = String((sheet.candidate && sheet.candidate.name) || '').trim().split(/\s+/)[0];
+    const dims = sheet.dimensions.filter((d) => d.score != null).slice().sort((a, b) => b.score - a.score);
+    const best = dims[0];
+    const worst = dims[dims.length - 1];
+    const parts = [];
+    parts.push((first ? 'Thank you, ' + first + '. ' : 'Thank you. ') + "Here's your feedback.");
+    parts.push('You scored ' + sheet.overall + ' out of 100, which is ' + sheet.verdict.label.toLowerCase().replace(' — ', ', ') + '.');
+    if (best) parts.push('Your strongest area was ' + lower(best.short) + ', at ' + best.score + '.');
+    if (worst && worst !== best && worst.score < 85) parts.push('The main area to work on is ' + lower(worst.short) + '.');
+    if (sheet.improvements && sheet.improvements.length) parts.push('My top tip: ' + speakable(sheet.improvements[0]));
+    if (sheet.redFlags && sheet.redFlags.some((f) => f.severity !== 'low')) parts.push('Also, be careful with answers like ' + speakable(sheet.redFlags[0].label.toLowerCase()) + '.');
+    parts.push('You can replay each of your answers and read detailed feedback on your scoresheet. Good luck!');
+    return parts.join(' ').replace(/\.\./g, '.');
+  }
+
+  const api = { DIMENSIONS, ROLE_WEIGHTS, VERDICTS, CEFR, band, buildScoresheet, summaryText, spokenFeedback, speakable };
   if (isNode) module.exports = api;
   else (root.AII = root.AII || {}).Scoring = api;
 })(typeof window !== 'undefined' ? window : globalThis);

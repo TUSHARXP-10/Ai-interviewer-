@@ -141,3 +141,22 @@ test('local-LLM opinions are blended in, not substituted', () => {
   assert.ok(b.overall > a.overall * 0.5, 'rule-based scores still dominate');
   assert.equal(b.llmUsed, true);
 });
+
+test('the spoken debrief is short, speakable and specific', () => {
+  const { sheet } = runInterview('average', {});
+  const text = Scoring.spokenFeedback(sheet);
+  assert.match(text, /You scored \d+ out of 100/);
+  assert.match(text, /strongest area/);
+  assert.ok(!/[→“”×]|\/100/.test(text), text);
+  assert.ok(text.split(/\s+/).length < 110, 'keep it under a minute of speech');
+  assert.equal(Scoring.speakable('Cut fillers (“um” ×3) → pause, e.g. 120 wpm, 76/100'), 'Cut fillers, then pause, for example, 120 words per minute, 76 out of 100');
+});
+
+test('the spoken briefing explains the hands-free commands', () => {
+  const s = Engine.createSession({ length: 'quick', role: 'voice', mode: 'voice', seed: 2 });
+  const b = s.briefing();
+  assert.match(b, /7 questions/);
+  assert.match(b, /8 to 10 minutes/);
+  assert.match(b, /say repeat/);
+  assert.match(b, /that's all/);
+});

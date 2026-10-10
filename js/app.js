@@ -1,12 +1,19 @@
 /*
- * app.js — wires the screens together: setup → device check → interview → scoresheet.
+ * app.js — the voice interview: setup → hands-free call → spoken feedback + scoresheet.
+ *
+ * The call is half-duplex, like a polite phone interview: Aria speaks, then the
+ * microphone listens until the candidate has clearly finished (adaptive silence
+ * detection or a spoken "that's all"), then Aria replies. Candidates can say
+ * "repeat", "skip" or "that's all" at any time, so the screen never needs touching.
  */
 (function () {
   'use strict';
-  const { Text, Lexicons, Questions, Engine, Scoring, Speech, Audio, LLM, Report, Demo } = window.AII;
+  const AII = window.AII;
+  const { Questions, Engine, Scoring, Speech, Audio, LLM, Report, Demo, Voice, Recorder } = AII;
 
   const $ = (sel, el) => (el || document).querySelector(sel);
   const $$ = (sel, el) => Array.from((el || document).querySelectorAll(sel));
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
   // ------------------------------------------------------------ storage (best effort)
   const store = {
@@ -46,28 +53,33 @@
   }
 
   const DEFAULTS = {
-    name: '', role: 'voice', experience: 'fresher', length: 'standard',
-    mode: Speech.sttSupported ? 'voice' : 'text', accent: guessAccent(), silenceSec: 4,
-    interviewerVoice: '', customerVoice: '', rate: 1, speakAloud: true, camera: false,
-    llmEnabled: false, llmUrl: LLM.DEFAULT_URL, llmModel: '',
+    name: '', role: 'voice', experience: 'fresher', length: 'standard', accent: guessAccent(),
+    silenceSec: 3, interviewerVoice: '', customerVoice: '', rate: 1, camera: false, record: true,
+    captions: false, engine: 'auto', llmEnabled: false, llmUrl: LLM.DEFAULT_URL, llmModel: '',
   };
   let settings = Object.assign({}, DEFAULTS, store.get(SETTINGS_KEY, {}));
-  if (!Speech.sttSupported) settings.mode = 'text';
+  if ([0, 2, 3, 5].indexOf(Number(settings.silenceSec)) === -1) settings.silenceSec = 3;
 
   const state = {
     session: null,
     meter: null,
+    recorder: null,
     camStream: null,
     voices: { interviewer: null, customer: null },
+    engine: 'browser',       // 'browser' | 'whisper' for the current call
     running: false,
     endRequested: false,
+    discard: false,
     integrity: { tabSwitches: 0, pastes: 0, repeats: 0 },
     startedAt: 0,
     sheet: null,
     ctl: null,
-    checkRec: null,
+    clips: [],
+    clipUrls: [],
     elapsedTimer: null,
     skipLlm: false,
+    ui: 'idle',             // 'speaking' | 'listening' | 'thinking' | 'idle'
+    userAction: null,       // resolver while waiting on a notice button
   };
 
   // ------------------------------------------------------------ theme
@@ -86,21 +98,60 @@
   });
 
   // ------------------------------------------------------------ screens
-  const SCREENS = ['home', 'check', 'interview', 'processing', 'report'];
+  const SCREENS = ['home', 'interview', 'processing', 'report'];
   function show(name) {
     for (const s of SCREENS) $('#screen-' + s).hidden = s !== name;
+    document.body.classList.toggle('in-call', name === 'interview');
     window.scrollTo({ top: 0 });
   }
   $('#brand-home').addEventListener('click', (e) => {
     e.preventDefault();
     if (state.running && !confirm('Leave the interview? Your answers so far will be lost.')) return;
     abortInterview();
+    stopFeedbackAudio();
     goHome();
   });
 
   function goHome() {
+    document.title = 'AI Interviewer';
     show('home');
     renderHistory();
+  }
+
+  // ------------------------------------------------------------ speech engines
+  const hasWhisper = () => !!(AII.Whisper && AII.Whisper.supported());
+
+  /** Which recogniser to use for a setting, given what this browser can do. */
+  function resolveEngine(pref) {
+    if (pref === 'whisper' && hasWhisper()) return 'whisper';
+    if (pref === 'browser' && Speech.sttSupported) return 'browser';
+    if (Speech.sttSupported && !isBrave()) return 'browser';
+    if (hasWhisper()) return 'whisper';
+    return Speech.sttSupported ? 'browser' : null;
+  }
+
+  // Brave exposes webkitSpeechRecognition but blocks the service behind it.
+  function isBrave() {
+    return !!(navigator.brave && typeof navigator.brave.isBrave === 'function');
+  }
+
+  function engineStatusText() {
+    if (!window.isSecureContext) return '⚠️ The microphone needs <strong>https</strong> or <strong>localhost</strong>. Run <kbd>npm start</kbd> and open http://localhost:8080.';
+    if (!Speech.ttsSupported) return '⚠️ This browser cannot speak aloud. Please use Chrome, Edge or Safari.';
+    const e = resolveEngine(settings.engine);
+    if (e === 'browser') return '✅ <strong>Ready.</strong> Using your browser’s speech recognition (needs internet).';
+    if (e === 'whisper') {
+      const cached = AII.Whisper.isCached && AII.Whisper.isCached();
+      return '✅ <strong>Ready.</strong> Using the free offline Whisper model' + (cached ? '.' : ', which downloads once (about ' + AII.Whisper.MODEL_MB + ' MB) when you start.');
+    }
+    return '⚠️ This browser has no speech recognition. Please use Chrome or Edge.';
+  }
+
+  function makeRecognizer(handlers) {
+    if (state.engine === 'whisper') {
+      return AII.Whisper.createRecognizer(Object.assign({ meter: state.meter, lang: settings.accent }, handlers));
+    }
+    return Speech.createRecognizer(Object.assign({ lang: settings.accent }, handlers));
   }
 
   // ------------------------------------------------------------ setup form
@@ -125,29 +176,26 @@
     $('#f-silence').value = String(settings.silenceSec);
     $('#f-rate').value = String(settings.rate);
     $('#rate-out').textContent = Number(settings.rate).toFixed(2).replace(/0$/, '') + '×';
-    $('#f-speak').checked = settings.speakAloud && Speech.ttsSupported;
-    $('#f-speak').disabled = !Speech.ttsSupported;
+    $('#f-record').checked = settings.record;
+    $('#f-record').disabled = !window.MediaRecorder;
     $('#f-camera').checked = settings.camera;
+    $('#f-engine').value = settings.engine;
+    $$('#f-engine option').forEach((o) => {
+      if (o.value === 'whisper') o.disabled = !hasWhisper();
+      if (o.value === 'browser') o.disabled = !Speech.sttSupported;
+    });
     $('#f-llm').checked = settings.llmEnabled;
     $('#f-llm-url').value = settings.llmUrl;
-    for (const name of ['experience', 'mode', 'length']) {
+    for (const name of ['experience', 'length']) {
       const el = form.querySelector('input[name="' + name + '"][value="' + settings[name] + '"]');
       if (el) el.checked = true;
-    }
-    const voiceRadio = form.querySelector('input[name="mode"][value="voice"]');
-    if (!Speech.sttSupported) {
-      voiceRadio.disabled = true;
-      $('#mode-hint').textContent = 'Spoken answers need Chrome, Edge or Safari. You can still type your answers here.';
-    } else if (!window.isSecureContext) {
-      $('#mode-hint').textContent = 'The microphone needs https or localhost. Run "npm start" and open http://localhost:8080.';
-    } else {
-      $('#mode-hint').textContent = 'Speaking is recommended: it lets the interviewer judge pace, pauses and tone.';
     }
     if (settings.llmModel) {
       const sel = $('#f-llm-model');
       sel.innerHTML = '';
       sel.add(new Option(settings.llmModel, settings.llmModel));
     }
+    $('#engine-status').innerHTML = engineStatusText();
     toggleLlmFields();
   }
 
@@ -157,20 +205,21 @@
       name: String(fd.get('name') || '').trim().slice(0, 60),
       role: fd.get('role') || 'voice',
       experience: fd.get('experience') || 'fresher',
-      mode: fd.get('mode') || 'text',
       length: fd.get('length') || 'standard',
       accent: fd.get('accent') || 'en-US',
-      silenceSec: Number(fd.get('silenceSec') || 0),
+      silenceSec: Number(fd.get('silenceSec') == null ? 3 : fd.get('silenceSec')),
       interviewerVoice: fd.get('interviewerVoice') || '',
       customerVoice: fd.get('customerVoice') || '',
       rate: Number(fd.get('rate') || 1),
-      speakAloud: $('#f-speak').checked,
+      record: $('#f-record').checked,
       camera: $('#f-camera').checked,
+      engine: fd.get('engine') || 'auto',
       llmEnabled: $('#f-llm').checked,
       llmUrl: String(fd.get('llmUrl') || LLM.DEFAULT_URL).trim(),
       llmModel: fd.get('llmModel') || '',
     });
     store.set(SETTINGS_KEY, settings);
+    $('#engine-status').innerHTML = engineStatusText();
   }
 
   function toggleLlmFields() {
@@ -196,9 +245,6 @@
       sel.add(new Option('Automatic' + (auto ? ' (' + auto.name + ')' : ''), ''));
       for (const v of voices) sel.add(new Option(v.name + ' — ' + v.lang, v.name));
       sel.value = voices.some((v) => v.name === settings[key]) ? settings[key] : '';
-    }
-    if (!Speech.ttsSupported || !voices.length) {
-      $('#setup-note').textContent = Speech.ttsSupported ? '' : 'This browser cannot speak aloud; questions will be shown as text.';
     }
   }
 
@@ -226,22 +272,29 @@
     readSetup();
   });
 
-  form.addEventListener('submit', async (e) => {
+  form.addEventListener('submit', (e) => {
     e.preventDefault();
     readSetup();
+    const note = $('#setup-note');
     if (!settings.name) {
       $('#f-name').focus();
-      $('#setup-note').textContent = 'Please enter your name; it goes on your scoresheet.';
+      note.textContent = 'Please enter your name. Aria will use it, and it goes on your scoresheet.';
       return;
     }
     if (settings.llmEnabled && !settings.llmModel) {
-      $('#setup-note').textContent = 'Local AI is on: press "Test" to pick a model, or turn it off.';
+      note.textContent = 'Local AI is on: press "Test" to pick a model, or turn it off.';
       $('details.advanced').open = true;
       return;
     }
-    $('#setup-note').textContent = '';
-    if (settings.mode === 'voice') openCheck();
-    else startInterview();
+    if (!resolveEngine(settings.engine)) {
+      note.textContent = 'This browser cannot recognise speech. Please open this page in Chrome or Edge.';
+      return;
+    }
+    note.textContent = '';
+    // Must run inside the click: unlocks speech output and audio processing on strict browsers.
+    Speech.unlock();
+    Audio.prime();
+    startCall();
   });
 
   // ------------------------------------------------------------ history
@@ -257,13 +310,15 @@
       li.querySelector('.history-score').textContent = h.overall;
       li.querySelector('strong').textContent = h.name + ' — ' + h.verdict;
       li.querySelector('.muted').textContent = h.role + ' · ' + new Date(h.createdAt).toLocaleString();
-      li.querySelector('[data-act="view"]').addEventListener('click', () => {
+      li.querySelector('[data-act="view"]').addEventListener('click', async () => {
         const sheet = store.get(SHEET_PREFIX + h.id, null);
-        if (sheet) showReport(sheet, false);
-        else alert('This scoresheet is no longer stored.');
+        if (!sheet) return alert('This scoresheet is no longer stored.');
+        const clips = await Recorder.loadClips(sheet.id);
+        showReport(sheet, { clips });
       });
       li.querySelector('[data-act="del"]').addEventListener('click', () => {
         store.del(SHEET_PREFIX + h.id);
+        Recorder.deleteClips(h.id);
         store.set(HISTORY_KEY, store.get(HISTORY_KEY, []).filter((x) => x.id !== h.id));
         renderHistory();
       });
@@ -271,499 +326,47 @@
     }
   }
   $('#history-clear').addEventListener('click', () => {
-    if (!confirm('Delete all saved scoresheets from this browser?')) return;
+    if (!confirm('Delete all saved scoresheets and recordings from this browser?')) return;
     for (const h of store.get(HISTORY_KEY, [])) store.del(SHEET_PREFIX + h.id);
     store.del(HISTORY_KEY);
+    Recorder.clearClips();
     renderHistory();
   });
 
-  function saveSheet(sheet) {
+  function saveSheet(sheet, clips) {
     const list = store.get(HISTORY_KEY, []).filter((x) => x.id !== sheet.id);
     list.unshift({ id: sheet.id, name: sheet.candidate.name, role: sheet.role.label, overall: sheet.overall, verdict: sheet.verdict.label, createdAt: sheet.createdAt });
-    while (list.length > 12) store.del(SHEET_PREFIX + list.pop().id);
+    while (list.length > 12) {
+      const old = list.pop();
+      store.del(SHEET_PREFIX + old.id);
+      Recorder.deleteClips(old.id);
+    }
     if (store.set(SHEET_PREFIX + sheet.id, sheet)) store.set(HISTORY_KEY, list);
+    if (clips && clips.length) Recorder.saveClips(sheet.id, clips);
   }
 
-  // ------------------------------------------------------------ device check
-  async function openCheck() {
-    show('check');
-    $('#check-voice-status').textContent = '';
-    $('#check-mic-status').textContent = '';
-    $('#check-transcript').innerHTML = '<span class="muted">Waiting for your voice…</span>';
-    $('#check-retry').hidden = true;
-    await ensureMeter($('#check-mic-status'));
-    startCheckRecognition();
-  }
-
-  async function ensureMeter(statusEl) {
-    if (state.meter && state.meter.running) return true;
+  // ------------------------------------------------------------ media
+  async function ensureMic() {
+    if (state.meter && state.meter.running) return { ok: true };
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      if (statusEl) {
-        statusEl.className = 'status-line err';
-        statusEl.textContent = 'This browser cannot access the microphone here. Use Chrome/Edge on https or localhost, or switch to typing.';
-      }
-      return false;
+      return { ok: false, message: 'This browser cannot use the microphone on this page. Open it in Chrome or Edge on https or http://localhost.' };
     }
     try {
       state.meter = Audio.createMeter();
       await state.meter.start();
-      state.meter.onLevel((level) => {
-        const bar = $('#check-level');
-        if (bar) bar.style.width = Math.round(level * 100) + '%';
-        pushViz(level);
-      });
-      return true;
+      return { ok: true };
     } catch (err) {
       state.meter = null;
-      if (statusEl) {
-        statusEl.className = 'status-line err';
-        statusEl.textContent = 'Microphone blocked or not found (' + (err.name || err.message) + '). Allow microphone access in the address bar, or use typing.';
-      }
-      return false;
-    }
-  }
-
-  function startCheckRecognition() {
-    const st = $('#check-mic-status');
-    if (state.checkRec) state.checkRec.abort();
-    const rec = Speech.createRecognizer({
-      lang: settings.accent,
-      onUpdate: (fin, interim) => {
-        const box = $('#check-transcript');
-        box.textContent = (fin + ' ' + interim).trim() || '…';
-        const words = (fin + ' ' + interim).trim().split(/\s+/).filter(Boolean).length;
-        if (words >= 3) {
-          st.className = 'status-line ok';
-          st.textContent = 'Great, the interviewer can hear you clearly.';
-          $('#check-retry').hidden = false;
-          rec.stop();
-        }
-      },
-      onError: (code, msg, fatal) => {
-        if (!fatal) return;
-        st.className = 'status-line err';
-        st.textContent = msg + ' You can still take the interview by typing.';
-        $('#check-retry').hidden = false;
-      },
-    });
-    state.checkRec = rec;
-    if (rec) rec.start();
-    else {
-      st.className = 'status-line err';
-      st.textContent = 'Speech recognition is not available in this browser. Please use typing mode.';
-    }
-  }
-
-  $('#check-retry').addEventListener('click', () => {
-    $('#check-transcript').innerHTML = '<span class="muted">Waiting for your voice…</span>';
-    $('#check-mic-status').textContent = '';
-    startCheckRecognition();
-  });
-  $('#check-voice').addEventListener('click', async () => {
-    const st = $('#check-voice-status');
-    if (!Speech.ttsSupported) {
-      st.className = 'status-line err';
-      st.textContent = 'This browser cannot speak aloud. Questions will be shown as text.';
-      return;
-    }
-    await pickVoices();
-    st.className = 'status-line';
-    st.textContent = 'Playing…';
-    await Speech.speak("Hi, I'm Aria, your interviewer today. Can you hear me clearly?", { voice: state.voices.interviewer, rate: settings.rate });
-    st.className = 'status-line ok';
-    st.textContent = 'If you heard that, your speakers are working.';
-  });
-  $('#check-back').addEventListener('click', () => {
-    if (state.checkRec) state.checkRec.abort();
-    stopMedia();
-    goHome();
-  });
-  $('#check-typing').addEventListener('click', () => {
-    if (state.checkRec) state.checkRec.abort();
-    settings.mode = 'text';
-    store.set(SETTINGS_KEY, settings);
-    stopMedia();
-    startInterview();
-  });
-  $('#check-start').addEventListener('click', () => {
-    if (state.checkRec) state.checkRec.abort();
-    startInterview();
-  });
-
-  async function pickVoices() {
-    await Speech.loadVoices();
-    state.voices = Speech.pickVoices({ accent: settings.accent, interviewerVoice: settings.interviewerVoice, customerVoice: settings.customerVoice });
-  }
-
-  // ------------------------------------------------------------ interview room UI
-  const VIZ_BARS = 28;
-  const vizLevels = new Array(VIZ_BARS).fill(0);
-  (function buildViz() {
-    const viz = $('#viz');
-    for (let i = 0; i < VIZ_BARS; i++) viz.appendChild(document.createElement('i'));
-  })();
-  function pushViz(level) {
-    vizLevels.push(level);
-    vizLevels.shift();
-    const bars = $('#viz').children;
-    for (let i = 0; i < bars.length; i++) bars[i].style.height = Math.max(4, Math.round(vizLevels[i] * 64)) + 'px';
-  }
-
-  function setPill(stateName, text) {
-    const pill = $('#state-pill');
-    pill.dataset.state = stateName;
-    pill.textContent = text;
-    const av = $('#avatar');
-    av.classList.toggle('speaking', stateName === 'speaking');
-    av.classList.toggle('listening', stateName === 'listening');
-  }
-
-  function setPersona(who) {
-    const av = $('#avatar');
-    av.classList.toggle('customer', who === 'customer');
-    $('#who-label').textContent = who === 'customer' ? 'Customer · mock call' : 'Aria · AI Interviewer';
-  }
-
-  function notice(msg) {
-    const n = $('#notice');
-    n.textContent = msg;
-    n.hidden = !msg;
-  }
-
-  // Mouth animation driven by speech boundary events (with a fallback wobble).
-  let mouthLevel = 0;
-  let mouthRaf = 0;
-  let speakingSince = 0;
-  let lastBoundary = 0;
-  function animateMouth() {
-    const now = performance.now();
-    if (speakingSince && now - lastBoundary > 450) mouthLevel = Math.max(mouthLevel, 0.35 + 0.35 * Math.abs(Math.sin(now / 90)));
-    mouthLevel *= 0.86;
-    $('#av-mouth').style.transform = 'scaleY(' + (1 + mouthLevel * 2.6).toFixed(2) + ')';
-    if (speakingSince || mouthLevel > 0.02) mouthRaf = requestAnimationFrame(animateMouth);
-    else mouthRaf = 0;
-  }
-
-  function captionWords(text) {
-    const cap = $('#caption');
-    cap.innerHTML = '';
-    const re = /\S+\s*/g;
-    let m;
-    while ((m = re.exec(text))) {
-      const span = document.createElement('span');
-      span.textContent = m[0];
-      span.dataset.at = String(m.index);
-      cap.appendChild(span);
-    }
-  }
-  function highlightWordAt(charIndex) {
-    let current = null;
-    for (const span of $('#caption').children) {
-      if (Number(span.dataset.at) <= charIndex) current = span;
-      span.classList.remove('w-now');
-    }
-    if (current) current.classList.add('w-now');
-  }
-
-  /** Speak a list of { text, voice } segments, with captions. */
-  async function say(segments, opts) {
-    const o = opts || {};
-    const canSpeak = settings.speakAloud && Speech.ttsSupported;
-    state.skipVoice = false;
-    // Listening-test details are only ever spoken, so they cannot be skipped.
-    $('#btn-skip-voice').hidden = !canSpeak || !!o.hideText;
-    for (const seg of segments) {
-      if (state.endRequested && !o.force) break;
-      setPersona(seg.voice);
-      const hidden = o.hideText && seg.text === o.hiddenText;
-      const muted = !canSpeak || state.skipVoice;
-      if (hidden && muted) {
-        // No audio available: show the details briefly instead (a memory test).
-        captionWords(seg.text);
-      } else if (hidden) {
-        const cap = $('#caption');
-        cap.innerHTML = '';
-        const s = document.createElement('span');
-        s.textContent = o.display || 'Listen carefully…';
-        const note = document.createElement('span');
-        note.className = 'listen-note';
-        note.textContent = '🎧 The details are spoken only. Listen carefully.';
-        cap.append(s, note);
-      } else captionWords(seg.text);
-      setPill('speaking', seg.voice === 'customer' ? 'Customer speaking…' : 'Speaking…');
-      speakingSince = performance.now();
-      lastBoundary = 0;
-      if (!mouthRaf) mouthRaf = requestAnimationFrame(animateMouth);
-      const voice = seg.voice === 'customer' ? state.voices.customer : state.voices.interviewer;
-      await Speech.speak(seg.text, {
-        voice,
-        rate: seg.voice === 'customer' ? Math.min(1.3, settings.rate * 1.05) : settings.rate,
-        pitch: seg.voice === 'customer' ? 0.95 : 1.02,
-        muted,
-        mutedDelayMs: hidden ? Math.max(4000, seg.text.split(/\s+/).length * 300) : 350,
-        onBoundary: (i) => {
-          lastBoundary = performance.now();
-          mouthLevel = 1;
-          if (!hidden) highlightWordAt(i);
-        },
-      });
-      speakingSince = 0;
-      highlightWordAt(-1);
-      if (segments.length > 1) await new Promise((r) => setTimeout(r, 180));
-    }
-    $('#btn-skip-voice').hidden = true;
-  }
-  $('#btn-skip-voice').addEventListener('click', () => {
-    state.skipVoice = true;
-    Speech.cancel();
-  });
-
-  function renderStep(step) {
-    $('#room-q').textContent = 'Question ' + (step.index + 1) + ' of ' + step.total + ' · ' + step.stageLabel + (step.kind === 'followup' ? ' · follow-up' : '');
-    $('#room-bar').style.width = Math.round((step.index / step.total) * 100) + '%';
-    $('#roleplay-banner').hidden = step.kind !== 'roleplay';
-  }
-
-  function startElapsed() {
-    clearInterval(state.elapsedTimer);
-    state.elapsedTimer = setInterval(() => {
-      const s = Math.floor((Date.now() - state.startedAt) / 1000);
-      $('#room-elapsed').textContent = Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
-    }, 1000);
-  }
-
-  function setControls(active, mode) {
-    $('#btn-done').disabled = !active;
-    $('#btn-skip').disabled = !active;
-    $('#btn-repeat').disabled = !active;
-    $('#btn-type').disabled = !active || mode !== 'voice';
-    $('#btn-type').hidden = mode !== 'voice';
-    $('#btn-done').textContent = mode === 'text' ? 'Submit answer' : 'Done answering';
-    $('#kbd-hint').innerHTML = mode === 'text' ? '<kbd>Ctrl</kbd> + <kbd>Enter</kbd> submit' : '<kbd>Enter</kbd> done · <kbd>R</kbd> repeat question';
-  }
-
-  function setRing(fraction, label) {
-    const f = Math.max(0, Math.min(1, fraction));
-    $('#ring-fill').style.strokeDashoffset = String(188.5 * (1 - f));
-    $('#ring-text').textContent = label;
-    $('#ring').classList.toggle('low', f < 0.2);
-  }
-
-  function liveStats(text, speakingMs) {
-    const words = (text.match(/[A-Za-z0-9']+/g) || []).length;
-    $('#st-words').textContent = words;
-    $('#st-pace').textContent = speakingMs > 4000 && words > 5 ? Math.round(words / (speakingMs / 60000)) + ' wpm' : '–';
-    $('#st-fillers').textContent = Text.findTerms(Text.makeDoc(text), Lexicons.FILLERS).length;
-    return words;
-  }
-
-  function renderLive(fin, interim) {
-    const live = $('#live');
-    live.innerHTML = '';
-    if (!fin && !interim) {
-      const p = document.createElement('span');
-      p.className = 'placeholder';
-      p.textContent = 'Listening… start speaking whenever you are ready.';
-      live.appendChild(p);
-      return;
-    }
-    live.appendChild(document.createTextNode(fin + ' '));
-    if (interim) {
-      const s = document.createElement('span');
-      s.className = 'interim';
-      s.textContent = interim;
-      live.appendChild(s);
-    }
-    live.scrollTop = live.scrollHeight;
-  }
-
-  /** Collect one answer (voice or typed). Resolves with an answer object for the engine. */
-  function collectAnswer(step) {
-    return new Promise((resolve) => {
-      let mode = settings.mode === 'voice' && Speech.sttSupported ? 'voice' : 'text';
-      const ctl = { done: false, repeats: 0, pasted: false };
-      state.ctl = ctl;
-      const silenceMs = settings.silenceSec * 1000;
-      let maxMs = step.maxSeconds * 1000 * (mode === 'text' ? 2.5 : 1);
-      let t0 = performance.now();
-      let rec = null;
-      let typedPrefill = '';
-
-      $('#auto-hint').textContent = '';
-      $('#st-pace-wrap').hidden = mode !== 'voice';
-      setControls(true, mode);
-      setPill('listening', mode === 'voice' ? 'Listening…' : 'Waiting for your answer');
-
-      function startVoice() {
-        $('#viz').hidden = false;
-        $('#voice-area').hidden = false;
-        $('#text-area').hidden = true;
-        renderLive('', '');
-        rec = Speech.createRecognizer({
-          lang: settings.accent,
-          onUpdate: (fin, interim) => {
-            renderLive(fin, interim);
-            $('#btn-repeat').disabled = !!(fin || interim);
-          },
-          onError: (code, msg, fatal) => {
-            if (!fatal || ctl.done) return;
-            notice(msg + ' Switched to typing for the rest of the interview.');
-            settings.mode = 'text';
-            switchToText();
-          },
-        });
-        if (state.meter) state.meter.beginSegment();
-        rec.start();
-      }
-
-      function startText(prefill) {
-        $('#viz').hidden = true;
-        $('#voice-area').hidden = true;
-        $('#text-area').hidden = false;
-        const ta = $('#answer-text');
-        ta.value = prefill || '';
-        ta.focus();
-      }
-
-      function switchToText() {
-        if (mode !== 'voice') return;
-        const sofar = rec ? (rec.text() + ' ' + rec.interim()).trim() : '';
-        if (rec) rec.abort();
-        if (state.meter) state.meter.endSegment();
-        rec = null;
-        mode = 'text';
-        typedPrefill = sofar;
-        maxMs = Math.max(maxMs, step.maxSeconds * 1000 * 2.5);
-        setControls(true, 'text');
-        $('#st-pace-wrap').hidden = true;
-        setPill('listening', 'Waiting for your answer');
-        startText(sofar ? sofar + ' ' : '');
-      }
-      ctl.switchToText = switchToText;
-
-      if (mode === 'voice') startVoice();
-      else startText('');
-
-      const timer = setInterval(() => {
-        if (ctl.done) return;
-        const elapsed = performance.now() - t0;
-        const left = Math.max(0, maxMs - elapsed);
-        setRing(left / maxMs, Math.ceil(left / 1000) + 's');
-        let text;
-        if (mode === 'voice' && rec) {
-          text = (rec.text() + ' ' + rec.interim()).trim();
-          const speakMs = rec.firstResultAt ? performance.now() - rec.firstResultAt + 600 : 0;
-          const words = liveStats(text, speakMs);
-          if (silenceMs && words >= 3) {
-            const sinceVoice = state.meter ? state.meter.msSinceVoice() : Infinity;
-            const sinceResult = rec.lastResultAt ? performance.now() - rec.lastResultAt : Infinity;
-            const quiet = Math.min(sinceVoice, sinceResult);
-            if (quiet > silenceMs) return finish({ auto: true });
-            $('#auto-hint').textContent = quiet > silenceMs - 1600 ? 'Finishing your answer in ' + Math.ceil((silenceMs - quiet) / 1000) + 's… keep talking to continue.' : '';
-          }
-        } else {
-          text = $('#answer-text').value;
-          liveStats(text, 0);
-        }
-        if (elapsed >= maxMs) finish({ timedOut: true });
-      }, 200);
-
-      async function finish(extra) {
-        const x = extra || {};
-        if (ctl.done) return;
-        ctl.done = true;
-        clearInterval(timer);
-        setControls(false, mode);
-        $('#auto-hint').textContent = '';
-        setPill('thinking', 'Thinking…');
-        let text = '';
-        let audio = null;
-        let timing;
-        const totalMs = performance.now() - t0;
-        if (mode === 'voice' && rec) {
-          text = (await rec.stop()) || rec.interim();
-          audio = state.meter ? state.meter.endSegment() : null;
-          const first = rec.firstResultAt;
-          const onset = audio && audio.onsetMs != null ? audio.onsetMs : first ? first - t0 - 500 : null;
-          // The recogniser's first-to-last result span is a floor for speaking time,
-          // in case the mic analysis missed quiet speech.
-          const recSpan = first && rec.lastResultAt ? rec.lastResultAt - first + 800 : 0;
-          const speakingMs = Math.max(audio && audio.speakingMs ? audio.speakingMs : 0, recSpan);
-          timing = { latencyMs: onset != null ? Math.max(0, onset) : null, speakingMs, totalMs };
-        } else {
-          text = $('#answer-text').value.trim();
-          timing = { latencyMs: null, speakingMs: 0, totalMs };
-        }
-        if (typedPrefill && mode === 'text' && !text) text = typedPrefill;
-        resolve({
-          text: x.skipped ? '' : text,
-          mode,
-          timing,
-          audio,
-          events: { repeats: ctl.repeats, skipped: !!x.skipped || !text.trim(), pasted: ctl.pasted, timedOut: !!x.timedOut },
-        });
-      }
-      ctl.finish = finish;
-
-      ctl.repeat = async () => {
-        if (ctl.done || ctl.repeating) return;
-        ctl.repeating = true;
-        ctl.repeats++;
-        state.integrity.repeats++;
-        if (rec) rec.pause();
-        if (state.meter && mode === 'voice') state.meter.endSegment();
-        setControls(false, mode);
-        await say(state.session.repeatSpeak(), { hideText: step.hideText, hiddenText: state.session.repeatSpeak()[0].text, display: step.prompt });
-        setControls(true, mode);
-        setPill('listening', mode === 'voice' ? 'Listening…' : 'Waiting for your answer');
-        t0 = performance.now();
-        if (rec && mode === 'voice') {
-          if (state.meter) state.meter.beginSegment();
-          rec.resume();
-        }
-        ctl.repeating = false;
+      const denied = err && (err.name === 'NotAllowedError' || err.name === 'SecurityError');
+      return {
+        ok: false,
+        denied,
+        message: denied
+          ? 'Microphone access is blocked. Click the 🔒 or 🎤 icon in the address bar, allow the microphone, then press Try again.'
+          : 'No working microphone was found (' + ((err && (err.name || err.message)) || 'unknown') + '). Plug one in or check your system settings, then press Try again.',
       };
-    });
+    }
   }
-
-  $('#btn-done').addEventListener('click', () => state.ctl && state.ctl.finish && state.ctl.finish({}));
-  $('#btn-skip').addEventListener('click', () => state.ctl && state.ctl.finish && state.ctl.finish({ skipped: true }));
-  $('#btn-repeat').addEventListener('click', () => state.ctl && state.ctl.repeat && state.ctl.repeat());
-  $('#btn-type').addEventListener('click', () => state.ctl && state.ctl.switchToText && state.ctl.switchToText());
-  $('#answer-text').addEventListener('paste', () => {
-    if (state.ctl && !state.ctl.done) {
-      state.ctl.pasted = true;
-      state.integrity.pastes++;
-    }
-  });
-  $('#answer-text').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-      e.preventDefault();
-      if (state.ctl) state.ctl.finish({});
-    }
-  });
-  document.addEventListener('keydown', (e) => {
-    if ($('#screen-interview').hidden || !state.ctl || state.ctl.done) return;
-    const tag = (e.target.tagName || '').toLowerCase();
-    if (tag === 'textarea' || tag === 'input' || tag === 'select') return;
-    if (e.key === 'Enter' && tag !== 'button') {
-      e.preventDefault();
-      if (!$('#btn-done').disabled) state.ctl.finish({});
-    } else if ((e.key === 'r' || e.key === 'R') && !$('#btn-repeat').disabled) {
-      state.ctl.repeat();
-    }
-  });
-  document.addEventListener('visibilitychange', () => {
-    if (state.running && document.hidden) state.integrity.tabSwitches++;
-  });
-
-  $('#btn-end').addEventListener('click', () => {
-    if (!state.running) return;
-    if (!confirm('End the interview now? You will get a scoresheet for the questions answered so far.')) return;
-    state.endRequested = true;
-    Speech.cancel();
-    if (state.ctl && !state.ctl.done) state.ctl.finish({});
-  });
 
   async function startCamera() {
     try {
@@ -780,28 +383,537 @@
     if (state.camStream) state.camStream.getTracks().forEach((t) => t.stop());
     state.camStream = null;
     $('#cam').hidden = true;
+    if (state.recorder) state.recorder.discard();
+    state.recorder = null;
     if (state.meter) state.meter.stop();
     state.meter = null;
   }
+
+  // ------------------------------------------------------------ call UI
+  const STATE_TEXT = { idle: 'Connecting…', speaking: 'Aria is speaking…', listening: 'Listening… go ahead', thinking: 'One moment…' };
+
+  function setUi(mode, text) {
+    state.ui = mode;
+    const orb = $('#orb');
+    orb.dataset.state = mode === 'speaking' && $('#avatar').classList.contains('customer') ? 'customer' : mode;
+    const st = $('#state-pill');
+    st.dataset.state = mode;
+    st.textContent = text || STATE_TEXT[mode] || '';
+  }
+
+  function setPersona(who) {
+    $('#avatar').classList.toggle('customer', who === 'customer');
+    $('#who-label').textContent = who === 'customer' ? 'Customer · mock call' : 'Aria · AI Interviewer';
+    $('#cap-who').textContent = who === 'customer' ? 'Customer' : 'Aria';
+  }
+
+  function setButtons(listening, canRepeat) {
+    $('#btn-done').disabled = !listening;
+    $('#btn-skip').disabled = !listening;
+    $('#btn-repeat').disabled = !listening || canRepeat === false;
+  }
+
+  function setTimer(fraction) {
+    const f = Math.max(0, Math.min(1, fraction));
+    $('#ring-fill').style.strokeDashoffset = String(653.5 * (1 - f));
+    $('#orb').classList.toggle('low', f < 0.2);
+  }
+
+  function renderDots(step) {
+    const dots = $('#dots');
+    if (dots.children.length !== step.total) {
+      dots.innerHTML = '';
+      for (let i = 0; i < step.total; i++) dots.appendChild(document.createElement('i'));
+    }
+    Array.from(dots.children).forEach((d, i) => {
+      d.className = i < step.index ? 'done' : i === step.index ? 'now' : '';
+    });
+    $('#room-q').textContent = 'Question ' + (step.index + 1) + ' of ' + step.total + ' · ' + step.stageLabel;
+    $('#roleplay-banner').hidden = step.kind !== 'roleplay';
+  }
+
+  function setCaptions(on) {
+    settings.captions = on;
+    store.set(SETTINGS_KEY, settings);
+    $('#captions').hidden = !on;
+    $('#btn-cc').setAttribute('aria-pressed', on ? 'true' : 'false');
+  }
+  $('#btn-cc').addEventListener('click', () => setCaptions(!settings.captions));
+
+  function notice(msg, withActions) {
+    const n = $('#notice');
+    n.textContent = msg || '';
+    n.hidden = !msg;
+    $('#notice-actions').hidden = !withActions;
+  }
+
+  /** Wait for "Try again" (true) or "Continue anyway" (false). */
+  function waitForUser(message) {
+    notice(message, true);
+    return new Promise((resolve) => {
+      state.userAction = (v) => {
+        state.userAction = null;
+        notice('');
+        resolve(v);
+      };
+    });
+  }
+  $('#btn-retry-mic').addEventListener('click', () => state.userAction && state.userAction(true));
+  $('#btn-continue-anyway').addEventListener('click', () => state.userAction && state.userAction(false));
+
+  function startElapsed() {
+    clearInterval(state.elapsedTimer);
+    state.elapsedTimer = setInterval(() => {
+      const s = Math.floor((Date.now() - state.startedAt) / 1000);
+      $('#room-elapsed').textContent = Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+    }, 1000);
+  }
+
+  // Captions: Aria's words (with the current word highlighted) and the candidate's live words.
+  function captionWords(text) {
+    const cap = $('#caption');
+    cap.innerHTML = '';
+    const re = /\S+\s*/g;
+    let m;
+    while ((m = re.exec(text))) {
+      const span = document.createElement('span');
+      span.textContent = m[0];
+      span.dataset.at = String(m.index);
+      cap.appendChild(span);
+    }
+  }
+  function captionPlain(text, note) {
+    const cap = $('#caption');
+    cap.textContent = text;
+    if (note) {
+      const n = document.createElement('em');
+      n.textContent = ' ' + note;
+      cap.appendChild(n);
+    }
+  }
+  function highlightWordAt(charIndex) {
+    let current = null;
+    for (const span of $('#caption').children) {
+      if (span.dataset.at == null) continue;
+      if (Number(span.dataset.at) <= charIndex) current = span;
+      span.classList.remove('w-now');
+    }
+    if (current) current.classList.add('w-now');
+  }
+  function renderYou(fin, interim) {
+    const live = $('#live');
+    live.textContent = fin ? fin + ' ' : '';
+    if (interim) {
+      const s = document.createElement('span');
+      s.className = 'interim';
+      s.textContent = interim;
+      live.appendChild(s);
+    }
+    if (!fin && !interim) live.textContent = '…';
+  }
+
+  // The orb breathes with whoever is talking: Aria's speech or the candidate's mic level.
+  let orbRaf = 0;
+  let orbLvl = 0;
+  let mouthLevel = 0;
+  let speakingSince = 0;
+  let lastBoundary = 0;
+  function orbLoop() {
+    const now = performance.now();
+    if (speakingSince && now - lastBoundary > 420) mouthLevel = Math.max(mouthLevel, 0.3 + 0.4 * Math.abs(Math.sin(now / 95)));
+    mouthLevel *= 0.85;
+    const target = state.ui === 'speaking' ? mouthLevel : state.ui === 'listening' && state.meter ? state.meter.level : 0;
+    orbLvl += (target - orbLvl) * 0.3;
+    $('#orb').style.setProperty('--lvl', orbLvl.toFixed(3));
+    $('#av-mouth').style.transform = 'scaleY(' + (1 + (state.ui === 'speaking' ? mouthLevel : 0) * 2.6).toFixed(2) + ')';
+    orbRaf = $('#screen-interview').hidden ? 0 : requestAnimationFrame(orbLoop);
+  }
+  function startOrb() {
+    if (!orbRaf) orbRaf = requestAnimationFrame(orbLoop);
+  }
+
+  // ------------------------------------------------------------ speaking
+  /**
+   * Speak { text, voice } segments. opts.hideText marks the spoken-only listening test:
+   * its details are never shown in captions.
+   */
+  async function say(segments, opts) {
+    const o = opts || {};
+    if (!o.keepYou) $('#live').textContent = '';
+    for (const seg of segments) {
+      if (state.endRequested && !o.force) break;
+      setPersona(seg.voice);
+      const hidden = o.hideText && seg.text === o.hiddenText;
+      if (hidden && Speech.ttsSupported) captionPlain(o.display || 'Listen carefully…', '(spoken only)');
+      else captionWords(seg.text);
+      setUi('speaking', seg.voice === 'customer' ? 'The customer is speaking…' : 'Aria is speaking…');
+      speakingSince = performance.now();
+      lastBoundary = 0;
+      const voice = seg.voice === 'customer' ? state.voices.customer : state.voices.interviewer;
+      await Speech.speak(seg.text, {
+        voice,
+        rate: seg.voice === 'customer' ? Math.min(1.3, settings.rate * 1.05) : settings.rate,
+        pitch: seg.voice === 'customer' ? 0.95 : 1.02,
+        muted: !Speech.ttsSupported,
+        mutedDelayMs: Math.max(1500, seg.text.split(/\s+/).length * 280),
+        onBoundary: (i) => {
+          lastBoundary = performance.now();
+          mouthLevel = 1;
+          if (!hidden) highlightWordAt(i);
+        },
+      });
+      speakingSince = 0;
+      highlightWordAt(-1);
+      if (segments.length > 1) await sleep(220);
+    }
+  }
+
+  async function pickVoices() {
+    await Speech.loadVoices();
+    state.voices = Speech.pickVoices({ accent: settings.accent, interviewerVoice: settings.interviewerVoice, customerVoice: settings.customerVoice });
+  }
+
+  // ------------------------------------------------------------ listening (hands-free)
+  function stepQuestion(step) {
+    return step && Questions.byId[step.questionId];
+  }
+
+  /**
+   * Listen to one answer, hands-free. Resolves with the answer for the engine:
+   * { text, mode, timing, audio, events, clip }.
+   */
+  function listenTurn(step) {
+    return new Promise((resolve) => {
+      const q = stepQuestion(step);
+      const ctl = { done: false, busy: false, repeats: 0, nudges: 0 };
+      state.ctl = ctl;
+      const maxMs = (step.maxSeconds || 120) * 1000;
+      const idealWords = q && q.ideal ? q.ideal[0] : null;
+      let t0 = performance.now();
+      let rec = null;
+      let timer = null;
+      let lastText = '';
+      let lastTextAt = performance.now();
+      let fatal = null;
+
+      function begin() {
+        lastText = '';
+        lastTextAt = performance.now();
+        renderYou('', '');
+        rec = makeRecognizer({
+          onUpdate: (fin, interim) => {
+            renderYou(fin, interim);
+            const t = (fin + ' ' + interim).trim();
+            if (t !== lastText) {
+              lastText = t;
+              lastTextAt = performance.now();
+            }
+            if (Voice.wordCount(t) >= 3) $('#btn-repeat').disabled = true;
+          },
+          onError: (code, message, isFatal) => {
+            if (isFatal && !ctl.done) fatal = { code, message };
+          },
+          onStatus: (text) => setUi(state.ui, text),
+        });
+        if (state.meter) state.meter.beginSegment();
+        if (state.recorder) state.recorder.start();
+        rec.start();
+        setUi('listening', step.kind === 'roleplay' ? 'Your turn: talk to the customer' : 'Listening… go ahead');
+        setButtons(true, true);
+        timer = setInterval(tick, 150);
+      }
+
+      function pauseListening() {
+        clearInterval(timer);
+        if (rec) rec.pause();
+        if (state.meter) state.meter.pauseSegment();
+        if (state.recorder) state.recorder.pause();
+      }
+      function resumeListening() {
+        if (state.meter) state.meter.resumeSegment();
+        if (state.recorder) state.recorder.resume();
+        if (rec) rec.resume();
+        setUi('listening', step.kind === 'roleplay' ? 'Your turn: talk to the customer' : 'Listening… go ahead');
+        timer = setInterval(tick, 150);
+      }
+
+      async function tick() {
+        if (ctl.done || ctl.busy) return;
+        if (fatal) return onFatal();
+        const now = performance.now();
+        const elapsed = now - t0;
+        setTimer(1 - elapsed / maxMs);
+        const text = rec ? (rec.text() + ' ' + rec.interim()).trim() : '';
+        const live = rec && rec.live !== false;
+        const words = live ? Voice.wordCount(text) : null;
+        const spokeMs = state.meter ? state.meter.segmentVoicedMs() : null;
+
+        // Spoken commands — act once the words have settled for a moment.
+        if (live && text && now - lastTextAt > 700) {
+          const cmd = Voice.parseCommand(text);
+          if (cmd.command === 'repeat' && ctl.repeats < 3) return repeat();
+          if (cmd.command === 'skip') return finish({ skipped: true, command: 'skip' });
+          if (cmd.command === 'done' && now - lastTextAt > 900) return finish({ command: 'done' });
+        }
+
+        const started = (words != null && words >= 2) || (spokeMs != null && spokeMs >= 1200);
+        if (!started) {
+          const idle = Voice.idleAction({ elapsedMs: elapsed, maxMs, nudgesGiven: ctl.nudges });
+          if (idle.action !== 'none') return idleNudge(idle);
+        } else if (settings.silenceSec > 0) {
+          const eot = Voice.endOfTurn({
+            words,
+            spokeMs,
+            sinceVoiceMs: state.meter ? state.meter.msSinceVoice() : null,
+            sinceResultMs: live && rec.lastResultAt ? now - rec.lastResultAt : null,
+            patienceMs: settings.silenceSec * 1000,
+            idealWords,
+            roleplay: step.kind === 'roleplay',
+          });
+          if (eot.end) return finish({ auto: true });
+        }
+        if (elapsed >= maxMs) return finish({ timedOut: true });
+      }
+
+      async function idleNudge(idle) {
+        ctl.busy = true;
+        ctl.nudges++;
+        pauseListening();
+        await say([{ text: idle.say, voice: 'interviewer' }]);
+        if (ctl.done) return;
+        ctl.busy = false;
+        if (idle.action === 'give-up') return finish({ skipped: true, timedOut: true });
+        captionWords(step.prompt);
+        resumeListening();
+      }
+
+      async function repeat() {
+        if (ctl.done || ctl.busy) return;
+        ctl.busy = true;
+        ctl.repeats++;
+        state.integrity.repeats++;
+        clearInterval(timer);
+        if (rec) rec.abort();
+        rec = null;
+        if (state.meter) state.meter.endSegment();
+        if (state.recorder) state.recorder.discard();
+        setButtons(false);
+        const again = state.session.repeatSpeak();
+        await say(again, { hideText: step.hideText, hiddenText: q && q.text, display: step.prompt });
+        if (ctl.done) return;
+        t0 = performance.now();
+        ctl.nudges = 0;
+        ctl.busy = false;
+        begin();
+      }
+      ctl.repeat = repeat;
+
+      async function onFatal() {
+        const f = fatal;
+        fatal = null;
+        ctl.busy = true;
+        clearInterval(timer);
+        if (rec) rec.abort();
+        rec = null;
+        if (state.meter) state.meter.endSegment();
+        if (state.recorder) state.recorder.discard();
+        // The browser's recogniser is unavailable (blocked, offline, Brave…): switch to offline Whisper.
+        if (state.engine === 'browser' && hasWhisper() && f.code !== 'not-allowed' && f.code !== 'audio-capture') {
+          state.engine = 'whisper';
+          setUi('thinking', 'Switching to the offline speech engine…');
+          await say([{ text: 'One moment, I am switching to my offline listening mode.', voice: 'interviewer' }]);
+          const ok = await AII.Whisper.preload((p) => setUi('thinking', 'Downloading the offline speech model… ' + Math.round(p * 100) + '%'));
+          if (ok) {
+            await say([{ text: 'Thanks for waiting. Please give your answer again.', voice: 'interviewer' }]);
+            t0 = performance.now();
+            ctl.busy = false;
+            return begin();
+          }
+        }
+        setUi('idle', 'Microphone problem');
+        const retry = await waitForUser(f.message + ' Press Try again when ready, or Continue anyway to skip this question.');
+        if (ctl.done) return;
+        if (retry) {
+          if (!state.meter || !state.meter.running) await ensureMic();
+          if (state.meter && state.meter.stream && Recorder && settings.record && !state.recorder) state.recorder = Recorder.createRecorder(state.meter.stream);
+          t0 = performance.now();
+          ctl.busy = false;
+          return begin();
+        }
+        ctl.busy = false;
+        finish({ skipped: true });
+      }
+
+      async function finish(x) {
+        if (ctl.done) return;
+        ctl.done = true;
+        clearInterval(timer);
+        setButtons(false);
+        setUi('thinking', state.engine === 'whisper' && !x.skipped ? 'Transcribing your answer…' : 'One moment…');
+        let text = '';
+        if (rec) {
+          if (x.skipped) rec.abort();
+          else text = (await rec.stop()) || rec.interim() || '';
+        }
+        const audio = state.meter ? state.meter.endSegment() : null;
+        const clip = state.recorder && !x.skipped ? await state.recorder.stop() : (state.recorder && state.recorder.discard(), null);
+
+        // Commands that only show up in the final transcript (e.g. the offline engine).
+        let skipped = !!x.skipped;
+        const cmd = Voice.parseCommand(text);
+        if (!x.command && !skipped && cmd.command === 'repeat' && ctl.repeats < 3) {
+          ctl.done = false;
+          rec = null;
+          return repeat();
+        }
+        if (!x.command && cmd.command === 'skip') skipped = true;
+        if (cmd.command === 'done') text = cmd.text;
+
+        const totalMs = performance.now() - t0;
+        const first = rec && rec.firstResultAt;
+        const lastRes = rec && rec.lastResultAt;
+        const onset = audio && audio.onsetMs != null ? audio.onsetMs : first ? first - t0 - 500 : null;
+        const recSpan = first && lastRes ? lastRes - first + 800 : 0;
+        const speakingMs = Math.max(audio && audio.speakingMs ? audio.speakingMs : 0, recSpan);
+        resolve({
+          text: skipped ? '' : text,
+          mode: 'voice',
+          timing: { latencyMs: onset != null ? Math.max(0, onset) : null, speakingMs, totalMs },
+          audio,
+          clip,
+          events: { repeats: ctl.repeats, skipped: skipped || !text.trim(), pasted: false, timedOut: !!x.timedOut },
+        });
+      }
+      ctl.finish = finish;
+
+      begin();
+    });
+  }
+
+  $('#btn-done').addEventListener('click', () => state.ctl && state.ctl.finish && state.ctl.finish({ command: 'button' }));
+  $('#btn-skip').addEventListener('click', () => state.ctl && state.ctl.finish && state.ctl.finish({ skipped: true, command: 'button' }));
+  $('#btn-repeat').addEventListener('click', () => state.ctl && state.ctl.repeat && state.ctl.repeat());
+  document.addEventListener('keydown', (e) => {
+    if ($('#screen-interview').hidden) return;
+    const tag = (e.target.tagName || '').toLowerCase();
+    if (tag === 'input' || tag === 'select' || tag === 'textarea') return;
+    if (e.key === 'c' || e.key === 'C') return setCaptions(!settings.captions);
+    if (!state.ctl || state.ctl.done) return;
+    if (e.key === 'Enter' && tag !== 'button' && !$('#btn-done').disabled) {
+      e.preventDefault();
+      state.ctl.finish({ command: 'button' });
+    } else if ((e.key === 'r' || e.key === 'R') && !$('#btn-repeat').disabled) {
+      state.ctl.repeat();
+    }
+  });
+  document.addEventListener('visibilitychange', () => {
+    if (state.running && document.hidden) state.integrity.tabSwitches++;
+  });
+
+  $('#btn-end').addEventListener('click', () => {
+    if (!state.running) return;
+    if (!confirm('End the interview now? You will get a scoresheet for the questions answered so far.')) return;
+    state.endRequested = true;
+    Speech.cancel();
+    if (state.userAction) state.userAction(false);
+    if (state.ctl && !state.ctl.done && state.ctl.finish) state.ctl.finish({ command: 'end' });
+  });
 
   function abortInterview() {
     state.endRequested = true;
     state.running = false;
     state.discard = true;
     Speech.cancel();
-    if (state.ctl && !state.ctl.done) state.ctl.finish({ skipped: true });
+    if (state.userAction) state.userAction(false);
+    if (state.ctl && !state.ctl.done && state.ctl.finish) state.ctl.finish({ skipped: true });
     clearInterval(state.elapsedTimer);
     stopMedia();
   }
 
-  // ------------------------------------------------------------ the interview loop
-  async function startInterview() {
-    readSetup();
+  // ------------------------------------------------------------ mic check
+  /** Ask the candidate to say "I'm ready" and confirm we can hear (and understand) them. */
+  async function micCheck() {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      if (state.endRequested) return false;
+      const prompt = attempt === 0
+        ? "Before we begin, let's check your microphone. Please say: I'm ready."
+        : "I couldn't hear you. Please check your microphone isn't muted, then say: I'm ready.";
+      await say([{ text: prompt, voice: 'interviewer' }]);
+      await sleep(250);
+      const heard = await listenBrief(9000);
+      if (heard.ok) return true;
+      if (heard.fatal) {
+        if (state.engine === 'browser' && hasWhisper() && heard.code !== 'not-allowed' && heard.code !== 'audio-capture') {
+          state.engine = 'whisper';
+          const ok = await prepareWhisper();
+          if (ok) continue;
+        }
+        const retry = await waitForUser(heard.message + ' Press Try again when ready.');
+        if (!retry) return true;
+        if (!state.meter || !state.meter.running) await ensureMic();
+        attempt = -1; // start over
+      } else if (attempt === 1) {
+        const retry = await waitForUser('Aria can’t hear you yet. Check that the right microphone is selected and not muted (headset switch, system settings), then press Try again.');
+        if (!retry) return true;
+        attempt = -1;
+      }
+    }
+    return true;
+  }
+
+  /** Listen briefly for any speech. Resolves { ok } or { fatal, code, message }. */
+  function listenBrief(ms) {
+    return new Promise((resolve) => {
+      let done = false;
+      setUi('listening', 'Say: “I’m ready”');
+      renderYou('', '');
+      if (state.meter) state.meter.beginSegment();
+      const finishWith = (r) => {
+        if (done) return;
+        done = true;
+        clearInterval(timer);
+        if (rec) rec.abort();
+        if (state.meter) state.meter.endSegment();
+        resolve(r);
+      };
+      const rec = makeRecognizer({
+        onUpdate: (fin, interim) => {
+          renderYou(fin, interim);
+          if (Voice.wordCount(fin + ' ' + interim) >= 1) finishWith({ ok: true });
+        },
+        onError: (code, message, fatal) => {
+          if (fatal) finishWith({ fatal: true, code, message });
+        },
+      });
+      const t0 = performance.now();
+      const timer = setInterval(() => {
+        // The offline engine has no live words: a second of voice is proof enough.
+        if (rec && rec.live === false && state.meter && state.meter.segmentVoicedMs() >= 900) return finishWith({ ok: true });
+        if (performance.now() - t0 > ms) finishWith({ ok: false });
+      }, 150);
+      rec.start();
+    });
+  }
+
+  async function prepareWhisper() {
+    setUi('thinking', 'Preparing the offline speech engine…');
+    if (!(AII.Whisper.isCached && AII.Whisper.isCached())) {
+      await say([{ text: 'Give me a moment while I get my offline listening ready. This only happens the first time.', voice: 'interviewer' }]);
+    }
+    const ok = await AII.Whisper.preload((p) => setUi('thinking', 'Downloading the offline speech model… ' + Math.round(p * 100) + '%'));
+    if (!ok) {
+      notice('The offline speech model could not be downloaded. Check your internet connection, or open this page in Chrome or Edge.');
+    }
+    return ok;
+  }
+
+  // ------------------------------------------------------------ the call
+  async function startCall() {
     state.session = Engine.createSession({
       length: settings.length,
       role: settings.role,
       experience: settings.experience,
-      mode: settings.mode,
+      mode: 'voice',
       name: settings.name,
       interviewerName: 'Aria',
       seed: (Math.random() * 2147483647) | 0,
@@ -810,37 +922,76 @@
     state.endRequested = false;
     state.discard = false;
     state.running = true;
+    state.clips = [];
+    state.engine = resolveEngine(settings.engine);
     state.startedAt = Date.now();
     notice('');
     show('interview');
-    setControls(false, settings.mode);
-    $('#live').innerHTML = '<span class="placeholder">The transcript appears here as you speak.</span>';
-    $('#answer-text').value = '';
-    $('#voice-area').hidden = settings.mode !== 'voice';
-    $('#text-area').hidden = settings.mode === 'voice';
-    setRing(1, '–');
+    setCaptions(settings.captions || !Speech.ttsSupported);
+    setButtons(false);
+    setPersona('interviewer');
+    setTimer(1);
+    $('#room-q').textContent = 'Connecting…';
+    $('#dots').innerHTML = '';
+    $('#roleplay-banner').hidden = true;
+    captionWords('');
+    renderYou('', '');
+    setUi('idle', 'Connecting…');
+    startOrb();
     startElapsed();
-    await pickVoices();
-    if (settings.mode === 'voice') {
-      const ok = await ensureMeter(null);
-      if (!ok) notice('Microphone analysis is unavailable, so pace, pauses and tone will not be scored. Speech recognition may still work.');
+
+    // Microphone first: without it there is no interview.
+    let mic = await ensureMic();
+    while (!mic.ok && !state.discard) {
+      setUi('idle', 'Microphone needed');
+      const retry = await waitForUser(mic.message);
+      if (!retry) return endWithoutAnswers('The interview needs a working microphone. Please allow it and try again.');
+      mic = await ensureMic();
     }
+    if (state.discard) return;
+    if (settings.record && Recorder && state.meter && state.meter.stream) state.recorder = Recorder.createRecorder(state.meter.stream);
     if (settings.camera) startCamera();
+    await pickVoices();
+    if (state.engine === 'whisper' && !(await prepareWhisper())) {
+      if (!Speech.sttSupported) return endWithoutAnswers('The offline speech model could not be downloaded. Check your internet connection and try again, or use Chrome or Edge.');
+      state.engine = 'browser';
+    }
 
     const session = state.session;
-    $('#room-q').textContent = 'Introduction';
-    await say([{ text: session.opening(), voice: 'interviewer' }]);
+    const first = String(settings.name).trim().split(/\s+/)[0];
+    await say([{ text: 'Hi ' + first + "! I'm Aria, and I'll be interviewing you today. You can just talk to me normally, no buttons needed.", voice: 'interviewer' }]);
+    await micCheck();
+    if (state.discard) return;
+    if (!state.endRequested) {
+      await say([{ text: 'Perfect, I can hear you clearly. ' + session.briefing(), voice: 'interviewer' }]);
+    }
+
     let step = session.current();
     while (step && !state.endRequested) {
-      renderStep(step);
-      const q = Questions.byId[step.questionId];
+      renderDots(step);
+      const q = stepQuestion(step);
       await say(step.speak, { hideText: step.hideText, hiddenText: q && q.text, display: step.prompt });
       if (state.endRequested) break;
-      showPrompt(step);
-      const answer = await collectAnswer(step);
+      // Some engines report the end of speech a moment before the audio has fully played.
+      await sleep(250);
+      if (step.hideText) captionPlain(step.prompt);
+      else captionWords(step.prompt);
+      setPersona(step.kind === 'roleplay' ? 'customer' : 'interviewer');
+      const answer = await listenTurn(step);
       if (state.discard) return;
+      if (answer.clip) {
+        state.clips.push({
+          qid: step.questionId,
+          kind: step.kind === 'followup' ? 'followup' : step.kind === 'roleplay' ? 'turn' : 'main',
+          index: step.kind === 'roleplay' ? step.turn : 0,
+          blob: answer.clip.blob,
+          mimeType: answer.clip.mimeType,
+          durationMs: answer.clip.durationMs,
+        });
+      }
       const res = session.submit(answer);
       if (res.done) {
+        $('#dots').lastChild && ($('#dots').lastChild.className = 'done');
         await say(res.speak, { force: true });
         break;
       }
@@ -849,27 +1000,21 @@
     if (state.discard) return;
     if (state.endRequested && !session.finished) {
       session.endEarly();
-      await say([{ text: 'Alright, we will stop here. Thank you for your time. Preparing your scoresheet now.', voice: 'interviewer' }], { force: true });
+      await say([{ text: "Alright, we'll stop here. Thank you for your time. I'm preparing your scoresheet now.", voice: 'interviewer' }], { force: true });
     }
     state.running = false;
     clearInterval(state.elapsedTimer);
     await finishInterview();
   }
 
-  function showPrompt(step) {
-    // Keep the question on screen while answering (never the hidden listening details).
-    const cap = $('#caption');
-    cap.innerHTML = '';
-    const s = document.createElement('span');
-    s.textContent = step.prompt;
-    cap.appendChild(s);
-    if (step.hideText) {
-      const note = document.createElement('span');
-      note.className = 'listen-note';
-      note.textContent = '🎧 You may press Repeat once, but it lowers the listening score.';
-      cap.appendChild(note);
-    }
-    setPersona(step.kind === 'roleplay' ? 'customer' : 'interviewer');
+  function endWithoutAnswers(message) {
+    state.running = false;
+    clearInterval(state.elapsedTimer);
+    stopMedia();
+    Speech.cancel();
+    goHome();
+    $('#setup-note').textContent = message;
+    $('#setup').scrollIntoView({ behavior: 'smooth' });
   }
 
   // ------------------------------------------------------------ results
@@ -888,10 +1033,11 @@
   async function finishInterview() {
     stopMedia();
     show('processing');
+    $('#proc-title').textContent = 'Preparing your scoresheet…';
     const useLlm = settings.llmEnabled && settings.llmModel;
     const steps = ['Collecting your answers', 'Analysing communication & confidence', 'Scoring thought process & content'].concat(useLlm ? ['Local AI review', 'Writing the summary'] : []).concat(['Building your scoresheet']);
     procSteps(steps, 0);
-    await new Promise((r) => setTimeout(r, 250));
+    await sleep(250);
     const items = state.session.results();
     if (!items.length) {
       alert('No answers were recorded, so there is nothing to score.');
@@ -899,9 +1045,9 @@
       return;
     }
     procSteps(steps, 1);
-    await new Promise((r) => setTimeout(r, 300));
+    await sleep(300);
     procSteps(steps, 2);
-    await new Promise((r) => setTimeout(r, 300));
+    await sleep(300);
 
     const llmCfg = { url: settings.llmUrl, model: settings.llmModel, timeoutMs: 120000 };
     if (useLlm) {
@@ -916,7 +1062,7 @@
         $('#proc-title').textContent = 'Local AI is reviewing answer ' + i + ' of ' + reviewable.length + '…';
         it.llm = await LLM.evaluate(llmCfg, {
           role: (Questions.ROLES[settings.role] || Questions.ROLES.general).label,
-          question: it.question.type === 'roleplay' ? it.question.text : it.question.text,
+          question: it.question.text,
           answer: it.mainText != null ? it.mainText : it.response.text,
           followUps: it.followUps,
           turns: it.question.type === 'roleplay' ? it.response.turns : null,
@@ -926,7 +1072,7 @@
 
     const sheet = Scoring.buildScoresheet({
       candidate: { name: settings.name, role: settings.role, experience: settings.experience },
-      config: { length: settings.length, mode: settings.mode, accent: settings.accent },
+      config: { length: settings.length, mode: 'voice', accent: settings.accent, engine: state.engine },
       items,
       startedAt: state.startedAt,
       endedAt: Date.now(),
@@ -945,31 +1091,74 @@
     }
     $('#proc-skip').hidden = true;
     procSteps(steps, steps.length - 1);
-    $('#proc-title').textContent = 'Preparing your scoresheet…';
-    saveSheet(sheet);
-    showReport(sheet, false);
+    saveSheet(sheet, state.clips);
+    showReport(sheet, { clips: state.clips, speak: true });
   }
   $('#proc-skip').addEventListener('click', () => {
     state.skipLlm = true;
     $('#proc-title').textContent = 'Skipping the AI review…';
   });
 
-  function showReport(sheet, isSample) {
-    state.sheet = sheet;
-    Report.mount($('#report-root'), sheet);
-    const banner = $('#sample-banner');
-    banner.hidden = !isSample;
-    if (isSample) banner.textContent = 'This is a sample scoresheet from a simulated "' + isSample + '" candidate. Start your own interview to get yours.';
-    show('report');
-    document.title = 'Scoresheet · ' + (sheet.candidate.name || 'Candidate') + ' · AI Interviewer';
+  // ------------------------------------------------------------ report
+  function clipMap(clips) {
+    state.clipUrls.forEach((u) => URL.revokeObjectURL(u));
+    state.clipUrls = [];
+    const map = new Map();
+    const order = { main: 0, followup: 1, turn: 2 };
+    (clips || []).slice().sort((a, b) => order[a.kind] - order[b.kind] || a.index - b.index).forEach((c) => {
+      if (!c.blob) return;
+      const url = URL.createObjectURL(c.blob);
+      state.clipUrls.push(url);
+      const label = c.kind === 'turn' ? 'Reply ' + ((c.index || 0) + 1) : c.kind === 'followup' ? 'Follow-up' : 'Answer';
+      if (!map.has(c.qid)) map.set(c.qid, []);
+      map.get(c.qid).push({ label, url });
+    });
+    return map;
   }
 
+  function showReport(sheet, opts) {
+    const o = opts || {};
+    state.sheet = sheet;
+    stopFeedbackAudio();
+    Report.mount($('#report-root'), sheet, { clips: clipMap(o.clips) });
+    const banner = $('#sample-banner');
+    banner.hidden = !o.sample;
+    if (o.sample) banner.textContent = 'This is a sample scoresheet from a simulated "' + o.sample + '" candidate. Start your own voice interview to get yours.';
+    show('report');
+    document.title = 'Scoresheet · ' + (sheet.candidate.name || 'Candidate') + ' · AI Interviewer';
+    if (o.speak) setTimeout(() => playFeedback(), 500);
+  }
+
+  // Aria reads the result aloud — the interview ends the way it started: in audio.
+  let feedbackPlaying = false;
+  async function playFeedback() {
+    if (!state.sheet || !Speech.ttsSupported) return;
+    if (feedbackPlaying) return stopFeedbackAudio();
+    feedbackPlaying = true;
+    const btn = $('#rep-listen');
+    btn.textContent = '■ Stop';
+    btn.setAttribute('aria-pressed', 'true');
+    await pickVoices();
+    await Speech.speak(Scoring.spokenFeedback(state.sheet), { voice: state.voices.interviewer, rate: settings.rate });
+    if (feedbackPlaying) stopFeedbackAudio();
+  }
+  function stopFeedbackAudio() {
+    if (feedbackPlaying) Speech.cancel();
+    feedbackPlaying = false;
+    const btn = $('#rep-listen');
+    if (btn) {
+      btn.textContent = '🔊 Hear my feedback';
+      btn.setAttribute('aria-pressed', 'false');
+    }
+  }
+  $('#rep-listen').addEventListener('click', () => playFeedback());
+
   $('#rep-home').addEventListener('click', () => {
-    document.title = 'AI Interviewer';
+    stopFeedbackAudio();
     goHome();
   });
   $('#rep-again').addEventListener('click', () => {
-    document.title = 'AI Interviewer';
+    stopFeedbackAudio();
     goHome();
     $('#setup').scrollIntoView({ behavior: 'smooth' });
   });
@@ -1008,7 +1197,7 @@
       startedAt: Date.now() - 15 * 60000,
       seed: 7,
     });
-    showReport(sheet, profile);
+    showReport(sheet, { sample: profile });
   }));
 
   // ------------------------------------------------------------ boot

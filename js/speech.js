@@ -141,6 +141,27 @@
     if (synth) synth.cancel();
   }
 
+  /**
+   * Call synchronously inside a click handler: some browsers (iOS Safari, Chrome
+   * on Android) only allow speech that was first started by a user gesture.
+   */
+  function unlock() {
+    if (!synth) return;
+    try {
+      const u = new SpeechSynthesisUtterance(' ');
+      u.volume = 0;
+      synth.speak(u);
+      if (synth.paused) synth.resume();
+    } catch (e) { /* ignore */ }
+  }
+
+  // Chrome pauses speech in background tabs and occasionally gets stuck "paused".
+  if (synth && root.document) {
+    root.document.addEventListener('visibilitychange', () => {
+      if (!root.document.hidden && synth.paused) synth.resume();
+    });
+  }
+
   // ------------------------------------------------------------ recognition
 
   const FATAL = { 'not-allowed': 'Microphone permission was denied.', 'service-not-allowed': 'Speech recognition is blocked in this browser.', 'audio-capture': 'No microphone was found.', 'language-not-supported': 'This accent/language is not supported by the speech engine.' };
@@ -291,6 +312,7 @@
       },
       text: finalText,
       interim: () => interim.trim(),
+      live: true, // gives words while the candidate is speaking
       get firstResultAt() { return firstResultAt; },
       get lastResultAt() { return lastResultAt; },
       get active() { return active; },
@@ -305,6 +327,7 @@
     pickVoices,
     speak,
     cancel,
+    unlock,
     chunks,
     createRecognizer,
   };

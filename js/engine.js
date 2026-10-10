@@ -76,6 +76,15 @@
         ' minutes. ' + how + " Let's get started.";
     }
 
+    /** Spoken briefing for the hands-free voice interview. */
+    function briefing() {
+      const role = Questions.ROLES[o.role] || Questions.ROLES.general;
+      const p = Questions.PLANS[o.length] || Questions.PLANS.standard;
+      return 'This interview is for the ' + role.short + ' position. It has ' + items.length + ' questions and takes about ' +
+        p.minutes.replace(/\s*[–-]\s*/, ' to ') + ' minutes. If you want to hear a question again, just say repeat. ' +
+        "When you finish an answer, simply pause, or say that's all. Let's get started.";
+    }
+
     function questionStep(item, lead) {
       const q = item.question;
       const speak = [];
@@ -304,6 +313,7 @@
       options: o,
       plan,
       opening,
+      briefing,
       current,
       submit,
       repeatSpeak,

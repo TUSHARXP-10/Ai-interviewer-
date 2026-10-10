@@ -68,7 +68,13 @@
       '<span class="chip"><span class="chip-k">' + esc(d.short) + '</span> ' + scores[d.key] + '</span>').join('') + '</div>';
   }
 
-  function questionDetail(q, i) {
+  function clipPlayers(list) {
+    if (!list || !list.length) return '';
+    return '<div class="clips"><span class="eyebrow">🎧 Your recording</span>' + list.map((c) =>
+      '<div class="clip"><span class="clip-label">' + esc(c.label) + '</span><audio controls preload="metadata" src="' + esc(c.url) + '"></audio></div>').join('') + '</div>';
+  }
+
+  function questionDetail(q, i, clips) {
     const parts = [];
     // The summary line already shows the question; repeat it only when it differs (e.g. spoken-only listening details).
     if (q.display && q.display !== q.text) parts.push('<p class="q-text"><span class="eyebrow">What the interviewer said</span>' + esc(q.text) + '</p>');
@@ -95,6 +101,7 @@
       parts.push('<ul class="checklist">' + q.call.map((it) =>
         '<li class="' + (it.hit ? 'ok' : 'miss') + '"><span aria-hidden="true">' + (it.hit ? '✓' : '✕') + '</span> ' + esc(it.label) + (it.hit && it.evidence ? ' <span class="muted">— “' + esc(it.evidence) + '”</span>' : '') + '</li>').join('') + '</ul>');
     }
+    parts.push(clipPlayers(clips));
     const facts = [];
     if (!q.skipped) facts.push(q.wordCount + ' words');
     if (q.wpm) facts.push(q.wpm + ' wpm');
@@ -124,7 +131,9 @@
       '<div class="qa-body">' + parts.join('') + '</div></details>';
   }
 
-  function render(sheet) {
+  function render(sheet, opts) {
+    const o = opts || {};
+    const clipsFor = (qid) => (o.clips && o.clips.get(qid)) || null;
     const s = sheet.speech;
     const dims = sheet.dimensions;
     const tone = sheet.verdict.tone;
@@ -171,7 +180,7 @@
     const integrity = sheet.integrity;
     const integ = '<section class="card"><h2>Integrity & engagement</h2><ul class="facts">' +
       '<li><span>Left the interview tab</span><strong>' + integrity.tabSwitches + '×</strong></li>' +
-      '<li><span>Pasted answers</span><strong>' + integrity.pastes + '</strong></li>' +
+      (sheet.config.mode === 'voice' ? '' : '<li><span>Pasted answers</span><strong>' + integrity.pastes + '</strong></li>') +
       '<li><span>Asked to repeat a question</span><strong>' + integrity.repeats + '×</strong></li>' +
       '<li><span>Skipped questions</span><strong>' + integrity.skipped + '</strong></li></ul></section>';
 
@@ -195,7 +204,7 @@
       '<div class="grid-2">' + roleFit + (call || integ) + '</div>' +
       speech +
       '<section class="card"><h2>Score per question</h2>' + questionChart(sheet) + '</section>' +
-      '<section class="card"><h2>Question-by-question breakdown</h2>' + legend + sheet.questions.map(questionDetail).join('') + '</section>' +
+      '<section class="card"><h2>Question-by-question breakdown</h2>' + legend + sheet.questions.map((q, i) => questionDetail(q, i, clipsFor(q.id))).join('') + '</section>' +
       (call ? integ : '') +
       '<p class="disclaimer muted small">Automated assessment by a transparent, rule-based model' + (sheet.llmUsed ? ' with a local AI second opinion' : '') +
       '. Speech-to-text can mishear words, especially with strong accents or background noise. Use this scoresheet as one input alongside human judgement, not as the sole basis for a hiring decision.</p>' +
@@ -228,8 +237,8 @@
     });
   }
 
-  function mount(container, sheet) {
-    container.innerHTML = render(sheet);
+  function mount(container, sheet, opts) {
+    container.innerHTML = render(sheet, opts);
     wireChart(container);
   }
 

@@ -1,9 +1,11 @@
 # AI Interviewer
 
-A free AI interviewer for **BPO and customer-service jobs**. It speaks each question, listens to your spoken answer, asks follow-up questions, runs a **mock customer call**, and ends with a recruiter-style **scoresheet** covering communication, confidence, thought process, and more.
+A free **voice** interviewer for **BPO and customer-service jobs**. It works like a real phone interview: Aria, the AI interviewer, asks every question out loud, listens to your spoken answers, asks follow-up questions, and plays an upset customer in a **mock call**. At the end she tells you how you did, and you get a recruiter-style **scoresheet** with recordings of your answers.
 
+- **100% audio, hands-free.** No typing and no chat. Aria knows when you've finished speaking, and you can say *"repeat"*, *"skip"* or *"that's all"* instead of pressing buttons.
 - **No API keys, no payment, no sign-up.** It runs entirely in your browser.
-- **Voice or typing.** Speak your answers (Chrome or Edge recommended) or type them in any browser.
+- **Works in any modern browser.** Chrome and Edge use their built-in speech recognition; other browsers (Firefox, Brave…) use a free **offline Whisper model** that runs on your device.
+- **Hear yourself back.** Every answer is recorded (on your device only) so you can replay it next to its feedback.
 - **Transparent scoring model.** Every score traces back to concrete signals in your answers.
 - **Optional free local AI.** If you have [Ollama](https://ollama.com) installed, a local model can review each answer as a second opinion.
 
@@ -19,7 +21,7 @@ cd Ai-interviewer-
 npm start
 ```
 
-Open **http://localhost:8080** in Chrome or Edge, allow the microphone, and start.
+Open **http://localhost:8080**, enter your name, press **📞 Start voice interview**, and allow the microphone. Headphones help.
 
 > Browsers only allow the microphone on `https://` or `localhost`, which is why a tiny local server is included. If you prefer Python: `python3 -m http.server 8080`.
 
@@ -35,6 +37,16 @@ Open **http://localhost:8080** in Chrome or Edge, allow the microphone, and star
 - Or run a scripted interview in the terminal: `npm run demo` (try `node tools/simulate.js weak --full` or `node tools/simulate.js average --role sales`).
 
 ---
+
+## How the voice interview works
+
+1. **Mic check.** Aria greets you and asks you to say *"I'm ready"*. If she can't hear you, she tells you what to check.
+2. **Questions.** Aria speaks each question. The orb turns green while she listens, and the ring around it shows the time left.
+3. **Turn-taking.** When you stop talking, Aria waits a moment, then replies. She waits longer if you've only just started, so thinking pauses are safe. You can set how patient she is (2, 3 or 5 seconds), or make her wait until you say *"that's all"*.
+4. **Voice commands.** Say *"Can you repeat the question?"* or *"pardon?"* to hear it again, *"skip this one"* to move on, or end your answer with *"that's all"* or *"I'm done"*. If you're silent for a while, Aria gently nudges you.
+5. **Spoken feedback.** After the last question, Aria reads out your score, your strongest area, and your top tip. The full scoresheet opens with ▶ playback of each of your answers.
+
+On-screen buttons (Captions, Repeat, Skip, I'm done, End) are there if you want them; the **CC** button shows subtitles. Keyboard: <kbd>Enter</kbd> finishes an answer, <kbd>R</kbd> repeats, <kbd>C</kbd> toggles captions.
 
 ## What the interview covers
 
@@ -69,7 +81,7 @@ Three lengths are available: **Quick** (7 questions, about 10 min), **Standard**
 
 | Skill | Built from |
 |---|---|
-| Communication & fluency | Filler words (*um, basically, you know*), repetitions, vocabulary range, completeness, speaking pace (wpm), long pauses, voice modulation; for typed answers, writing mechanics |
+| Communication & fluency | Filler words (*um, basically, you know*), repetitions, vocabulary range, completeness, speaking pace (wpm), long pauses, voice modulation |
 | Confidence & composure | Hedging (*I think, maybe, I guess*), assertive language (*I handled, I achieved*), negative self-talk, how quickly you start, voice strength above room noise, whether your voice fades at the end |
 | Thought process & structure | Reasoning and sequencing words (*because, first… then, as a result*), examples, STAR completeness, specific details (numbers, names, timelines) |
 | Answer quality & relevance | How much of what a strong answer includes you covered (a per-question rubric with synonyms), and depth |
@@ -79,12 +91,12 @@ Three lengths are available: **Quick** (7 questions, about 10 min), **Standard**
 
 The scoresheet also includes an **estimated English level (CEFR)**, **role fit** for each BPO role, **red flags to probe**, **speech analytics**, the **mock-call checklist**, an **integrity panel** (tab switches, pasted answers), and a **question-by-question breakdown**. The breakdown shows your transcript with fillers, hedges, strong phrases, grammar slips and red flags highlighted, plus what a strong answer would include.
 
-Scoresheets are saved in your browser's history. They can be printed or saved as PDF, or downloaded as JSON.
+Scoresheets (and answer recordings) are saved in your browser's history. They can be printed or saved as PDF, or downloaded as JSON. Press **🔊 Hear my feedback** to have Aria read your result aloud again.
 
 ### How the scoring model works
 
 1. **Per answer**, the analyser (`js/analyzer.js`) extracts signals from the transcript, the timing, and the microphone (Web Audio: loudness, pauses, pitch).
-2. Each signal maps to a 0–100 component through a calibrated curve. Components blend into dimension scores. Signals that cannot be measured (e.g. pitch in typing mode) are left out instead of counting as zero. A "weakest link" rule stops one serious problem, such as constant fillers, from being averaged away.
+2. Each signal maps to a 0–100 component through a calibrated curve. Components blend into dimension scores. Signals that cannot be measured (e.g. pitch when the microphone analysis is unavailable) are left out instead of counting as zero. A "weakest link" rule stops one serious problem, such as constant fillers, from being averaged away.
 3. **Across the interview** (`js/scoring.js`), each question contributes to the dimensions it informs. A situational question counts heavily towards customer handling; a listening test counts towards English. The seven dimensions are then weighted by role: confidence matters more for sales, written accuracy more for chat support.
 4. Red flags lower attitude and the overall score, and a serious one (e.g. "I'd shout back at the customer") caps the verdict.
 
@@ -108,22 +120,35 @@ In the app, open **Voice, camera & local AI settings**, tick **Use a free local 
 
 ---
 
+## Speech recognition: two free engines
+
+| Engine | Used by default in | How it works | Needs |
+|---|---|---|---|
+| **Browser built-in** | Chrome, Edge, Safari | The browser's own speech service; live words while you speak | Internet |
+| **Offline Whisper** | Firefox, Brave, and any browser whose built-in service fails | OpenAI's Whisper *tiny.en* model running on your device with WebAssembly ([transformers.js](https://github.com/huggingface/transformers.js) 4.3.0) | A one-time download of about 48 MB, cached by the browser |
+
+The interview picks automatically, and switches to Whisper mid-interview if the built-in service fails (e.g. offline or blocked). You can force either engine under **Voice, camera & local AI settings → Speech recognition**. With Whisper, Aria uses the microphone level to tell when you've finished, then transcribes your answer in a background worker (usually 1 to 3 seconds).
+
+> Self-hosting the model (e.g. for an intranet with no internet): set `window.AII_CONFIG = { whisper: { libUrl, modelHost, wasmPaths } }` before the scripts load. See the comments at the top of `js/whisper.js`.
+
 ## Privacy
 
 - All analysis and scoring runs locally in your browser. Nothing is sent to any server of this project; there is no server.
-- **Voice mode:** Chrome and Edge transcribe speech through their own cloud speech service (that's what makes it free and keyless). Typing mode works fully offline.
+- **Speech recognition:** with the built-in engine, Chrome and Edge transcribe speech through their own cloud speech service (that's what makes it free and keyless). With the offline Whisper engine, audio never leaves your device.
+- **Recordings** of your answers are stored only in this browser (IndexedDB) so you can replay them. Turn recording off in the settings, or delete them with the history.
 - The camera preview is optional, for realism only, and is never recorded.
-- History is stored in your browser's `localStorage`. Use **Clear all** on the home page to delete it.
+- History is stored in your browser's `localStorage`. Use **Clear all** on the home page to delete it, recordings included.
 
 ## Browser support
 
-| | Voice answers | Typing |
+| Browser | Voice interview | Speech engine |
 |---|---|---|
-| Chrome / Edge (desktop and Android) | ✅ Best | ✅ |
-| Safari (macOS / iOS) | ✅ Works | ✅ |
-| Firefox | ❌ No speech recognition | ✅ |
+| Chrome / Edge (desktop and Android) | ✅ Best | Built-in (Whisper fallback) |
+| Safari (macOS / iOS 16.4+) | ✅ | Built-in (Whisper fallback) |
+| Firefox (desktop and Android) | ✅ | Offline Whisper |
+| Brave | ✅ | Offline Whisper |
 
-Tips for voice mode: use headphones, find a quiet room, and pick your accent in the setup (e.g. *English — India*) for better recognition.
+Tips: use headphones (so the mic never hears Aria), find a quiet room, and pick your accent in the setup (e.g. *English — India*) for better recognition.
 
 ---
 
@@ -138,7 +163,7 @@ After any change, run `npm test`. It includes calibration tests that check stron
 ## Project structure
 
 ```
-index.html            App shell (home, device check, interview room, report)
+index.html            App shell (home, voice call, scoresheet)
 css/styles.css        Styles (light and dark themes, print layout)
 js/textUtils.js       Tokenising, contraction handling, pattern matching, numbers
 js/lexicons.js        Word lists: fillers, hedges, STAR, empathy, red flags, grammar
@@ -146,8 +171,11 @@ js/questionBank.js    Questions, rubrics, follow-ups, interview plans
 js/analyzer.js        Per-answer signals and 0–100 scores
 js/scoring.js         Interview-level scoresheet, verdict, narrative
 js/engine.js          Interview flow: follow-ups, reactions, branching mock call
+js/voice.js           Hands-free rules: voice commands, end-of-answer detection, nudges
 js/speech.js          Browser text-to-speech and speech recognition
+js/whisper.js         Offline Whisper speech recognition (transformers.js, loaded on demand)
 js/audio.js           Microphone analysis: pauses, loudness, pitch
+js/recorder.js        Answer recordings (MediaRecorder + IndexedDB)
 js/llm.js             Optional Ollama integration
 js/report.js          Scoresheet rendering
 js/demo.js            Scripted candidates (sample report, demo, tests)
@@ -159,6 +187,7 @@ tests/                node:test suite (npm test)
 
 ## Limitations
 
-- Speech-to-text can mishear words, especially with strong accents or background noise, and browser engines often drop "um"/"uh". Pause analysis from the microphone partly compensates.
+- Speech-to-text can mishear words, especially with strong accents or background noise, and both engines often drop "um"/"uh". Pause analysis from the microphone partly compensates.
+- The conversation is half-duplex, like a polite phone call: Aria doesn't listen while she is speaking, so you can't interrupt her mid-sentence.
 - The built-in model judges *signals* (structure, coverage, delivery), not deep meaning. A well-structured answer with the right ideas scores well even if a human would phrase it differently. The optional local AI adds a semantic check.
 - Treat the scoresheet as practice feedback and one input to a hiring decision, never the only one.
