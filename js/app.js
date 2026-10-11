@@ -1126,6 +1126,7 @@
           if (mic.ok) break;
           message = mic.message;
         }
+        showPromptCaption(step); // the caption may still show "I've lost your microphone"
         t0 = performance.now();
         ctl.busy = false;
         return begin();
