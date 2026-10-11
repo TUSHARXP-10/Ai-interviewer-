@@ -241,7 +241,7 @@
     }
     if (!best) return heard;
     const rest = String(heard).trim().split(/\s+/).slice(best).join(' ');
-    // Listening only starts after Aria has finished, so an answer that is nothing but
+    // Listening only starts after the interviewer has finished, so an answer that is nothing but
     // her last words is far more likely a real answer (repeating a phrase) than an echo.
     return rest ? rest : heard;
   }

@@ -44,7 +44,7 @@
   const ACK_START = /^(?:thank(?:s| you)\b|that'?s (?:a good|fine|okay|alright)|that is (?:completely )?fine|i understand|i see\b|good to hear|okay\b|alright\b|great\b|understood\b|salary matters)/i;
 
   function createSession(opts) {
-    const o = Object.assign({ length: 'standard', role: 'general', experience: 'fresher', mode: 'voice', interviewerName: 'Aria' }, opts);
+    const o = Object.assign({ length: 'standard', role: 'general', experience: 'fresher', mode: 'voice', interviewerName: 'Ziyad Bhai' }, opts);
     const rand = Text.rng(o.seed != null ? o.seed : Date.now());
     const plan = Questions.buildPlan({ length: o.length, role: o.role, experience: o.experience, random: rand });
     const items = plan.map((q) => ({ question: q, parts: [], followUps: [], turns: [], pendingCustomer: null }));

@@ -19,7 +19,7 @@
 
   // Name fragments used to guess a voice's style (the API has no gender field).
   const FEMALE = /female|zira|aria|jenny|sonia|neerja|libby|natasha|clara|samantha|karen|moira|tessa|veena|serena|victoria|fiona|susan|hazel|heera|emma|ava|allison|joanna|salli|kimberly|google uk english female|google us english/i;
-  const MALE = /male|david|guy|ryan|prabhat|william|liam|daniel|alex|fred|rishi|oliver|george|james|thomas|brian|matthew|christopher|eric|google uk english male/i;
+  const MALE = /male|david|mark|ravi|guy|ryan|prabhat|william|liam|daniel|alex|fred|rishi|oliver|george|james|thomas|brian|matthew|christopher|eric|google uk english male/i;
 
   let voicesCache = [];
 
@@ -77,8 +77,10 @@
     };
     const best = (wantFemale, exclude) =>
       all.filter((v) => v !== exclude).sort((a, b) => score(b, wantFemale) - score(a, wantFemale))[0] || null;
-    const interviewer = byName(p.interviewerVoice) || best(true, null);
-    const customer = byName(p.customerVoice) || best(false, interviewer) || interviewer;
+    // The interviewer (Ziyad Bhai) prefers a male-sounding voice and the mock-call customer
+    // a female-sounding one, so the two always sound different.
+    const interviewer = byName(p.interviewerVoice) || best(false, null);
+    const customer = byName(p.customerVoice) || best(true, interviewer) || interviewer;
     return { interviewer, customer };
   }
 

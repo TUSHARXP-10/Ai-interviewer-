@@ -1,9 +1,9 @@
 /*
  * app.js — the voice interview: setup → hands-free call → spoken feedback + scoresheet.
  *
- * The call is half-duplex, like a polite phone interview: Aria speaks, then the
+ * The call is half-duplex, like a polite phone interview: the interviewer speaks, then the
  * microphone listens until the candidate has clearly finished (adaptive silence
- * detection or a spoken "that's all"), then Aria replies. Candidates can say
+ * detection or a spoken "that's all"), then the interviewer replies. Candidates can say
  * "repeat", "skip" or "that's all" at any time, so the screen never needs touching.
  */
 (function () {
@@ -14,6 +14,8 @@
   const $ = (sel, el) => (el || document).querySelector(sel);
   const $$ = (sel, el) => Array.from((el || document).querySelectorAll(sel));
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  // The interviewer's name, as spoken and shown on screen.
+  const INTERVIEWER = 'Ziyad Bhai';
 
   // ------------------------------------------------------------ storage (best effort)
   const store = {
@@ -86,7 +88,7 @@
     lastSpoken: '',
     callGen: 0,             // increases with every call, so a call that was left can never resume
     cancelBrief: null,
-    cancelTap: null,        // ends a pending "Tap to hear Aria" wait
+    cancelTap: null,        // ends a pending "Tap to hear the interviewer" wait
     userAction: null,       // resolver while waiting on a notice button
   };
 
@@ -294,7 +296,7 @@
     const note = $('#setup-note');
     if (!settings.name) {
       $('#f-name').focus();
-      note.textContent = 'Please enter your name. Aria will use it, and it goes on your scoresheet.';
+      note.textContent = 'Please enter your name. ' + INTERVIEWER + ' will use it, and it goes on your scoresheet.';
       return;
     }
     if (settings.llmEnabled && !settings.llmModel) {
@@ -444,7 +446,7 @@
   }
 
   // ------------------------------------------------------------ call UI
-  const STATE_TEXT = { idle: 'Connecting…', speaking: 'Aria is speaking…', listening: 'Listening… go ahead', thinking: 'One moment…' };
+  const STATE_TEXT = { idle: 'Connecting…', speaking: INTERVIEWER + ' is speaking…', listening: 'Listening… go ahead', thinking: 'One moment…' };
 
   function setUi(mode, text) {
     state.ui = mode;
@@ -468,8 +470,8 @@
 
   function setPersona(who) {
     $('#avatar').classList.toggle('customer', who === 'customer');
-    $('#who-label').textContent = who === 'customer' ? 'Customer · mock call' : 'Aria · AI Interviewer';
-    $('#cap-who').textContent = who === 'customer' ? 'Customer' : 'Aria';
+    $('#who-label').textContent = who === 'customer' ? 'Customer · mock call' : INTERVIEWER + ' · AI Interviewer';
+    $('#cap-who').textContent = who === 'customer' ? 'Customer' : INTERVIEWER;
   }
 
   function setButtons(listening, canRepeat) {
@@ -543,7 +545,7 @@
     }, 1000);
   }
 
-  // Captions: Aria's words (with the current word highlighted) and the candidate's live words.
+  // Captions: the interviewer's words (with the current word highlighted) and the candidate's live words.
   function captionWords(text) {
     const cap = $('#caption');
     cap.innerHTML = '';
@@ -586,7 +588,7 @@
     if (!fin && !interim) live.textContent = '…';
   }
 
-  // The orb breathes with whoever is talking: Aria's speech or the candidate's mic level.
+  // The orb breathes with whoever is talking: the interviewer's speech or the candidate's mic level.
   let orbRaf = 0;
   let orbLvl = 0;
   let mouthLevel = 0;
@@ -610,7 +612,7 @@
   const UA = navigator.userAgent || '';
   const IS_ANDROID = /Android/i.test(UA);
   const IS_MOBILE = IS_ANDROID || /iPhone|iPad|iPod/i.test(UA);
-  // A short gap after Aria stops: audio output lags behind the "end" event, and
+  // A short gap after the interviewer stops: audio output lags behind the "end" event, and
   // recognisers use their first ~300 ms of audio to measure the room's noise.
   const GUARD_MS = IS_MOBILE ? 450 : 300;
 
@@ -628,7 +630,7 @@
    */
   function waitForTap() {
     if (state.cancelTap) state.cancelTap();
-    notice('Tap the button so your browser lets Aria speak.');
+    notice('Tap the button so your browser lets ' + INTERVIEWER + ' speak.');
     const btn = $('#btn-tap-audio');
     btn.hidden = false;
     btn.focus();
@@ -687,7 +689,7 @@
         const muted = !ttsUsable();
         if (hidden && !muted) captionPlain(o.display || 'Listen carefully…', '(spoken only)');
         else captionWords(seg.text);
-        setUi('speaking', seg.voice === 'customer' ? 'The customer is speaking…' : 'Aria is speaking…');
+        setUi('speaking', seg.voice === 'customer' ? 'The customer is speaking…' : INTERVIEWER + ' is speaking…');
         speakingSince = performance.now();
         lastBoundary = 0;
         const hiddenBefore = state.hiddenCount;
@@ -847,7 +849,7 @@
         if (state.meter) state.meter.resumeSegment();
         if (state.recorder) state.recorder.resume();
         if (rec) rec.resume();
-        setPersona(roleplay ? 'customer' : 'interviewer'); // an interjection may have switched to Aria
+        setPersona(roleplay ? 'customer' : 'interviewer'); // an interjection may have switched to the interviewer
         setUi('listening', listeningText);
         timer = setInterval(tick, 150);
       }
@@ -859,7 +861,7 @@
         announce('Interview paused.');
       }
 
-      /** Aria (or the customer) says something mid-answer, then listening continues. */
+      /** The interviewer (or the customer) says something mid-answer, then listening continues. */
       async function interject(text, voice) {
         ctl.busy = true;
         pauseListening();
@@ -867,7 +869,7 @@
         if (ctl.done) return;
         await sleep(GUARD_MS);
         if (ctl.done) return;
-        // Time spent in another tab while Aria was talking is not answering time.
+        // Time spent in another tab while the interviewer was talking is not answering time.
         if (ctl.hiddenBusyAt) {
           t0 += performance.now() - ctl.hiddenBusyAt;
           ctl.hiddenBusyAt = 0;
@@ -911,7 +913,7 @@
             if (cmd.command === 'unsure' && !ctl.unsureSaid) {
               ctl.unsureSaid = true;
               // "I don't know" is kept for scoring, but the answer only counts as started
-              // with what comes after Aria's invitation to think.
+              // with what comes after the interviewer's invitation to think.
               ctl.unsureWords = words;
               ctl.unsureSpokeMs = spokeMs || 0;
               ctl.nudges = Math.max(ctl.nudges, 1);
@@ -1038,7 +1040,7 @@
       ctl.onHidden = () => {
         if (ctl.done || hiddenAt) return;
         if (ctl.busy) {
-          // Aria is talking (she repeats herself on return) and listening is already paused:
+          // The interviewer is talking (and repeats it on return) and listening is already paused:
           // just note when they left, so that time is not counted as answering time.
           if (!ctl.hiddenBusyAt) ctl.hiddenBusyAt = performance.now();
           return;
@@ -1159,7 +1161,7 @@
         // When the voice started, after listening began (estimated from the first words without a meter).
         const onset = trusted && trusted.onsetMs != null ? trusted.onsetMs : first ? first - t0 - 500 : null;
 
-        // If the mic picked up Aria's last words, drop them from the start of the answer
+        // If the mic picked up the interviewer's last words, drop them from the start of the answer
         // (only if a voice was there the moment listening began: see Voice.stripEcho).
         // Not where repeating the prompt IS the answer: grammar corrections, listening
         // details and the mock call (where the agent often echoes the customer).
@@ -1299,7 +1301,7 @@
       if (heard.fatal || attempt >= 2) {
         let message = heard.fatal
           ? heard.message + ' Press Try again when ready.'
-          : 'Aria can’t hear you yet. Check that the right microphone is selected and not muted (headset switch, system settings), then press Try again.';
+          : INTERVIEWER + ' can’t hear you yet. Check that the right microphone is selected and not muted (headset switch, system settings), then press Try again.';
         for (;;) {
           const retry = await waitForUser(message);
           if (!alive() || state.endRequested) return false;
@@ -1394,7 +1396,7 @@
       experience: settings.experience,
       mode: 'voice',
       name: settings.name,
-      interviewerName: 'Aria',
+      interviewerName: INTERVIEWER,
       seed: (Math.random() * 2147483647) | 0,
     });
     state.integrity = { tabSwitches: 0, pastes: 0, repeats: 0 };
@@ -1454,7 +1456,7 @@
 
     const session = state.session;
     const first = String(settings.name).trim().split(/\s+/)[0];
-    await say([{ text: 'Hi ' + first + "! I'm Aria, and I'll be interviewing you today. You can just talk to me normally, no buttons needed.", voice: 'interviewer' }]);
+    await say([{ text: 'Hi ' + first + "! I'm " + INTERVIEWER + ", and I'll be interviewing you today. You can just talk to me normally, no buttons needed.", voice: 'interviewer' }]);
     if (!alive()) return;
     const check = await micCheck(alive);
     if (!alive()) return;
@@ -1482,7 +1484,7 @@
       setPersona(step.kind === 'roleplay' ? 'customer' : 'interviewer');
       const answer = await listenTurn(step);
       if (!alive()) return;
-      // Ended while Aria waited for this answer: an unanswered question is left out, like the rest.
+      // Ended while the interviewer waited for this answer: an unanswered question is left out, like the rest.
       if (state.endRequested && answer.events.skipped) break;
       if (answer.clip) {
         state.clips.push({
@@ -1693,7 +1695,7 @@
     if (o.speak) setTimeout(() => { if (state.sheet === sheet && !$('#screen-report').hidden) playFeedback(); }, 500);
   }
 
-  // Aria reads the result aloud — the interview ends the way it started: in audio.
+  // The interviewer reads the result aloud — the interview ends the way it started: in audio.
   let feedbackPlaying = false;
   let feedbackSeq = 0;
   async function playFeedback() {
