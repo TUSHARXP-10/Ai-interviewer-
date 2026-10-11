@@ -27,6 +27,7 @@
     modelHost: null,                         // self-hosting: base URL containing '<model>/<files>'
     wasmPaths: null,                         // self-hosting the ONNX runtime: { mjs, wasm } URLs
     useWorker: true,                         // keep the page responsive while transcribing
+    runTimeoutMs: null,                      // per clip; default 20 s + twice the clip's length
   }, (root.AII_CONFIG && root.AII_CONFIG.whisper) || {});
   const MODEL_MB = 48; // first use: ~41 MB of weights + tokenizer + speech runtime
   const SR = 16000;
@@ -81,7 +82,8 @@
     });
   }
 
-  function workerEngine(onProgress) {
+  /** onDead: called if the worker fails after it was ready, so the caller can drop it. */
+  function workerEngine(onProgress, onDead) {
     const src = 'const makePipeline = ' + makePipeline.toString() + ';\n' +
       'let asr;\n' +
       'self.onmessage = async (e) => {\n' +
@@ -100,13 +102,18 @@
     const w = new Worker(url, { type: 'module' });
     const pending = new Map();
     let seq = 0;
+    let ready = false;
+    let dead = null; // why the worker stopped: later runs fail at once instead of waiting forever
     return new Promise((resolve, reject) => {
       const fail = (msg) => {
+        if (dead) return;
+        dead = msg;
         reject(new Error(msg));
         pending.forEach((p) => p.reject(new Error(msg)));
         pending.clear();
         w.terminate();
         URL.revokeObjectURL(url);
+        if (ready && onDead) onDead();
       };
       w.onerror = (e) => {
         e.preventDefault();
@@ -117,11 +124,19 @@
         if (m.type === 'progress') {
           if (onProgress) onProgress(m.f);
         } else if (m.type === 'ready') {
+          ready = true;
           resolve({
             run(audio, args) {
+              if (dead) return Promise.reject(new Error(dead));
               return new Promise((res, rej) => {
                 const id = ++seq;
-                pending.set(id, { resolve: res, reject: rej });
+                // A crashed or stalled worker never answers: give up so the interview can go on.
+                const limit = CFG.runTimeoutMs || 20000 + (2 * audio.length * 1000) / SR;
+                const timer = setTimeout(() => fail('The speech worker stopped responding.'), limit);
+                pending.set(id, {
+                  resolve: (text) => { clearTimeout(timer); res(text); },
+                  reject: (err) => { clearTimeout(timer); rej(err); },
+                });
                 w.postMessage({ type: 'run', id, audio, args }, [audio.buffer]);
               });
             },
@@ -148,10 +163,12 @@
   /** Load the library and model once (retryable after a failure). */
   function load(onProgress) {
     if (engine) return engine;
-    engine = (async () => {
+    const current = (async () => {
       if (CFG.useWorker && typeof Worker === 'function') {
         try {
-          return await workerEngine(onProgress);
+          // A worker that fails later is dropped, so the next answer starts a fresh one
+          // (the model files are in the browser cache by then).
+          return await workerEngine(onProgress, () => { if (engine === current) engine = null; });
         } catch (e) {
           // Module workers missing (older Firefox/Safari) or blocked: use the main thread.
           if (root.console) root.console.warn('[whisper] worker unavailable, using the main thread:', e.message);
@@ -159,10 +176,11 @@
       }
       return mainThreadEngine(onProgress);
     })();
-    engine.then(() => {
+    engine = current;
+    current.then(() => {
       try { root.localStorage.setItem(READY_KEY, '1'); } catch (e) { /* ignore */ }
-    }, () => { engine = null; });
-    return engine;
+    }, () => { if (engine === current) engine = null; });
+    return current;
   }
 
   /** Resolves true when the model is ready, false if it could not be loaded. */

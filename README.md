@@ -50,7 +50,8 @@ Open **http://localhost:8080**, enter your name, press **📞 Start voice interv
 
 - **Can't hear your words:** if the mic hears you but no words come through, she asks you to repeat once, then switches to the offline Whisper engine.
 - **Internet drops for a moment:** the built-in recogniser retries quietly, so a short Wi-Fi blip doesn't lose your answer; only a longer outage switches to Whisper.
-- **You switch tabs:** the call pauses. When you return, she says *"Welcome back"* and picks up where you left off.
+- **You switch tabs:** the call pauses. When you return, she says *"Welcome back"* and picks up where you left off. (In the listening test, hearing the details again counts as a repeat.)
+- **Your microphone disconnects** (a headset is unplugged or Bluetooth drops): she tells you, and **Try again** reconnects it, or uses whichever microphone is now plugged in. Try again in the mic check does the same, so you can switch to a different microphone.
 - **Browser blocks her voice:** some phones (iPhone Safari) block it until you tap; a *"Tap to hear Aria"* button appears. If speech still won't play, captions take over.
 - **Background noise:** if a TV or fan keeps the mic busy after you've stopped, she goes by your words instead.
 

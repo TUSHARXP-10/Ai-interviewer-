@@ -275,7 +275,9 @@
       },
       get level() { return level; },
       get voiced() { return voiced; },
-      get running() { return !!timer; },
+      // A track ends when its device is unplugged or a Bluetooth headset drops: then the
+      // meter only hears silence, so it no longer counts as a working microphone.
+      get running() { return !!timer && !!stream && stream.getAudioTracks().some((t) => t.readyState === 'live'); },
       get noiseFloor() { return noiseFloor; },
       get stream() { return stream; },
       get sampleRate() { return ctx ? ctx.sampleRate : 0; },

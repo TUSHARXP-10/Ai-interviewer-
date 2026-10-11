@@ -269,6 +269,9 @@
 
     // Engines that resend the growing utterance as each new final (Android, some Safari).
     let cumulative = isAndroid;
+    // One growing pair is not proof: a desktop false start ("I have… I have two years")
+    // looks the same. Engines that really resend do it on almost every phrase.
+    let growths = 0;
     const merge = (list) => (Voice && Voice.mergeCumulative ? Voice.mergeCumulative(list, { cumulative }) : list.filter(Boolean).join(' '));
     const join = (a, b) => (a + ' ' + b).replace(/\s+/g, ' ').trim();
     const sessionText = (s) => (s ? merge(s.finals) : '');
@@ -278,7 +281,7 @@
 
     function startSession() {
       const r = new Recognition();
-      const s = { r, finals: [], interim: '', started: false };
+      const s = { r, finals: [], interim: '', started: false, grown: new Set() };
       r.lang = o.lang || 'en-US';
       r.continuous = true;
       r.interimResults = true;
@@ -298,7 +301,10 @@
           const t = res[0] ? res[0].transcript.trim() : '';
           if (res.isFinal) {
             const prev = s.finals[i - 1];
-            if (!cumulative && prev && Voice && Voice.looksCumulative && Voice.looksCumulative(prev, t)) cumulative = true;
+            if (!cumulative && prev && !s.grown.has(i) && Voice && Voice.looksCumulative && Voice.looksCumulative(prev, t)) {
+              s.grown.add(i);
+              if (++growths >= 2) cumulative = true;
+            }
             s.finals[i] = t;
           } else s.interim += ' ' + t;
         }

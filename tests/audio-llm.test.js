@@ -64,6 +64,26 @@ test('local AI: scores are parsed and scaled, failures return null', async () =>
   }
 });
 
+test('the meter stops counting as running when the microphone is disconnected', async () => {
+  const track = { readyState: 'live', stop() { this.readyState = 'ended'; } };
+  const stream = { getAudioTracks: () => [track], getTracks: () => [track] };
+  globalThis.AudioContext = class {
+    constructor() { this.state = 'running'; this.sampleRate = 48000; }
+    createMediaStreamSource() { return { connect() {}, disconnect() {} }; }
+    createAnalyser() { return { fftSize: 2048, connect() {}, getFloatTimeDomainData() {} }; }
+  };
+  const meter = globalThis.AII.Audio.createMeter();
+  try {
+    await meter.start(stream);
+    assert.equal(meter.running, true);
+    track.readyState = 'ended'; // headset unplugged, Bluetooth link dropped
+    assert.equal(meter.running, false, 'a dead track is not a working microphone');
+  } finally {
+    meter.stop();
+    delete globalThis.AudioContext;
+  }
+});
+
 test('a segment with only a click or breath reports nothing', () => {
   const frames = [];
   for (let i = 0; i < 40; i++) frames.push({ t: i * FRAME_MS, db: i === 10 || i === 11 ? -20 : -70, voiced: i === 10 || i === 11, hz: null });

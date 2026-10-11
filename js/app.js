@@ -373,11 +373,18 @@
   }
 
   // ------------------------------------------------------------ media
-  async function ensureMic() {
-    if (state.meter && state.meter.running) return { ok: true };
+  /**
+   * Open the microphone, and the answer recorder on the same stream. opts.fresh reopens
+   * it even while one is open: only a new stream picks up a newly plugged-in or newly
+   * selected microphone. A microphone that was disconnected is always reopened.
+   */
+  async function ensureMic(opts) {
+    const fresh = !!(opts && opts.fresh);
+    if (!fresh && state.meter && state.meter.running) return { ok: true };
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       return { ok: false, message: 'This browser cannot use the microphone on this page. Open it in Chrome or Edge on https or http://localhost.' };
     }
+    const old = state.meter;
     const m = Audio.createMeter();
     state.meter = m;
     try {
@@ -385,11 +392,18 @@
       // The call was left while the microphone was opening: release it straight away.
       if (state.meter !== m) {
         m.stop();
+        if (old) old.stop();
         return { ok: false, aborted: true, message: 'The interview was closed.' };
       }
+      if (old) old.stop();
+      // A recorder is tied to its stream: record on the new one.
+      if (state.recorder) state.recorder.discard();
+      state.recorder = settings.record && Recorder && m.stream ? Recorder.createRecorder(m.stream) : null;
       return { ok: true };
     } catch (err) {
-      if (state.meter === m) state.meter = null;
+      // Keep the old microphone if it still works (a fresh reopen that failed).
+      if (state.meter === m) state.meter = old && old.running ? old : null;
+      if (old && state.meter !== old) old.stop();
       const denied = err && (err.name === 'NotAllowedError' || err.name === 'SecurityError');
       return {
         ok: false,
@@ -762,6 +776,7 @@
       const q = stepQuestion(step);
       const ctl = { done: false, busy: false, repeats: 0, nudges: 0, unsureSaid: false, unsureWords: 0, recoveries: 0, hiddenBusyAt: 0 };
       state.ctl = ctl;
+      const gen = state.callGen; // a later call must never be driven by this turn
       const maxMs = (step.maxSeconds || 120) * 1000;
       const idealWords = q && q.ideal ? q.ideal[0] : null;
       const roleplay = step.kind === 'roleplay';
@@ -865,6 +880,9 @@
 
       function tick() {
         if (ctl.done || ctl.busy || hiddenAt) return;
+        // The microphone was unplugged or its Bluetooth link dropped: nothing more can be heard.
+        // (This is the cause of any recogniser error it set off, so it is the one reported.)
+        if (state.meter && !state.meter.running) fatal = { code: 'audio-capture', message: 'Your microphone was disconnected.', lost: true };
         if (fatal) return onFatal();
         const now = performance.now();
         const elapsed = now - t0;
@@ -1038,6 +1056,11 @@
         const lines = spokeSoFar
           ? [{ text: 'Welcome back. Please carry on with your answer.', voice: 'interviewer' }]
           : [{ text: "Welcome back. Here's the question again.", voice: 'interviewer' }].concat(state.session.repeatSpeak());
+        // Hearing the spoken-only listening details again counts as a repeat, as if asked for.
+        if (!spokeSoFar && step.hideText) {
+          ctl.repeats++;
+          state.integrity.repeats++;
+        }
         await say(lines, { keepYou: true, hideText: step.hideText, hiddenText: q && q.text, display: step.prompt });
         if (ctl.done) return;
         await sleep(GUARD_MS);
@@ -1081,19 +1104,31 @@
           }
           state.engine = 'browser';
         }
-        setUi('idle', 'Microphone problem');
-        const retry = await waitForUser(f.message + ' Press Try again when ready, or Continue anyway to skip this question.');
-        if (ctl.done) return;
-        if (retry) {
-          if (!state.meter || !state.meter.running) await ensureMic();
+        if (f.lost) {
+          // Hands-free: say it, since the candidate may not be looking at the screen.
+          setButtons(false);
+          await say([{ text: "I've lost your microphone. Please reconnect it, then press Try again.", voice: 'interviewer' }]);
           if (ctl.done) return;
-          if (state.meter && state.meter.stream && settings.record && !state.recorder) state.recorder = Recorder.createRecorder(state.meter.stream);
-          t0 = performance.now();
-          ctl.busy = false;
-          return begin();
         }
+        setUi('idle', 'Microphone problem');
+        let message = f.message + ' Press Try again when ready, or Continue anyway to skip this question.';
+        for (;;) {
+          const retry = await waitForUser(message);
+          if (ctl.done) return;
+          if (!retry) {
+            ctl.busy = false;
+            return finish({ skipped: true });
+          }
+          if (state.meter && state.meter.running) break;
+          // Reopens the microphone (a reconnected or different one) and its recorder.
+          const mic = await ensureMic();
+          if (ctl.done) return;
+          if (mic.ok) break;
+          message = mic.message;
+        }
+        t0 = performance.now();
         ctl.busy = false;
-        finish({ skipped: true });
+        return begin();
       }
 
       async function finish(x) {
@@ -1117,28 +1152,36 @@
           else text = (await rec.stop()) || rec.interim() || '';
         }
         const clip = clipPromise ? await clipPromise : null;
+        const first = rec && rec.firstResultAt;
+        const lastRes = rec && rec.lastResultAt;
+        const trusted = state.meterTrusted !== false ? audio : null;
+        // When the voice started, after listening began (estimated from the first words without a meter).
+        const onset = trusted && trusted.onsetMs != null ? trusted.onsetMs : first ? first - t0 - 500 : null;
 
-        // If the mic picked up Aria's last words, drop them from the start of the answer.
+        // If the mic picked up Aria's last words, drop them from the start of the answer
+        // (only if a voice was there the moment listening began: see Voice.stripEcho).
         // Not where repeating the prompt IS the answer: grammar corrections, listening
         // details and the mock call (where the agent often echoes the customer).
         const echoes = !roleplay && !(q && (q.type === 'correction' || q.type === 'listening'));
-        if (echoes) text = Voice.stripEcho(text, state.lastSpoken || step.prompt);
+        if (echoes) text = Voice.stripEcho(text, state.lastSpoken || step.prompt, { onsetMs: onset });
         // Commands that only show up in the final transcript (e.g. the offline engine).
         let skipped = !!x.skipped;
         const cmd = Voice.parseCommand(text);
-        if (!x.command && !skipped && cmd.command === 'repeat' && ctl.repeats < 3) {
-          ctl.done = false;
-          rec = null;
-          return repeat(true);
+        if (!x.command && !skipped && cmd.command === 'repeat') {
+          // The call was ended or left while this answer was transcribed: never listen again,
+          // and never score the request as an answer.
+          const current = gen === state.callGen && !state.endRequested;
+          if (current && ctl.repeats < 3) {
+            ctl.done = false;
+            rec = null;
+            return repeat(true);
+          }
+          if (!current) skipped = true;
         }
         if (!x.command && cmd.command === 'skip') skipped = true;
         if (cmd.command === 'done' && cmd.strength === 'strong') text = cmd.text;
 
         const totalMs = performance.now() - t0;
-        const first = rec && rec.firstResultAt;
-        const lastRes = rec && rec.lastResultAt;
-        const trusted = state.meterTrusted !== false ? audio : null;
-        const onset = trusted && trusted.onsetMs != null ? trusted.onsetMs : first ? first - t0 - 500 : null;
         const pausedMs = first && lastRes ? pauses.reduce((sum, [a, b]) => sum + (a >= first && b <= lastRes ? b - a : 0), 0) : 0;
         const recSpan = first && lastRes ? lastRes - first + 800 - pausedMs : 0;
         const speakingMs = Math.max(trusted && trusted.speakingMs ? trusted.speakingMs : 0, recSpan);
@@ -1253,12 +1296,19 @@
       }
       attempt++;
       if (heard.fatal || attempt >= 2) {
-        const retry = await waitForUser(heard.fatal
+        let message = heard.fatal
           ? heard.message + ' Press Try again when ready.'
-          : 'Aria can’t hear you yet. Check that the right microphone is selected and not muted (headset switch, system settings), then press Try again.');
-        if (!alive() || state.endRequested) return false;
-        if (!retry) return 'skipped';
-        if (!state.meter || !state.meter.running) await ensureMic();
+          : 'Aria can’t hear you yet. Check that the right microphone is selected and not muted (headset switch, system settings), then press Try again.';
+        for (;;) {
+          const retry = await waitForUser(message);
+          if (!alive() || state.endRequested) return false;
+          if (!retry) return 'skipped';
+          // Reopen it: only a new stream uses a newly plugged-in or newly selected microphone.
+          const mic = await ensureMic({ fresh: true });
+          if (!alive() || state.endRequested) return false;
+          if (mic.ok) break;
+          message = mic.message;
+        }
         attempt = 0;
       }
     }
@@ -1388,7 +1438,6 @@
     }
     if (!alive()) return;
     if (!mic.ok) return endWithoutAnswers('The interview ended before any answers were recorded.');
-    if (settings.record && Recorder && state.meter && state.meter.stream) state.recorder = Recorder.createRecorder(state.meter.stream);
     if (settings.camera) startCamera(alive);
     await pickVoices();
     if (!alive()) return;
