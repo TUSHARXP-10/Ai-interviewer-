@@ -69,6 +69,28 @@
     return out;
   }
 
+  /** Informal or vague words, and everyday words used 3+ times in a longer answer. */
+  function detectVocab(doc) {
+    const out = [];
+    for (const v of L.VOCAB) {
+      for (const h of findTerms(doc, v.terms)) out.push({ word: snippet(doc, h.w0, h.w1), better: v.better, why: v.why, w0: h.w0, w1: h.w1 });
+    }
+    if (doc.words.length >= 12) { // three times in a dozen words is noticeable
+      const at = new Map();
+      doc.words.forEach((w, i) => {
+        if (!Object.prototype.hasOwnProperty.call(L.OVERUSED, w)) return;
+        if (w === 'very' && doc.words[i + 1] === 'much') return; // "thank you very much"
+        if (!at.has(w)) at.set(w, []);
+        at.get(w).push(i);
+      });
+      for (const [w, idx] of at) {
+        if (idx.length < 3) continue;
+        for (const i of idx) out.push({ word: snippet(doc, i, i), better: L.OVERUSED[w], why: 'Used ' + idx.length + ' times', w0: i, w1: i });
+      }
+    }
+    return out.sort((a, b) => a.w0 - b.w0);
+  }
+
   function wordAt(doc, charIndex) {
     let w = 0;
     for (let i = 0; i < doc.offsets.length; i++) if (doc.offsets[i] <= charIndex) w = i;
@@ -585,56 +607,86 @@
   // ------------------------------------------------------------ highlighting
 
   /**
-   * Split text into [{ text, kind }] segments for display. Kinds:
-   * flag | grammar | filler | hedge | strong | null
+   * Split text into [{ text, kind, note }] segments for display. Kinds:
+   * flag | grammar | filler | vocab | hedge | strong | null
+   * note: the better wording, for grammar and vocabulary marks.
+   * opts: { ignoreFlags, kinds (only mark these kinds) }
    */
   function segments(text, opts) {
+    const o = opts || {};
+    const only = o.kinds ? new Set(o.kinds) : null;
     const doc = makeDoc(text);
     const kinds = new Array(doc.tokens.length).fill(null);
-    const rank = { flag: 5, grammar: 4, filler: 3, hedge: 2, strong: 1 };
-    const mark = (w0, w1, kind) => {
+    const notes = new Array(doc.tokens.length).fill(null);
+    const rank = { flag: 6, grammar: 5, filler: 4, vocab: 3, hedge: 2, strong: 1 };
+    const mark = (w0, w1, kind, note) => {
+      if (only && !only.has(kind)) return;
       const t0 = doc.wordToken[w0];
       const t1 = doc.wordToken[w1];
-      for (let t = t0; t <= t1; t++) if (!kinds[t] || rank[kind] > rank[kinds[t]]) kinds[t] = kind;
+      for (let t = t0; t <= t1; t++) {
+        if (!kinds[t] || rank[kind] > rank[kinds[t]]) {
+          kinds[t] = kind;
+          notes[t] = note || null;
+        }
+      }
     };
     const hedgeHits = findTerms(doc, L.HEDGES);
     for (const h of confidentHits(doc, hedgeHits)) mark(h.w0, h.w1, 'strong');
     for (const h of findTerms(doc, L.EMPATHY)) mark(h.w0, h.w1, 'strong');
     for (const h of findTerms(doc, L.STRUCTURE.reasoning.concat(L.STRUCTURE.example))) mark(h.w0, h.w1, 'strong');
     for (const h of hedgeHits) mark(h.w0, h.w1, 'hedge');
+    for (const v of detectVocab(doc)) mark(v.w0, v.w1, 'vocab', 'Try: ' + v.better);
     for (const h of findTerms(doc, L.FILLERS).concat(Text.repetitions(doc))) mark(h.w0, h.w1, 'filler');
-    for (const g of detectGrammar(doc)) mark(g.w0, g.w1, 'grammar');
-    for (const f of detectRedFlags(doc, opts && opts.ignoreFlags)) mark(f.w0, f.w1, 'flag');
+    if (doc.words.length >= 3) for (const g of detectGrammar(doc)) mark(g.w0, g.w1, 'grammar', 'Better: ' + g.fix);
+    for (const f of detectRedFlags(doc, o.ignoreFlags)) mark(f.w0, f.w1, 'flag');
 
     const raw = [];
     let pos = 0;
     doc.tokens.forEach((tok, i) => {
-      if (tok.start > pos) raw.push({ text: text.slice(pos, tok.start), kind: null });
-      raw.push({ text: tok.raw, kind: kinds[i] });
+      if (tok.start > pos) raw.push({ text: text.slice(pos, tok.start), kind: null, note: null });
+      raw.push({ text: tok.raw, kind: kinds[i], note: notes[i] });
       pos = tok.end;
     });
-    if (pos < text.length) raw.push({ text: text.slice(pos), kind: null });
+    if (pos < text.length) raw.push({ text: text.slice(pos), kind: null, note: null });
 
-    // Merge neighbours of the same kind, including the space between two marked words.
+    // Merge neighbours of the same mark, including the space between two marked words.
+    const same = (a, b) => a.kind === b.kind && a.note === b.note;
     const out = [];
     for (let i = 0; i < raw.length; i++) {
       const seg = raw[i];
       const prev = out[out.length - 1];
-      if (prev && prev.kind && !seg.kind && /^[\s,]*$/.test(seg.text) && raw[i + 1] && raw[i + 1].kind === prev.kind) {
+      if (prev && prev.kind && !seg.kind && /^[\s,]*$/.test(seg.text) && raw[i + 1] && same(raw[i + 1], prev)) {
         prev.text += seg.text + raw[i + 1].text;
         i++;
         continue;
       }
-      if (prev && prev.kind === seg.kind) {
+      if (prev && same(prev, seg)) {
         prev.text += seg.text;
         continue;
       }
-      out.push({ text: seg.text, kind: seg.kind });
+      out.push({ text: seg.text, kind: seg.kind, note: seg.note });
     }
     return out;
   }
 
-  const api = { analyzeAnswer, callChecklist, segments, mechanics, answerQuality };
+  /**
+   * Language coaching for one answer (the scoresheet transcript):
+   * { grammar: [{ evidence, fix, why }], vocab: [{ word, count, better, why }], fillers: [{ term, count }] }
+   */
+  function languageNotes(text) {
+    const doc = makeDoc(text);
+    const grammar = doc.words.length >= 3 ? detectGrammar(doc).map(({ evidence, fix, why }) => ({ evidence, fix, why })) : [];
+    const vocab = [];
+    for (const v of detectVocab(doc)) {
+      const seen = vocab.find((x) => x.word.toLowerCase() === v.word.toLowerCase());
+      if (seen) seen.count++;
+      else vocab.push({ word: v.word, count: 1, better: v.better, why: v.why });
+    }
+    const fillers = countBy(findTerms(doc, L.FILLERS).concat(Text.repetitions(doc).map((r) => ({ text: r.term + ' ' + r.term }))));
+    return { grammar, vocab, fillers };
+  }
+
+  const api = { analyzeAnswer, callChecklist, segments, languageNotes, mechanics, answerQuality };
   if (isNode) module.exports = api;
   else (root.AII = root.AII || {}).Analyzer = api;
 })(typeof window !== 'undefined' ? window : globalThis);

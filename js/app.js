@@ -15,7 +15,7 @@
   const $$ = (sel, el) => Array.from((el || document).querySelectorAll(sel));
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   // The interviewer's name, as spoken and shown on screen.
-  const INTERVIEWER = 'Ziyad Bhai';
+  const INTERVIEWER = 'Tushar AI';
 
   // ------------------------------------------------------------ storage (best effort)
   const store = {
@@ -57,7 +57,7 @@
   const DEFAULTS = {
     name: '', role: 'voice', experience: 'fresher', length: 'standard', accent: guessAccent(),
     silenceSec: 3, interviewerVoice: '', customerVoice: '', rate: 1, camera: false, record: true,
-    captions: false, engine: 'auto', llmEnabled: false, llmUrl: LLM.DEFAULT_URL, llmModel: '',
+    showCaptions: true, engine: 'auto', llmEnabled: false, llmUrl: LLM.DEFAULT_URL, llmModel: '',
   };
   let settings = Object.assign({}, DEFAULTS, store.get(SETTINGS_KEY, {}));
   if ([0, 2, 3, 5].indexOf(Number(settings.silenceSec)) === -1) settings.silenceSec = 3;
@@ -470,7 +470,7 @@
 
   function setPersona(who) {
     $('#avatar').classList.toggle('customer', who === 'customer');
-    $('#who-label').textContent = who === 'customer' ? 'Customer · mock call' : INTERVIEWER + ' · AI Interviewer';
+    $('#who-label').textContent = who === 'customer' ? 'Customer · mock call' : INTERVIEWER + ' · Interviewer';
     $('#cap-who').textContent = who === 'customer' ? 'Customer' : INTERVIEWER;
   }
 
@@ -502,7 +502,7 @@
   /** persist=false for automatic fallbacks, so only the candidate's own choice is remembered. */
   function setCaptions(on, persist) {
     if (persist !== false) {
-      settings.captions = on;
+      settings.showCaptions = on;
       store.set(SETTINGS_KEY, settings);
     }
     $('#captions').hidden = !on;
@@ -586,6 +586,7 @@
       live.appendChild(s);
     }
     if (!fin && !interim) live.textContent = '…';
+    live.scrollTop = live.scrollHeight; // a long answer keeps its latest words in view
   }
 
   // The orb breathes with whoever is talking: the interviewer's speech or the candidate's mic level.
@@ -1415,7 +1416,8 @@
     $('#proc-skip').hidden = true;
     notice('');
     show('interview');
-    setCaptions(settings.captions || !Speech.ttsSupported, false);
+    // On by default, so candidates see their own words live (a new key: the old default was off).
+    setCaptions(settings.showCaptions !== false || !Speech.ttsSupported, false);
     setButtons(false);
     setPersona('interviewer');
     setTimer(1);
@@ -1709,7 +1711,7 @@
     $$('#report-root audio').forEach((a) => a.pause());
     await pickVoices();
     if (my !== feedbackSeq) return; // stopped while the voices loaded
-    const recordings = $$('#report-root .clips audio').length > 0;
+    const recordings = $$('#report-root .clip audio').length > 0;
     await Speech.speak(Scoring.spokenFeedback(state.sheet, { recordings }), { voice: state.voices.interviewer, rate: settings.rate });
     // Finished on its own: reset the button only. Never cancel speech here, because by now
     // it may belong to something else (a new call's greeting).

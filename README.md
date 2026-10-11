@@ -1,8 +1,8 @@
 # AI Interviewer
 
-A free **voice** interviewer for **BPO and customer-service jobs**. It works like a real phone interview: Ziyad Bhai, the AI interviewer, asks every question out loud, listens to your spoken answers, asks follow-up questions, and plays an upset customer in a **mock call**. At the end you hear how you did, and you get a recruiter-style **scoresheet** with recordings of your answers.
+A free **voice** interviewer for **BPO and customer-service jobs**. It works like a real phone interview: Tushar AI, the AI interviewer, asks every question out loud, listens to your spoken answers, asks follow-up questions, and plays an upset customer in a **mock call**. At the end you hear how you did, and you get a recruiter-style **scoresheet** with recordings of your answers.
 
-- **100% audio, hands-free.** No typing and no chat. Ziyad Bhai knows when you've finished speaking, and you can say *"repeat"*, *"skip"* or *"that's all"* instead of pressing buttons.
+- **100% audio, hands-free.** No typing and no chat. Tushar AI knows when you've finished speaking, and you can say *"repeat"*, *"skip"* or *"that's all"* instead of pressing buttons.
 - **No API keys, no payment, no sign-up.** It runs entirely in your browser.
 - **Works in any modern browser.** Chrome and Edge use their built-in speech recognition; other browsers (Firefox, Brave…) use a free **offline Whisper model** that runs on your device.
 - **Hear yourself back.** Every answer is recorded (on your device only) so you can replay it next to its feedback.
@@ -40,22 +40,24 @@ Open **http://localhost:8080**, enter your name, press **📞 Start voice interv
 
 ## How the voice interview works
 
-1. **Mic check.** Ziyad Bhai greets you and asks you to say *"I'm ready"*. If your voice doesn't come through, you're told what to check.
-2. **Questions.** Ziyad Bhai speaks each question. The orb turns green while it's your turn to talk, and the ring around it shows the time left.
-3. **Turn-taking.** When you stop talking, Ziyad Bhai waits a moment, then replies, waiting longer if you've only just started, so thinking pauses are safe. Short replies such as *"No."* count as answers too. You can set how long the wait is (2, 3 or 5 seconds), or have Ziyad Bhai wait until you say *"that's all"* (with the offline Whisper engine, which only reads your words after you finish, a long pause of about 8 seconds ends the answer instead).
-4. **Voice commands.** Say *"Can you repeat the question?"* or *"pardon?"* to hear it again (even after a false start), *"skip this one"* or *"next"* to move on, or end your answer with *"that's all"* or *"I'm done"*. Ziyad Bhai confirms out loud, so you never need to look at the screen. If you say *"I don't know"*, you get time to think (or say *"skip"*); if you're silent for a while, you get a gentle nudge. In the mock call, the customer asks *"Hello? Are you still there?"*
-5. **Spoken feedback.** After the last question, Ziyad Bhai reads out your score, your strongest area, and your top tip. The full scoresheet opens with ▶ playback (and download) of each of your answers.
+1. **Mic check.** Tushar AI greets you and asks you to say *"I'm ready"*. If your voice doesn't come through, you're told what to check.
+2. **Questions.** Tushar AI speaks each question. The orb turns green while it's your turn to talk, and the ring around it shows the time left.
+3. **Turn-taking.** When you stop talking, Tushar AI waits a moment, then replies, waiting longer if you've only just started, so thinking pauses are safe. Short replies such as *"No."* count as answers too. You can set how long the wait is (2, 3 or 5 seconds), or have Tushar AI wait until you say *"that's all"* (with the offline Whisper engine, which only reads your words after you finish, a long pause of about 8 seconds ends the answer instead).
+4. **Voice commands.** Say *"Can you repeat the question?"* or *"pardon?"* to hear it again (even after a false start), *"skip this one"* or *"next"* to move on, or end your answer with *"that's all"* or *"I'm done"*. Tushar AI confirms out loud, so you never need to look at the screen. If you say *"I don't know"*, you get time to think (or say *"skip"*); if you're silent for a while, you get a gentle nudge. In the mock call, the customer asks *"Hello? Are you still there?"*
+5. **Spoken feedback.** After the last question, Tushar AI reads out your score, your strongest area, and your top tip. The full scoresheet opens with ▶ playback (and download) of each of your answers.
 
-**If something goes wrong, Ziyad Bhai handles it:**
+**If something goes wrong, Tushar AI handles it:**
 
-- **Can't hear your words:** if the mic hears you but no words come through, Ziyad Bhai asks you to repeat once, then switches to the offline Whisper engine.
+- **Can't hear your words:** if the mic hears you but no words come through, Tushar AI asks you to repeat once, then switches to the offline Whisper engine.
 - **Internet drops for a moment:** the built-in recogniser retries quietly, so a short Wi-Fi blip doesn't lose your answer; only a longer outage switches to Whisper.
-- **You switch tabs:** the call pauses. When you return, Ziyad Bhai says *"Welcome back"* and picks up where you left off. (In the listening test, hearing the details again counts as a repeat.)
-- **Your microphone disconnects** (a headset is unplugged or Bluetooth drops): Ziyad Bhai tells you, and **Try again** reconnects it, or uses whichever microphone is now plugged in. Try again in the mic check does the same, so you can switch to a different microphone.
-- **Browser blocks the voice:** some phones (iPhone Safari) block it until you tap; a *"Tap to hear Ziyad Bhai"* button appears. If speech still won't play, captions take over.
-- **Background noise:** if a TV or fan keeps the mic busy after you've stopped, Ziyad Bhai goes by your words instead.
+- **You switch tabs:** the call pauses. When you return, Tushar AI says *"Welcome back"* and picks up where you left off. (In the listening test, hearing the details again counts as a repeat.)
+- **Your microphone disconnects** (a headset is unplugged or Bluetooth drops): Tushar AI tells you, and **Try again** reconnects it, or uses whichever microphone is now plugged in. Try again in the mic check does the same, so you can switch to a different microphone.
+- **Browser blocks the voice:** some phones (iPhone Safari) block it until you tap; a *"Tap to hear Tushar AI"* button appears. If speech still won't play, captions take over.
+- **Background noise:** if a TV or fan keeps the mic busy after you've stopped, Tushar AI goes by your words instead.
 
-On-screen buttons (Captions, Repeat, Skip, I'm done, End) are there if you want them; the **CC** button shows subtitles. Keyboard: <kbd>Enter</kbd> finishes an answer, <kbd>R</kbd> repeats, <kbd>C</kbd> toggles captions.
+**Live captions** are on by default: you see the interviewer's words and, as you answer, your own words live. (With the offline Whisper engine your words appear phrase by phrase, each time you pause.) The **CC** button hides them.
+
+On-screen buttons (Captions, Repeat, Skip, I'm done, End) are there if you want them. Keyboard: <kbd>Enter</kbd> finishes an answer, <kbd>R</kbd> repeats, <kbd>C</kbd> toggles captions.
 
 ## What the interview covers
 
@@ -98,9 +100,11 @@ Three lengths are available: **Quick** (7 questions, about 10 min), **Standard**
 | Attitude & motivation | Positive tone, genuine motivation, flexibility, curiosity, minus red flags |
 | English & listening | Listening-test recall, sentence corrections, a grammar coach for common slips (*"Myself Rahul"*, *"I am having 2 years experience"*, *"revert back"*…) |
 
-The scoresheet also includes an **estimated English level (CEFR)**, **role fit** for each BPO role, **red flags to probe**, **speech analytics**, the **mock-call checklist**, an **integrity panel** (tab switches, pasted answers), and a **question-by-question breakdown**. The breakdown shows your transcript with fillers, hedges, strong phrases, grammar slips and red flags highlighted, plus what a strong answer would include.
+The scoresheet also includes an **estimated English level (CEFR)**, **role fit** for each BPO role, **red flags to probe**, **speech analytics**, the **mock-call checklist**, an **integrity panel** (tab switches, pasted answers), and a **question-by-question breakdown** with scores, feedback and what a strong answer would include.
 
-Scoresheets (and answer recordings) are saved in your browser's history. They can be printed or saved as PDF, or downloaded as JSON. Press **🔊 Hear my feedback** to have Ziyad Bhai read your result aloud again.
+**Your answers, word for word.** Every question is listed with exactly what you said, caption style (or why there is no answer: skipped, or time ran out). Grammar slips get a wavy underline, weak or informal words (*gonna*, *stuff*, *good* used four times…) a dotted one, and fillers are highlighted. Under each answer, a language check lists the better way to say each one, and your recording plays right beside it.
+
+Scoresheets (and answer recordings) are saved in your browser's history. They can be printed or saved as PDF, or downloaded as JSON. Press **🔊 Hear my feedback** to have Tushar AI read your result aloud again.
 
 ### How the scoring model works
 
@@ -157,7 +161,7 @@ The interview picks automatically, and switches to Whisper mid-interview if the 
 | Firefox (desktop and Android) | ✅ | Offline Whisper |
 | Brave | ✅ | Offline Whisper |
 
-Tips: use headphones (so the mic never hears Ziyad Bhai), find a quiet room, and pick your accent in the setup (e.g. *English — India*) for better recognition.
+Tips: use headphones (so the mic never hears Tushar AI), find a quiet room, and pick your accent in the setup (e.g. *English — India*) for better recognition.
 
 ---
 
@@ -197,6 +201,6 @@ tests/                node:test suite (npm test)
 ## Limitations
 
 - Speech-to-text can mishear words, especially with strong accents or background noise, and both engines often drop "um"/"uh". Pause analysis from the microphone partly compensates.
-- The conversation is half-duplex, like a polite phone call: Ziyad Bhai doesn't listen while speaking, so you can't interrupt mid-sentence.
+- The conversation is half-duplex, like a polite phone call: Tushar AI doesn't listen while speaking, so you can't interrupt mid-sentence.
 - The built-in model judges *signals* (structure, coverage, delivery), not deep meaning. A well-structured answer with the right ideas scores well even if a human would phrase it differently. The optional local AI adds a semantic check.
 - Treat the scoresheet as practice feedback and one input to a hiring decision, never the only one.

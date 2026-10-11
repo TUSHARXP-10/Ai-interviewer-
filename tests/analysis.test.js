@@ -138,3 +138,23 @@ test('skipped answers score low but do not crash', () => {
   assert.equal(a.scores.relevance, 0);
   assert.ok(a.feedback.improve.length >= 1);
 });
+
+test('the language coach flags grammar slips and weak words, with better choices', () => {
+  const t = 'Yeah so myself Ravi and I am having two years experience. It was good, the team was good and the work was good, um I learned a lot of stuff and I am gonna do good work here.';
+  const n = Analyzer.languageNotes(t);
+  assert.ok(n.grammar.some((g) => /I am <name>/.test(g.fix)), '"myself Ravi"');
+  assert.ok(n.grammar.some((g) => g.fix === 'I have … experience'), '"I am having"');
+  const word = (w) => n.vocab.find((v) => v.word.toLowerCase() === w);
+  assert.equal(word('good').count, 4, 'overused');
+  assert.equal(word('gonna').better, 'going to', 'informal');
+  assert.ok(word('stuff'), 'vague');
+  assert.ok(n.fillers.some((f) => f.term === 'um'));
+  // Each mark carries the better wording, and only the requested kinds are marked.
+  const marks = Analyzer.segments(t, { kinds: ['grammar', 'vocab'] }).filter((s) => s.kind);
+  assert.ok(marks.some((s) => s.kind === 'grammar' && /^Better: /.test(s.note)));
+  assert.ok(marks.some((s) => s.kind === 'vocab' && s.note === 'Try: going to'));
+  assert.ok(marks.every((s) => s.kind === 'grammar' || s.kind === 'vocab'));
+  // "thing" once, "very much" and the odd "very" are normal English.
+  const fine = 'The first thing I would do is thank the customer very much for waiting so long, and then I would very carefully check the order details and very quickly fix it.';
+  assert.deepEqual(Analyzer.languageNotes(fine).vocab, []);
+});

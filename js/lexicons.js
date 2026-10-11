@@ -203,6 +203,35 @@
     { re: 'i have a doubt', wrong: 'I have a doubt', fix: 'I have a question', why: 'Internationally "doubt" means disbelief; say "question".' },
   ];
 
+  // Vocabulary coach: informal or vague words, flagged every time they are used.
+  const VOCAB = [
+    { terms: ['gonna'], better: 'going to', why: 'Informal' },
+    { terms: ['wanna'], better: 'want to', why: 'Informal' },
+    { terms: ['gotta'], better: 'have to', why: 'Informal' },
+    { terms: ['kinda'], better: 'rather / somewhat', why: 'Informal' },
+    { terms: ['yeah', 'yep', 'yup'], better: 'yes', why: 'Informal' },
+    { terms: ['yaar', 'bro', 'dude'], better: 'leave it out', why: 'Slang' },
+    { terms: ['cool'], better: 'great / fine', why: 'Informal' },
+    { terms: ['guys'], better: 'everyone / the team', why: 'Informal with customers' },
+    { terms: ['stuff'], better: 'name it: tasks, products, issues…', why: 'Vague' },
+  ];
+
+  // Fine once, weak when repeated: flagged when used 3+ times in one answer.
+  const OVERUSED = {
+    good: 'great, strong, excellent, effective',
+    very: 'really, extremely, or a stronger word (very good → excellent)',
+    nice: 'pleasant, helpful, friendly',
+    really: 'truly, genuinely',
+    got: 'received, gained, earned',
+    get: 'receive, gain, reach',
+    lot: 'many, much, a great deal',
+    bad: 'poor, difficult, disappointing',
+    big: 'large, major, significant',
+    happy: 'glad, pleased, delighted',
+    thing: 'name it: the issue, the task, the step…',
+    things: 'name them: the issues, the tasks, the steps…',
+  };
+
   // Specific, concrete detail — makes an answer believable.
   const SPECIFICITY = [
     're:\\d+', 'percent', 'per cent', 'first prize', 'award', 'certificate', 'certified',
@@ -272,7 +301,7 @@
 
   const api = {
     FILLERS, HEDGES, CONFIDENT, NEGATIVE_SELF, DONT_KNOW, STRUCTURE, STAR, EMPATHY, POLITE,
-    POSITIVE, NEGATIVE, RED_FLAGS, GRAMMAR, SPECIFICITY, CALL_CHECKLIST, COMMON_WORDS,
+    POSITIVE, NEGATIVE, RED_FLAGS, GRAMMAR, VOCAB, OVERUSED, SPECIFICITY, CALL_CHECKLIST, COMMON_WORDS,
   };
   if (isNode) module.exports = api;
   else (root.AII = root.AII || {}).Lexicons = api;

@@ -77,7 +77,7 @@
     };
     const best = (wantFemale, exclude) =>
       all.filter((v) => v !== exclude).sort((a, b) => score(b, wantFemale) - score(a, wantFemale))[0] || null;
-    // The interviewer (Ziyad Bhai) prefers a male-sounding voice and the mock-call customer
+    // The interviewer (Tushar AI) prefers a male-sounding voice and the mock-call customer
     // a female-sounding one, so the two always sound different.
     const interviewer = byName(p.interviewerVoice) || best(false, null);
     const customer = byName(p.customerVoice) || best(true, interviewer) || interviewer;
