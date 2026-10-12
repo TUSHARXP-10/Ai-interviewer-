@@ -98,7 +98,8 @@
     if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
     else document.documentElement.removeAttribute('data-theme');
   }
-  applyTheme(store.get(THEME_KEY, 'auto'));
+  // Only a saved choice is applied at start: with none, keep whatever theme the page opened with.
+  if (store.get(THEME_KEY, 'auto') !== 'auto') applyTheme(store.get(THEME_KEY, 'auto'));
   $('#theme-toggle').addEventListener('click', () => {
     const order = ['auto', 'light', 'dark'];
     const cur = store.get(THEME_KEY, 'auto');
@@ -126,7 +127,7 @@
   });
 
   function goHome() {
-    document.title = 'AI Interviewer';
+    document.title = 'Tushar AI Interviewer';
     // A recording left playing would otherwise carry on, hidden, into the next call's microphone.
     $$('#report-root audio').forEach((a) => a.pause());
     $('#report-root').innerHTML = '';
@@ -1806,7 +1807,7 @@
     if (o.sample) banner.textContent = 'This is a sample scoresheet from a simulated "' + o.sample + '" candidate. Start your own voice interview to get yours.';
     else if (o.clipsNotSaved) banner.textContent = 'Your browser would not store the recordings, so they can be replayed only until you close this tab.';
     show('report');
-    document.title = 'Scoresheet · ' + (sheet.candidate.name || 'Candidate') + ' · AI Interviewer';
+    document.title = 'Scoresheet · ' + (sheet.candidate.name || 'Candidate') + ' · Tushar AI Interviewer';
     // Only if the candidate is still looking at this scoresheet.
     if (o.speak) setTimeout(() => { if (state.sheet === sheet && !$('#screen-report').hidden) playFeedback(); }, 500);
   }
