@@ -7,7 +7,9 @@
   const esc = AII.Text.escapeHtml;
 
   const STATUS_ICON = { good: '✓', warning: '!', serious: '!', critical: '✕' };
-  const KIND_LABEL = { filler: 'Filler word', hedge: 'Hedging', strong: 'Strong phrase', grammar: 'Grammar slip', flag: 'Red flag' };
+  const KIND_LABEL = { filler: 'Filler word', hedge: 'Hedging', strong: 'Strong phrase', grammar: 'Grammar slip', vocab: 'Word choice', flag: 'Red flag' };
+  // The transcript marks only language: what to fix in how something was said.
+  const LANGUAGE_KINDS = ['grammar', 'vocab', 'filler'];
 
   function fmtDate(iso) {
     try {
@@ -23,11 +25,87 @@
     return m ? m + ' min ' + (s ? s + ' s' : '') : s + ' s';
   }
 
-  function highlighted(text, ignoreFlags) {
+  function highlighted(text, ignoreFlags, kinds) {
     if (!text || !text.trim()) return '<em class="muted">No answer.</em>';
-    return AII.Analyzer.segments(text, { ignoreFlags })
-      .map((s) => (s.kind ? '<mark class="hl hl-' + s.kind + '" title="' + KIND_LABEL[s.kind] + '">' + esc(s.text) + '</mark>' : esc(s.text)))
+    return AII.Analyzer.segments(text, { ignoreFlags, kinds })
+      .map((s) => (s.kind ? '<mark class="hl hl-' + s.kind + '" title="' + esc(KIND_LABEL[s.kind] + (s.note ? ' — ' + s.note : '')) + '">' + esc(s.text) + '</mark>' : esc(s.text)))
       .join('');
+  }
+
+  // ------------------------------------------------------------ transcript
+  /** One recording player (or nothing). */
+  function clipPlayer(clip) {
+    if (!clip) return '';
+    return '<div class="clip tr-clip"><span class="clip-label">🎧 ' + esc(clip.label) + '</span><audio controls preload="metadata" src="' + esc(clip.url) + '"></audio>' +
+      (clip.file ? '<a class="clip-dl" href="' + esc(clip.url) + '" download="' + esc(clip.file) + '">Download</a>' : '') + '</div>';
+  }
+
+  /** "Interviewer" or "Customer" line. */
+  function trAsk(who, text) {
+    return '<div class="tr-line tr-ask"><span class="tr-who">' + esc(who) + '</span><p>' + esc(text) + '</p></div>';
+  }
+
+  /** The candidate's words, as a caption, with grammar and word-choice marks. */
+  function trSaid(text, empty, q, clip) {
+    const said = text && text.trim()
+      ? '<p class="tr-caption">' + highlighted(text, q.ignoreFlags, LANGUAGE_KINDS) + '</p>'
+      : '<p class="tr-caption tr-none">' + esc(clip ? 'No words were recognised. Play the recording to hear what you said.' : empty) + '</p>';
+    return '<div class="tr-line tr-said"><span class="tr-who">You</span><div>' + said + clipPlayer(clip) + '</div></div>';
+  }
+
+  /** Grammar, word choice and fillers for everything said in one question. */
+  function languageCheck(texts, q) {
+    if (q.type === 'listening') return ''; // names and numbers: nothing to coach
+    const all = texts.filter((t) => t && t.trim());
+    if (!all.length) return '';
+    const n = AII.Analyzer.languageNotes(all.join(' . '));
+    const items = [];
+    for (const g of n.grammar) {
+      items.push('<li class="lc-grammar"><span class="lc-k">Grammar</span> “' + esc(g.evidence) + '” → <strong>' + esc(g.fix) + '</strong> <span class="muted">· ' + esc(g.why) + '</span></li>');
+    }
+    for (const v of n.vocab) {
+      items.push('<li class="lc-vocab"><span class="lc-k">Word choice</span> “' + esc(v.word) + '”' + (v.count > 1 ? ' ×' + v.count : '') +
+        ' → <strong>' + esc(v.better) + '</strong> <span class="muted">· ' + esc(v.why) + '</span></li>');
+    }
+    if (n.fillers.length) {
+      items.push('<li class="lc-filler"><span class="lc-k">Fillers</span> ' + n.fillers.map((f) => '“' + esc(f.term) + '”' + (f.count > 1 ? ' ×' + f.count : '')).join(', ') + '</li>');
+    }
+    if (!items.length) return '<div class="lang-check lc-clean">✓ No grammar slips or weak words found.</div>';
+    return '<div class="lang-check"><ul>' + items.join('') + '</ul></div>';
+  }
+
+  /** Every question in order, with every answer word for word (or why there is none). */
+  function transcript(sheet, clipsFor) {
+    const rows = sheet.questions.map((q, i) => {
+      const clips = clipsFor(q.id) || [];
+      const clip = (label) => clips.find((c) => c.label === label) || null;
+      const parts = [];
+      const said = [];
+      if (q.turns) {
+        parts.push(trAsk('Interviewer', q.text));
+        q.turns.forEach((t, k) => {
+          parts.push(trAsk('Customer', t.customer));
+          parts.push(trSaid(t.agent, 'No reply.', q, clip('Reply ' + (k + 1))));
+          said.push(t.agent);
+        });
+      } else {
+        parts.push(trAsk('Interviewer', q.text));
+        parts.push(trSaid(q.answer, q.events && q.events.timedOut ? 'No answer: time ran out.' : 'No answer: skipped.', q, clip('Answer')));
+        said.push(q.answer);
+        for (const f of q.followUps || []) {
+          parts.push(trAsk('Interviewer', f.text));
+          parts.push(trSaid(f.answer, 'No answer.', q, clip('Follow-up')));
+          said.push(f.answer);
+        }
+      }
+      return '<li class="tr-item" id="tr-q' + (i + 1) + '"><div class="tr-head"><span class="qa-num">Q' + (i + 1) + '</span><span class="qa-stage">' + esc(q.stage) + '</span>' +
+        '<span class="tr-score">' + (q.skipped ? 'Skipped' : q.quality + '/100') + '</span></div>' + parts.join('') + languageCheck(said, q) + '</li>';
+    }).join('');
+    const legend = '<div class="legend" aria-label="Highlight legend">' +
+      LANGUAGE_KINDS.map((k) => '<span><mark class="hl hl-' + k + '">' + KIND_LABEL[k].toLowerCase() + '</mark></span>').join('') + '</div>';
+    return '<section class="card" id="transcript"><h2>Your answers, word for word</h2>' +
+      '<p class="muted small">Exactly what the speech engine heard, question by question. Marked words have a better way to say them, listed under each answer.</p>' +
+      legend + '<ol class="transcript">' + rows + '</ol></section>';
   }
 
   function meter(score, label, sub, extra) {
@@ -68,29 +146,10 @@
       '<span class="chip"><span class="chip-k">' + esc(d.short) + '</span> ' + scores[d.key] + '</span>').join('') + '</div>';
   }
 
-  function clipPlayers(list) {
-    if (!list || !list.length) return '';
-    return '<div class="clips"><span class="eyebrow">🎧 Your recording</span>' + list.map((c) =>
-      '<div class="clip"><span class="clip-label">' + esc(c.label) + '</span><audio controls preload="metadata" src="' + esc(c.url) + '"></audio>' +
-      (c.file ? '<a class="clip-dl" href="' + esc(c.url) + '" download="' + esc(c.file) + '">Download</a>' : '') + '</div>').join('') + '</div>';
-  }
-
-  function questionDetail(q, i, clips) {
+  function questionDetail(q, i) {
     const parts = [];
-    // The summary line already shows the question; repeat it only when it differs (e.g. spoken-only listening details).
-    if (q.display && q.display !== q.text) parts.push('<p class="q-text"><span class="eyebrow">What the interviewer said</span>' + esc(q.text) + '</p>');
-    if (q.turns) {
-      parts.push('<div class="call">' + q.turns.map((t) =>
-        '<div class="call-line call-customer"><span class="who">Customer</span><p>' + esc(t.customer) + '</p></div>' +
-        '<div class="call-line call-agent"><span class="who">You</span><p>' + highlighted(t.agent, q.ignoreFlags) + '</p></div>').join('') + '</div>');
-    } else if (q.skipped) {
-      parts.push('<p class="answer"><em class="muted">Skipped.</em></p>');
-    } else {
-      parts.push('<div class="answer"><span class="eyebrow">Answer</span><p>' + highlighted(q.answer, q.ignoreFlags) + '</p></div>');
-    }
-    for (const f of q.followUps || []) {
-      parts.push('<div class="answer followup"><span class="eyebrow">Follow-up: ' + esc(f.text) + '</span><p>' + highlighted(f.answer, q.ignoreFlags) + '</p></div>');
-    }
+    // The words themselves (and the recordings) are in the transcript.
+    parts.push('<p class="small"><a href="#tr-q' + (i + 1) + '">' + (q.skipped ? 'See this question in the transcript' : 'Read your answer in the transcript') + '</a></p>');
     if (q.listening) {
       parts.push('<ul class="checklist">' + q.listening.items.map((it) =>
         '<li class="' + (it.hit ? 'ok' : 'miss') + '"><span aria-hidden="true">' + (it.hit ? '✓' : '✕') + '</span> ' + esc(it.label) + (it.hit ? '' : ' <span class="muted">(missed)</span>') + '</li>').join('') + '</ul>');
@@ -102,7 +161,6 @@
       parts.push('<ul class="checklist">' + q.call.map((it) =>
         '<li class="' + (it.hit ? 'ok' : 'miss') + '"><span aria-hidden="true">' + (it.hit ? '✓' : '✕') + '</span> ' + esc(it.label) + (it.hit && it.evidence ? ' <span class="muted">— “' + esc(it.evidence) + '”</span>' : '') + '</li>').join('') + '</ul>');
     }
-    parts.push(clipPlayers(clips));
     const facts = [];
     if (!q.skipped) facts.push(q.wordCount + ' words');
     if (q.wpm) facts.push(q.wpm + ' wpm');
@@ -185,9 +243,6 @@
       '<li><span>Asked to repeat a question</span><strong>' + integrity.repeats + '×</strong></li>' +
       '<li><span>Skipped questions</span><strong>' + integrity.skipped + '</strong></li></ul></section>';
 
-    const legend = '<div class="legend" aria-label="Highlight legend">' +
-      Object.keys(KIND_LABEL).map((k) => '<span><mark class="hl hl-' + k + '">' + KIND_LABEL[k].toLowerCase() + '</mark></span>').join('') + '</div>';
-
     return '<article class="report" id="report">' +
       '<header class="report-head card">' +
       '<div class="report-id"><div class="eyebrow">Interview scoresheet</div><h1>' + esc(sheet.candidate.name || 'Candidate') + '</h1>' +
@@ -201,11 +256,11 @@
       '<div class="grid-2">' +
       '<section class="card"><h2>Strengths</h2><ul class="list-good">' + sheet.strengths.map((x) => '<li>' + esc(x) + '</li>').join('') + '</ul></section>' +
       '<section class="card"><h2>How to improve</h2><ul class="list-improve">' + sheet.improvements.map((x) => '<li>' + esc(x) + '</li>').join('') + '</ul></section>' +
-      '</div>' + flags +
+      '</div>' + transcript(sheet, clipsFor) + flags +
       '<div class="grid-2">' + roleFit + (call || integ) + '</div>' +
       speech +
       '<section class="card"><h2>Score per question</h2>' + questionChart(sheet) + '</section>' +
-      '<section class="card"><h2>Question-by-question breakdown</h2>' + legend + sheet.questions.map((q, i) => questionDetail(q, i, clipsFor(q.id))).join('') + '</section>' +
+      '<section class="card"><h2>Question-by-question breakdown</h2>' + sheet.questions.map((q, i) => questionDetail(q, i)).join('') + '</section>' +
       (call ? integ : '') +
       '<p class="disclaimer muted small">Automated assessment by a transparent, rule-based model' + (sheet.llmUsed ? ' with a local AI second opinion' : '') +
       '. Speech-to-text can mishear words, especially with strong accents or background noise. Use this scoresheet as one input alongside human judgement, not as the sole basis for a hiring decision.</p>' +

@@ -27,6 +27,8 @@
     modelHost: null,                         // self-hosting: base URL containing '<model>/<files>'
     wasmPaths: null,                         // self-hosting the ONNX runtime: { mjs, wasm } URLs
     useWorker: true,                         // keep the page responsive while transcribing
+    runTimeoutMs: null,                      // per clip; default 20 s + twice the clip's length
+    livePhrases: true,                       // transcribe each phrase at a pause, for live captions
   }, (root.AII_CONFIG && root.AII_CONFIG.whisper) || {});
   const MODEL_MB = 48; // first use: ~41 MB of weights + tokenizer + speech runtime
   const SR = 16000;
@@ -81,7 +83,8 @@
     });
   }
 
-  function workerEngine(onProgress) {
+  /** onDead: called if the worker fails after it was ready, so the caller can drop it. */
+  function workerEngine(onProgress, onDead) {
     const src = 'const makePipeline = ' + makePipeline.toString() + ';\n' +
       'let asr;\n' +
       'self.onmessage = async (e) => {\n' +
@@ -100,13 +103,18 @@
     const w = new Worker(url, { type: 'module' });
     const pending = new Map();
     let seq = 0;
+    let ready = false;
+    let dead = null; // why the worker stopped: later runs fail at once instead of waiting forever
     return new Promise((resolve, reject) => {
       const fail = (msg) => {
+        if (dead) return;
+        dead = msg;
         reject(new Error(msg));
         pending.forEach((p) => p.reject(new Error(msg)));
         pending.clear();
         w.terminate();
         URL.revokeObjectURL(url);
+        if (ready && onDead) onDead();
       };
       w.onerror = (e) => {
         e.preventDefault();
@@ -117,11 +125,19 @@
         if (m.type === 'progress') {
           if (onProgress) onProgress(m.f);
         } else if (m.type === 'ready') {
+          ready = true;
           resolve({
             run(audio, args) {
+              if (dead) return Promise.reject(new Error(dead));
               return new Promise((res, rej) => {
                 const id = ++seq;
-                pending.set(id, { resolve: res, reject: rej });
+                // A crashed or stalled worker never answers: give up so the interview can go on.
+                const limit = CFG.runTimeoutMs || 20000 + (2 * audio.length * 1000) / SR;
+                const timer = setTimeout(() => fail('The speech worker stopped responding.'), limit);
+                pending.set(id, {
+                  resolve: (text) => { clearTimeout(timer); res(text); },
+                  reject: (err) => { clearTimeout(timer); rej(err); },
+                });
                 w.postMessage({ type: 'run', id, audio, args }, [audio.buffer]);
               });
             },
@@ -148,10 +164,12 @@
   /** Load the library and model once (retryable after a failure). */
   function load(onProgress) {
     if (engine) return engine;
-    engine = (async () => {
+    const current = (async () => {
       if (CFG.useWorker && typeof Worker === 'function') {
         try {
-          return await workerEngine(onProgress);
+          // A worker that fails later is dropped, so the next answer starts a fresh one
+          // (the model files are in the browser cache by then).
+          return await workerEngine(onProgress, () => { if (engine === current) engine = null; });
         } catch (e) {
           // Module workers missing (older Firefox/Safari) or blocked: use the main thread.
           if (root.console) root.console.warn('[whisper] worker unavailable, using the main thread:', e.message);
@@ -159,10 +177,11 @@
       }
       return mainThreadEngine(onProgress);
     })();
-    engine.then(() => {
+    engine = current;
+    current.then(() => {
       try { root.localStorage.setItem(READY_KEY, '1'); } catch (e) { /* ignore */ }
-    }, () => { engine = null; });
-    return engine;
+    }, () => { if (engine === current) engine = null; });
+    return current;
   }
 
   /** Resolves true when the model is ready, false if it could not be loaded. */
@@ -290,15 +309,28 @@
 
   // ------------------------------------------------------------ recogniser interface
 
+  // Live captions: a pause this long after enough speech ends a phrase, which is
+  // transcribed while the candidate carries on, so the words appear as they speak.
+  const PHRASE_PAUSE_MS = 700;
+  const PHRASE_MIN_S = 1.2;
+  const PHRASE_MIN_VOICE_MS = 500;
+
   /**
    * opts: { meter (AII.Audio meter, required), onUpdate(final, interim), onError(code, message, fatal), onStatus(text) }
+   * onUpdate receives the phrases transcribed so far, with '…' as interim while one is pending.
    */
   function createRecognizer(opts) {
     const o = opts || {};
-    let chunks = [];
+    let chunks = [];      // samples of the phrase being spoken
+    let chunkSamples = 0;
+    let voicedMs = 0;     // voice heard in that phrase
     let rate = 0;
     let untap = null;
     let paused = false;
+    let phrases = [];     // transcriptions, in speaking order
+    let texts = [];       // finished phrases, for the live caption
+    let pending = 0;
+    let gen = 0;          // start() and abort() leave late results unused
     let finalText = '';
     let lastResultAt = null;
 
@@ -307,22 +339,60 @@
       untap = null;
     }
     function collect() {
-      let n = 0;
-      for (const c of chunks) n += c.length;
-      const pcm = new Float32Array(n);
+      const pcm = new Float32Array(chunkSamples);
       let at = 0;
       for (const c of chunks) {
         pcm.set(c, at);
         at += c.length;
       }
       chunks = [];
+      chunkSamples = 0;
       return pcm;
+    }
+    const shown = () => texts.filter(Boolean).join(' ');
+    const update = () => { if (o.onUpdate) o.onUpdate(shown(), pending ? '…' : ''); };
+    function silenceDb() {
+      // Treat anything near the room's noise level as silence when trimming.
+      const floor = o.meter && Number.isFinite(o.meter.noiseFloor) ? o.meter.noiseFloor : -55;
+      return Math.min(-30, Math.max(-60, floor + 10));
+    }
+
+    /** Send the phrase heard so far to be transcribed (the worker keeps them in order). */
+    function cut() {
+      const pcm = collect();
+      voicedMs = 0;
+      if (!pcm.length || !rate) return;
+      const my = gen;
+      const i = phrases.length;
+      pending++;
+      phrases.push(transcribe(pcm, rate, { silenceDb: silenceDb() }).catch((e) => {
+        if (my === gen && o.onError) o.onError('whisper-failed', 'The offline speech model failed: ' + ((e && e.message) || e), false);
+        return '';
+      }).then((t) => {
+        if (my !== gen) return '';
+        pending--;
+        texts[i] = t;
+        lastResultAt = performance.now();
+        update();
+        return t;
+      }));
+      update();
+    }
+
+    function reset() {
+      gen++;
+      chunks = [];
+      chunkSamples = 0;
+      voicedMs = 0;
+      phrases = [];
+      texts = [];
+      pending = 0;
     }
 
     return {
       live: false,
       start() {
-        chunks = [];
+        reset();
         finalText = '';
         paused = false;
         if (!o.meter || !o.meter.running) {
@@ -330,36 +400,40 @@
           return;
         }
         untap = o.meter.tap((data, sr) => {
-          if (!paused) {
-            chunks.push(data);
-            rate = sr;
-          }
+          if (paused) return;
+          chunks.push(data);
+          chunkSamples += data.length;
+          rate = sr;
+          if (o.meter.voiced) voicedMs += (data.length / sr) * 1000;
+          if (CFG.livePhrases && voicedMs >= PHRASE_MIN_VOICE_MS && chunkSamples / sr >= PHRASE_MIN_S && o.meter.msSinceVoice() >= PHRASE_PAUSE_MS) cut();
         });
       },
-      pause() { paused = true; },
+      pause() {
+        paused = true;
+        // The interviewer is about to speak: caption what was said so far.
+        if (CFG.livePhrases && voicedMs >= PHRASE_MIN_VOICE_MS) cut();
+      },
       resume() { paused = false; },
       async stop() {
         stopTap();
-        const pcm = collect();
-        if (!pcm.length || !rate) return '';
-        if (o.onStatus) o.onStatus('Transcribing your answer…');
-        try {
-          // Treat anything near the room's noise level as silence when trimming.
-          const floor = o.meter && Number.isFinite(o.meter.noiseFloor) ? o.meter.noiseFloor : -55;
-          finalText = await transcribe(pcm, rate, { silenceDb: Math.min(-30, Math.max(-60, floor + 10)) });
-        } catch (e) {
-          if (o.onError) o.onError('whisper-failed', 'The offline speech model failed: ' + ((e && e.message) || e), false);
-          finalText = '';
-        }
+        // The last phrase (a tail of pure silence is dropped, unless it is all there is).
+        if (voicedMs > 0 || !phrases.length) cut();
+        else collect();
+        if (!phrases.length) return '';
+        const my = gen;
+        if (pending && o.onStatus) o.onStatus('Transcribing your answer…');
+        const all = await Promise.all(phrases);
+        if (my !== gen) return '';
+        finalText = collapseRepeats(all.filter(Boolean).join(' '));
         lastResultAt = performance.now();
         if (o.onUpdate) o.onUpdate(finalText, '');
         return finalText;
       },
       abort() {
         stopTap();
-        chunks = [];
+        reset();
       },
-      text: () => finalText,
+      text: () => finalText || shown(),
       interim: () => '',
       get firstResultAt() { return null; },
       get lastResultAt() { return lastResultAt; },

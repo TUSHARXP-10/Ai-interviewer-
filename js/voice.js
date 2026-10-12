@@ -214,11 +214,18 @@
     return out.join(' ').replace(/\s+/g, ' ').trim();
   }
 
+  // An echo is already playing when listening starts; a candidate who restates the
+  // question ("In five years, I see myself…") starts speaking after a pause.
+  const ECHO_ONSET_MS = 700;
+
   /**
    * Drop words at the start of a transcript that are just the interviewer's own
    * last words picked up by the microphone (speakers instead of headphones).
+   * opts.onsetMs: when the candidate's voice started (ms after listening began);
+   * a later start means the words are the candidate's own, so nothing is dropped.
    */
-  function stripEcho(heard, prompt) {
+  function stripEcho(heard, prompt, opts) {
+    if (opts && opts.onsetMs != null && opts.onsetMs > ECHO_ONSET_MS) return heard;
     const h = normWords(heard);
     const p = normWords(prompt).slice(-12);
     if (!h.length || !p.length) return heard;
@@ -234,7 +241,7 @@
     }
     if (!best) return heard;
     const rest = String(heard).trim().split(/\s+/).slice(best).join(' ');
-    // Listening only starts after Aria has finished, so an answer that is nothing but
+    // Listening only starts after the interviewer has finished, so an answer that is nothing but
     // her last words is far more likely a real answer (repeating a phrase) than an echo.
     return rest ? rest : heard;
   }

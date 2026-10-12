@@ -111,6 +111,15 @@ test('echo of the interviewer\'s last words is removed', () => {
   assert.equal(Voice.stripEcho('I completed all my tasks yesterday.', fix), 'I completed all my tasks yesterday.');
 });
 
+test('a candidate who restates the question after a pause keeps their words', () => {
+  const fiveYears = 'Where do you see yourself in five years?';
+  const salary = 'What are your salary expectations for this role?';
+  assert.equal(Voice.stripEcho('In five years, I see myself as a team leader.', fiveYears, { onsetMs: 1500 }), 'In five years, I see myself as a team leader.');
+  assert.equal(Voice.stripEcho('For this role, I expect around 20,000 a month.', salary, { onsetMs: 1200 }), 'For this role, I expect around 20,000 a month.');
+  // A voice that is there the moment listening starts is still treated as an echo.
+  assert.equal(Voice.stripEcho('in five years I see myself as a team leader', fiveYears, { onsetMs: 150 }), 'I see myself as a team leader');
+});
+
 test('"thank you" at the start of an answer does not cut it short', () => {
   const opening = Voice.endOfTurn({ words: 5, sinceVoiceMs: 2600, sinceResultMs: 2600, patienceMs: 3000, cue: 'weak' });
   assert.equal(opening.end, false, 'a 5-word "Good morning ma\'am, thank you" is a thinking pause');
