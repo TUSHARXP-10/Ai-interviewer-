@@ -275,7 +275,32 @@ details.advanced[open] > summary { margin-bottom: 16px; }
 .cap-line { margin: 0; font-size: 1.05rem; line-height: 1.5; }
 .cap-line + .cap-line { margin-top: 8px; }
 .cap-who { display: inline-block; min-width: 4.2em; margin-right: 6px; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: #9d9b94; }
-.cap-you .interim { color: #9d9b94; }
+/* The candidate's side: mic level and the words Aria understood. */
+.you-panel {
+  width: 100%; max-width: 600px; padding: 12px 16px 14px; border-radius: 16px; text-align: left;
+  background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.12);
+  transition: opacity 0.25s, border-color 0.25s, background 0.25s, box-shadow 0.25s;
+}
+.you-panel[data-state="idle"] { visibility: hidden; opacity: 0; }
+.you-panel[data-state="aria"] { opacity: 0.55; }
+.you-panel[data-state="waiting"] { border-color: rgba(27, 175, 122, 0.45); }
+.you-panel[data-state="hearing"],
+.you-panel[data-state="words"] { border-color: #1baf7a; background: rgba(27, 175, 122, 0.1); box-shadow: 0 0 0 4px rgba(27, 175, 122, 0.14); }
+.you-panel[data-state="heard"] { border-color: #1baf7a; background: rgba(27, 175, 122, 0.2); box-shadow: 0 0 0 4px rgba(27, 175, 122, 0.2); }
+.you-panel[data-state="working"] { border-color: rgba(250, 178, 25, 0.6); }
+.you-panel[data-state="problem"] { border-color: #ec835a; background: rgba(236, 131, 90, 0.12); }
+.you-head { display: flex; align-items: center; gap: 10px; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: #c3c2b7; }
+.you-panel[data-state="heard"] .you-label { color: #5fd3a6; }
+.you-panel[data-state="problem"] .you-label { color: #f2a37f; }
+.mic-bars { display: inline-flex; align-items: center; gap: 3px; height: 20px; flex: none; }
+.mic-bars i { width: 4px; height: 100%; border-radius: 2px; background: rgba(255, 255, 255, 0.3); transform: scaleY(0.15); }
+.you-panel[data-state="waiting"] .mic-bars i,
+.you-panel[data-state="hearing"] .mic-bars i,
+.you-panel[data-state="words"] .mic-bars i,
+.you-panel[data-state="heard"] .mic-bars i { background: #1baf7a; }
+.you-text { margin: 8px 0 0; min-height: 1.45em; font-size: 1.15rem; line-height: 1.45; color: #f0efec; overflow-wrap: anywhere; }
+.you-text:empty::before { content: attr(data-placeholder); color: #9d9b94; font-style: italic; }
+.you-text .interim { color: #9d9b94; }
 .cap-ai .w-now { background: rgba(57, 135, 229, 0.4); border-radius: 4px; }
 .cam-pip { position: absolute; right: 16px; bottom: 104px; width: clamp(96px, 22vw, 150px); aspect-ratio: 4 / 3; border-radius: 12px; object-fit: cover; transform: scaleX(-1); border: 2px solid rgba(255, 255, 255, 0.22); background: #000; }
 .call-controls { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
@@ -481,6 +506,7 @@ body.in-call footer { display: none; }
   .screen.call { border-radius: 16px; min-height: calc(100vh - 84px); min-height: calc(100dvh - 84px); padding-bottom: 8px; }
   .call-stage { padding: 8px 0; gap: 10px; }
   .orb { width: min(200px, 52vw); }
+  .you-text { font-size: 1.05rem; }
   /* Keep the self-view beside the orb, clear of the captions. */
   .cam-pip { top: 110px; bottom: auto; right: 12px; width: 76px; }
 }

@@ -25,7 +25,23 @@ Open **http://localhost:8080**, enter your name, press **📞 Start voice interv
 
 > Browsers only allow the microphone on `https://` or `localhost`, which is why a tiny local server is included. If you prefer Python: `python3 -m http.server 8080`.
 
-### Put it online for free (GitHub Pages)
+### Deploy to Vercel (free)
+
+The repo is ready for Vercel: `vercel.json` runs `npm run build`, which copies `index.html`, `css/` and `js/` into `dist/` (no dependencies, no bundler), and serves that folder over HTTPS with microphone permission allowed.
+
+**From the dashboard:** go to [vercel.com/new](https://vercel.com/new), import this GitHub repository and press **Deploy**. Leave every setting at its default; `vercel.json` sets the build. Every push to the branch redeploys.
+
+**From the terminal:**
+
+```bash
+npm i -g vercel     # once
+vercel              # preview deployment
+vercel --prod       # production URL
+```
+
+Open the URL in Chrome or Edge, allow the microphone, and you're in. (To check the build locally: `npm run build`, then serve `dist/`, e.g. `python3 -m http.server 8080 -d dist`.)
+
+### Or GitHub Pages
 
 1. On GitHub, open **Settings → Pages**.
 2. Under **Build and deployment**, choose **Deploy from a branch**, then pick your branch and the `/ (root)` folder.
@@ -40,8 +56,8 @@ Open **http://localhost:8080**, enter your name, press **📞 Start voice interv
 
 ## How the voice interview works
 
-1. **Mic check.** Aria greets you and asks you to say *"I'm ready"*. If she can't hear you, she tells you what to check.
-2. **Questions.** Aria speaks each question. The orb turns green while she listens, and the ring around it shows the time left.
+1. **Mic check.** Aria greets you and asks you to say *"I'm ready"*. The **You** panel under the orb shows your mic level and the words she understands as you speak, then *"✓ Got it! Your microphone works"*. If she hears your voice but no words, she adjusts how she listens, then switches to the offline engine; if she hears nothing, she tells you what to check.
+2. **Questions.** Aria speaks each question. The orb turns green while she listens, the ring around it shows the time left, and the **You** panel shows your words live (*"Aria hears…"*), then what she will score (*"You said…"*).
 3. **Turn-taking.** When you stop talking, Aria waits a moment, then replies. She waits longer if you've only just started, so thinking pauses are safe. Short replies such as *"No."* count as answers too. You can set how patient she is (2, 3 or 5 seconds), or make her wait until you say *"that's all"* (with the offline Whisper engine, which only reads your words after you finish, a long pause of about 8 seconds ends the answer instead).
 4. **Voice commands.** Say *"Can you repeat the question?"* or *"pardon?"* to hear it again (even after a false start), *"skip this one"* or *"next"* to move on, or end your answer with *"that's all"* or *"I'm done"*. Aria confirms out loud, so you never need to look at the screen. If you say *"I don't know"*, she gives you time to think (or say *"skip"*); if you're silent for a while, she gently nudges you. In the mock call, the customer asks *"Hello? Are you still there?"*
 5. **Spoken feedback.** After the last question, Aria reads out your score, your strongest area, and your top tip. The full scoresheet opens with ▶ playback (and download) of each of your answers.
@@ -124,7 +140,7 @@ ollama serve              # usually already running after install
 
 In the app, open **Voice, camera & local AI settings**, tick **Use a free local AI model**, press **Test**, and pick the model. After the interview, the model rates each answer and writes the summary. Its scores are **blended** with the rule-based ones (the rules stay the majority), and it adds a one-line tip per answer. Everything stays on your computer.
 
-> If the app is hosted somewhere other than `localhost` (e.g. GitHub Pages), allow that site in Ollama: `OLLAMA_ORIGINS="https://<your-username>.github.io" ollama serve`.
+> If the app is hosted somewhere other than `localhost` (e.g. Vercel or GitHub Pages), allow that site in Ollama: `OLLAMA_ORIGINS="https://<your-app>.vercel.app" ollama serve`. Some browsers block an online page from talking to `localhost`; if **Test** can't connect, run the app locally with `npm start`.
 
 ---
 
@@ -189,6 +205,8 @@ js/report.js          Scoresheet rendering
 js/demo.js            Scripted candidates (sample report, demo, tests)
 js/app.js             UI controller
 server.js             Zero-dependency local server (npm start)
+vercel.json           Vercel hosting: build command, output folder, headers
+tools/build.js        Copies the site into dist/ for static hosting (npm run build)
 tools/simulate.js     Run a scripted interview in the terminal
 tests/                node:test suite (npm test)
 ```

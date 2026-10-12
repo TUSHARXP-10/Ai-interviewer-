@@ -188,7 +188,9 @@
     return {
       async start(existingStream) {
         stream = existingStream || await navigator.mediaDevices.getUserMedia({
-          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: false },
+          // Gain control on: quiet laptop and phone mics must still reach the voice detector
+          // and the recogniser (Chrome can apply it to the device for every listener).
+          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
         });
         ctx = prime();
         if (!ctx) throw new Error('Web Audio is not supported');

@@ -82,6 +82,7 @@
     hiddenCount: 0,         // times the tab was hidden (to re-speak cut-off sentences)
     ttsOk: true,            // false when the browser cannot speak: captions take over
     meterTrusted: true,     // false when the level meter cannot hear the voice the recogniser hears
+    useTrack: true,         // give the browser recogniser our mic track (Chrome 135+ desktop)
     whisperFailed: false,   // the offline model could not be loaded in this call: don't offer it again
     lastSpoken: '',
     callGen: 0,             // increases with every call, so a call that was left can never resume
@@ -166,7 +167,9 @@
     if (state.engine === 'whisper') {
       return AII.Whisper.createRecognizer(Object.assign({ meter: state.meter, lang: settings.accent }, handlers));
     }
-    const track = state.meter && state.meter.stream && state.meter.stream.getAudioTracks()[0];
+    // Share our (echo-cancelled) mic track with the recogniser where Chrome supports it;
+    // the mic check turns this off if the recogniser then hears nothing.
+    const track = state.useTrack && state.meter && state.meter.stream && state.meter.stream.getAudioTracks()[0];
     return Speech.createRecognizer(Object.assign({ lang: settings.accent, track, micGranted: !!(state.meter && state.meter.running) }, handlers));
   }
 
@@ -560,16 +563,33 @@
     }
     if (current) current.classList.add('w-now');
   }
+  /** The candidate's words as Aria understood them (latest words kept in view). */
   function renderYou(fin, interim) {
     const live = $('#live');
-    live.textContent = fin ? fin + ' ' : '';
-    if (interim) {
+    let f = String(fin || '').trim();
+    const i = String(interim || '').trim();
+    if (f.length + i.length > 260) {
+      const keep = Math.max(0, 260 - i.length);
+      f = keep ? '…' + f.slice(-keep).replace(/^\S*\s+/, '') : '…';
+    }
+    live.textContent = f ? f + ' ' : '';
+    if (i) {
       const s = document.createElement('span');
       s.className = 'interim';
-      s.textContent = interim;
+      s.textContent = i;
       live.appendChild(s);
     }
-    if (!fin && !interim) live.textContent = '…';
+  }
+
+  /**
+   * The "You" panel: mode is idle | aria (dimmed while Aria talks) | waiting | hearing |
+   * words | working | heard | problem. placeholder shows while no words are on screen.
+   */
+  function youPanel(mode, label, placeholder) {
+    const p = $('#you-panel');
+    if (p.dataset.state !== mode) p.dataset.state = mode;
+    if (label != null && $('#you-label').textContent !== label) $('#you-label').textContent = label;
+    if (placeholder != null && $('#live').dataset.placeholder !== placeholder) $('#live').dataset.placeholder = placeholder;
   }
 
   // The orb breathes with whoever is talking: Aria's speech or the candidate's mic level.
@@ -578,8 +598,17 @@
   let mouthLevel = 0;
   let speakingSince = 0;
   let lastBoundary = 0;
+  const BAR_GAIN = [0.55, 0.85, 1.15, 0.8, 0.6];
+  let barLvl = 0;
   function orbLoop() {
     const now = performance.now();
+    // Mic bars: how loud the candidate is right now (only while we listen).
+    const listeningNow = state.ui === 'listening' && state.meter;
+    barLvl += ((listeningNow ? state.meter.level : 0) - barLvl) * 0.35;
+    $$('#mic-bars i').forEach((b, i) => {
+      const wobble = barLvl > 0.08 ? 0.75 + 0.25 * Math.sin(now / 90 + i * 1.7) : 1;
+      b.style.transform = 'scaleY(' + (0.15 + 0.85 * Math.min(1, barLvl * 1.8 * BAR_GAIN[i] * wobble)).toFixed(3) + ')';
+    });
     if (speakingSince && now - lastBoundary > 420) mouthLevel = Math.max(mouthLevel, 0.3 + 0.4 * Math.abs(Math.sin(now / 95)));
     mouthLevel *= 0.85;
     const target = state.ui === 'speaking' ? mouthLevel : state.ui === 'listening' && state.meter ? state.meter.level : 0;
@@ -662,7 +691,9 @@
    */
   async function say(segments, opts) {
     const o = opts || {};
-    if (!o.keepYou) $('#live').textContent = '';
+    // Keep what the candidate said on screen (dimmed) while Aria replies; a confirmation
+    // ("✓ Got it") or a problem stays bright while she talks about it.
+    if (!o.keepYou && /^(waiting|hearing|words|working)$/.test($('#you-panel').dataset.state)) youPanel('aria');
     for (const seg of segments) {
       if (state.endRequested && !o.force) break;
       await Speech.onceVisible(); // never talk into a hidden tab
@@ -792,6 +823,7 @@
         pauses.length = 0;
         pausedAt = 0;
         renderYou('', '');
+        youPanel('waiting', 'Your turn', 'Start speaking… I’m listening.');
         rec = makeRecognizer({
           onUpdate: (fin, interim) => {
             renderYou(fin, interim);
@@ -881,12 +913,18 @@
         const sinceResultMs = live && rec.lastResultAt ? Math.min(now - rec.lastResultAt, sinceResume) : null;
         const current = text.startsWith(settledText) ? text.slice(settledText.length) : text;
 
-        // Spoken commands, acted on once the words have settled for a moment.
+        // Show the candidate that they are heard, and what is understood.
+        const voiceNow = !!state.meter && state.meter.msSinceVoice() < 450;
+        if (live && text) youPanel('words', roleplay ? 'The customer hears' : 'Aria hears');
+        else if (voiceNow) youPanel('hearing', live ? 'I can hear you…' : 'Recording your answer…');
+        else if (live && spokeMs > 400) youPanel('hearing', 'Working out your words…');
+        else youPanel('waiting', 'Your turn', !live && spokeMs > 600 ? 'Keep going. I’ll write down your answer when you finish.' : 'Start speaking… I’m listening.');
+
+        // Spoken commands, acted on once the words AND the microphone have been quiet for a moment.
+        const settledFor = Math.min(now - lastTextAt, sinceVoiceMs == null ? Infinity : sinceVoiceMs);
         let cue = null;
         if (live && text) {
           const cmd = Voice.parseCommand(text, current);
-          // Act only when the words AND the microphone have been quiet for a moment.
-          const settledFor = Math.min(now - lastTextAt, sinceVoiceMs == null ? Infinity : sinceVoiceMs);
           if (settledFor > 1200) {
             if (cmd.command === 'repeat' && ctl.repeats < 3) return repeat(true);
             if (cmd.command === 'skip') return finish({ skipped: true, command: 'skip' });
@@ -905,8 +943,10 @@
           if (cmd.command === 'done') cue = cmd.strength;
         }
         // Words before a clear pause are settled; anything after is the current utterance.
+        // Only once the command check above has seen them settle too (its clock can lag this
+        // one by a fraction of a millisecond), or a "skip" could be settled before it is acted on.
         const quiet = Math.min(sinceVoiceMs == null ? Infinity : sinceVoiceMs, sinceResultMs == null ? Infinity : sinceResultMs);
-        if (quiet >= 1200 && text) settledText = text;
+        if (quiet >= 1200 && settledFor > 1200 && text) settledText = text;
 
         // The mic heard a voice, then a pause, but the recogniser returned nothing: ask again, then switch engine.
         if (live && words === 0 && spokeMs >= 2500 && elapsed > 6000 && state.meterTrusted !== false &&
@@ -1103,6 +1143,7 @@
         if (state.userAction) state.userAction(false);
         setButtons(false);
         setUi('thinking', state.engine === 'whisper' && !x.skipped ? 'Transcribing your answer…' : 'One moment…');
+        if (!x.skipped && state.engine === 'whisper') youPanel('working', 'Writing down your answer…', '');
         // Close the measurements first: the offline engine can take seconds to transcribe,
         // and nothing heard meanwhile belongs to the answer.
         const audio = state.meter ? state.meter.endSegment() : null;
@@ -1133,6 +1174,15 @@
         }
         if (!x.command && cmd.command === 'skip') skipped = true;
         if (cmd.command === 'done' && cmd.strength === 'strong') text = cmd.text;
+
+        // What Aria will score, so the candidate sees she understood (dimmed once she replies).
+        if (skipped || !text.trim()) {
+          renderYou('', '');
+          youPanel('aria', 'You', x.command === 'skip' || x.command === 'button' ? 'Skipped.' : '');
+        } else {
+          renderYou(text, '');
+          youPanel('words', 'You said');
+        }
 
         const totalMs = performance.now() - t0;
         const first = rec && rec.firstResultAt;
@@ -1220,10 +1270,9 @@
   /** Ask the candidate to say "I'm ready" and confirm we can hear (and understand) them. */
   async function micCheck(alive) {
     let attempt = 0;
+    let prompt = "Before we begin, let's check your microphone. Please say: I'm ready.";
+    $('#room-q').textContent = 'Microphone check';
     while (alive() && !state.endRequested) {
-      const prompt = attempt === 0
-        ? "Before we begin, let's check your microphone. Please say: I'm ready."
-        : "I couldn't hear you. Please check your microphone isn't muted, then say: I'm ready.";
       await say([{ text: prompt, voice: 'interviewer' }]);
       await sleep(GUARD_MS);
       if (!alive() || state.endRequested) return false;
@@ -1233,26 +1282,46 @@
       if (heard.ok) {
         // Words arrived but the level meter heard nothing: its pause/tone figures would be wrong.
         if (heard.live && !heard.voicedMs) state.meterTrusted = false;
+        renderYou(heard.text || '', '');
+        youPanel('heard', '✓ Got it! Your microphone works', '');
+        announce('Microphone check passed.');
         return 'heard';
       }
-      // The meter hears a voice but the recogniser returns no words: try the offline engine.
-      const deaf = !heard.fatal && heard.live && heard.voicedMs >= 1500;
+      // The mic hears a voice but the recogniser returns no words.
+      const deaf = !heard.fatal && heard.live && (heard.deaf || heard.voicedMs >= 1500);
+      if (deaf && state.useTrack) {
+        // Let the browser's recogniser open the microphone itself instead of sharing ours.
+        state.useTrack = false;
+        youPanel('problem', 'I can hear your voice, but not the words yet', '');
+        prompt = "I can hear your voice, but I didn't catch the words. Let me adjust my listening. Please say again: I'm ready.";
+        continue;
+      }
       // Whisper listens through the page's own mic stream, so it helps even when the browser's
       // recogniser is refused ("not-allowed") while the microphone itself works.
       const micOk = !!(state.meter && state.meter.running);
-      if ((heard.fatal || deaf) && state.engine === 'browser' && hasWhisper() && (micOk || (heard.code !== 'not-allowed' && heard.code !== 'audio-capture'))) {
+      if ((heard.fatal || deaf) && state.engine === 'browser' && hasWhisper() && !state.whisperFailed &&
+          (micOk || (heard.code !== 'not-allowed' && heard.code !== 'audio-capture'))) {
+        youPanel('problem', 'Switching to offline listening…', '');
         state.engine = 'whisper';
         const ok = await prepareWhisper(alive);
         if (!alive()) return false;
         if (ok === null) return false; // ended meanwhile
         if (ok) {
           attempt = 0;
+          prompt = "Thanks for waiting. Please say: I'm ready.";
           continue;
         }
         state.engine = 'browser';
+        state.whisperFailed = true;
+        attempt++;
+        youPanel('problem', 'Offline listening is not available', '');
+        prompt = "My offline listening couldn't load, so let's try once more. Please say: I'm ready.";
+        continue;
       }
       attempt++;
+      youPanel('problem', heard.voicedMs >= 300 ? 'I heard a sound, but no words' : 'I didn’t hear anything', '');
       if (heard.fatal || attempt >= 2) {
+        setUi('idle', 'Check your microphone');
         const retry = await waitForUser(heard.fatal
           ? heard.message + ' Press Try again when ready.'
           : 'Aria can’t hear you yet. Check that the right microphone is selected and not muted (headset switch, system settings), then press Try again.');
@@ -1260,38 +1329,66 @@
         if (!retry) return 'skipped';
         if (!state.meter || !state.meter.running) await ensureMic();
         attempt = 0;
+        prompt = "Let's try again. Please say: I'm ready.";
+        continue;
       }
+      prompt = heard.voicedMs >= 300
+        ? "Sorry, I didn't catch that. Please speak a little louder and say: I'm ready."
+        : "I couldn't hear you. Please check your microphone isn't muted, then say: I'm ready.";
     }
     return false;
   }
 
   /**
-   * Listen briefly for any speech.
-   * Resolves { ok, live, voicedMs } or { fatal, code, message, live, voicedMs }.
+   * Listen briefly for "I'm ready", showing the mic level and the words as they arrive.
+   * Resolves { ok, text, live, voicedMs }, { ok: false, deaf } (voice but no words),
+   * or { fatal, code, message, live, voicedMs }.
    */
   function listenBrief(ms) {
     return new Promise((resolve) => {
       let done = false;
+      let settle = null;
+      let firstWordAt = 0;
       setUi('listening', 'Say: “I’m ready”');
       renderYou('', '');
+      youPanel('waiting', 'Your microphone', 'Say “I’m ready”…');
       if (state.meter) state.meter.beginSegment();
       const voiced = () => (state.meter ? state.meter.segmentVoicedMs() : 0);
-      const finishWith = (r) => {
+      const sinceVoice = () => (state.meter ? state.meter.msSinceVoice() : Infinity);
+      const finishWith = async (r) => {
         if (done) return;
         done = true;
-        state.cancelBrief = null;
         clearInterval(timer);
+        clearTimeout(settle);
         r.live = !!rec && rec.live !== false;
         r.voicedMs = voiced();
-        if (rec) rec.abort();
         if (state.meter) state.meter.endSegment();
+        let text = r.live && rec ? (rec.text() + ' ' + rec.interim()).trim() : '';
+        if (rec && r.ok && !r.live && !state.endRequested) {
+          // The offline engine has no live words: write down what was said, so the
+          // candidate sees that it worked (End or a slow device never wait for it).
+          youPanel('working', 'Checking what I heard…', '');
+          let cancel;
+          const cancelled = new Promise((res) => { cancel = () => res(''); });
+          state.cancelBrief = cancel;
+          text = await Promise.race([rec.stop().catch(() => ''), sleep(6000).then(() => ''), cancelled]);
+          rec.abort();
+        } else if (rec) rec.abort();
+        state.cancelBrief = null;
+        r.text = String(text || '').trim();
         resolve(r);
       };
       const rec = makeRecognizer({
         onUpdate: (fin, interim) => {
+          if (done) return;
           renderYou(fin, interim);
-          // Wait a moment after the first word so the meter has measured the voice too.
-          if (Voice.wordCount(fin + ' ' + interim) >= 1) setTimeout(() => finishWith({ ok: true }), 400);
+          const t = (fin + ' ' + interim).trim();
+          if (!Voice.wordCount(t)) return;
+          if (!firstWordAt) firstWordAt = performance.now();
+          youPanel('words', 'Aria hears');
+          // Let the phrase finish so the candidate sees all of it (and the meter measures it).
+          clearTimeout(settle);
+          settle = setTimeout(() => finishWith({ ok: true }), fin && /\bready\b/i.test(t) ? 400 : 900);
         },
         onError: (code, message, fatal) => {
           if (fatal) finishWith({ fatal: true, code, message });
@@ -1299,12 +1396,25 @@
       });
       const t0 = performance.now();
       state.cancelBrief = () => finishWith({ ok: false });
+      const live = rec.live !== false;
       const timer = setInterval(() => {
         if (state.endRequested) return finishWith({ ok: false });
-        // The offline engine has no live words: a second of voice is proof enough.
-        if (rec && rec.live === false && voiced() >= 900) return finishWith({ ok: true });
-        if (performance.now() - t0 > ms) finishWith({ ok: false });
-      }, 150);
+        const now = performance.now();
+        const v = voiced();
+        const sv = sinceVoice();
+        if (firstWordAt) {
+          if (now - firstWordAt > 3000) finishWith({ ok: true }); // still talking: words are proof enough
+          return;
+        }
+        if (sv < 450) youPanel('hearing', 'I can hear you…');
+        else if (live && v >= 300) youPanel('hearing', 'Working out your words…');
+        else if (v < 300) youPanel('waiting', 'Your microphone', 'Say “I’m ready”…');
+        // The offline engine: a short phrase followed by a pause is enough.
+        if (!live && ((v >= 350 && sv >= 700) || v >= 2500)) return finishWith({ ok: true });
+        // A voice, then a pause, but the recogniser gave no words at all: it can't hear us.
+        if (live && v >= 400 && sv >= 2500 && now - t0 > 3000) return finishWith({ ok: false, deaf: true });
+        if (now - t0 > ms) finishWith({ ok: false });
+      }, 100);
       rec.start();
     });
   }
@@ -1355,6 +1465,8 @@
     state.ttsOk = true;
     state.meterTrusted = true;
     state.whisperFailed = false;
+    // Chrome 135+ on desktop can listen to a given mic track; Android ignores it.
+    state.useTrack = !IS_ANDROID;
     state.lastSpoken = '';
     state.startedAt = Date.now();
     if (state.cancelTap) state.cancelTap();
@@ -1371,6 +1483,7 @@
     $('#roleplay-banner').hidden = true;
     captionWords('');
     renderYou('', '');
+    youPanel('idle', 'You', '');
     setUi('idle', 'Connecting…');
     setCallHint();
     startOrb();
@@ -1414,6 +1527,7 @@
         : "Okay, let's carry on. If I can't hear you, I'll let you know. ";
       await say([{ text: opener + session.briefing({ pauseEnds: pauseEnds() }), voice: 'interviewer' }]);
       if (!alive()) return;
+      youPanel('aria');
     }
 
     let step = session.current();

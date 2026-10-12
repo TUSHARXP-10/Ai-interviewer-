@@ -223,6 +223,15 @@
 
         <p class="call-state" id="state-pill" data-state="idle">Connecting…</p>
         <p class="sr-only" id="sr-status" role="status" aria-live="polite"></p>
+        <!-- What the microphone hears and what Aria understood (not a live region: a screen
+             reader speaking it aloud would be picked up by the open microphone). -->
+        <div class="you-panel" id="you-panel" data-state="idle">
+          <div class="you-head">
+            <span class="mic-bars" id="mic-bars" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+            <span class="you-label" id="you-label">You</span>
+          </div>
+          <p class="you-text" id="live" data-placeholder=""></p>
+        </div>
         <p class="call-hint" id="call-hint">Say <strong>“repeat”</strong> to hear a question again · say <strong>“that’s all”</strong> when you finish</p>
         <div class="roleplay-banner" id="roleplay-banner" hidden>📞 <strong>Mock call:</strong> you are the support agent. Talk to the customer as you would on a real call.</div>
         <div class="notice" id="notice" role="alert" hidden></div>
@@ -234,7 +243,6 @@
 
         <div class="captions" id="captions" hidden aria-live="off">
           <p class="cap-line cap-ai"><span class="cap-who" id="cap-who">Aria</span><span id="caption"></span></p>
-          <p class="cap-line cap-you"><span class="cap-who">You</span><span id="live"></span></p>
         </div>
       </div>
 
