@@ -2,22 +2,27 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Tushar AI Interviewer</title>
-  <meta name="description" content="A free AI interviewer for BPO and customer-service jobs. It talks, listens, runs a mock customer call, and gives you a detailed scoresheet — all inside your browser.">
-  <meta name="theme-color" content="#2a78d6">
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%232a78d6'/%3E%3Cellipse cx='23' cy='28' rx='4' ry='6' fill='%23fff'/%3E%3Cellipse cx='41' cy='28' rx='4' ry='6' fill='%23fff'/%3E%3Crect x='22' y='41' width='20' height='4' rx='2' fill='%23fff'/%3E%3C/svg%3E">
+  <meta name="description" content="A free voice interviewer for BPO and customer-service jobs. It speaks, listens, follows up, plays an upset customer on a mock call, and scores you like a recruiter, all inside your browser.">
+  <meta name="theme-color" content="#05060a">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%2305060a'/%3E%3Crect x='14' y='26' width='6' height='12' rx='3' fill='%23ff6a2b'/%3E%3Crect x='24' y='16' width='6' height='32' rx='3' fill='%23ff6a2b'/%3E%3Crect x='34' y='22' width='6' height='20' rx='3' fill='%233ee6d0'/%3E%3Crect x='44' y='28' width='6' height='8' rx='3' fill='%233ee6d0'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=Geist+Mono:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap">
   <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
+  <div class="backdrop" aria-hidden="true"></div>
   <header class="topbar">
-    <a class="brand" href="#" id="brand-home" aria-label="AI Interviewer home">
-      <svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="30" fill="#2a78d6"/><ellipse cx="23" cy="28" rx="4" ry="6" fill="#fff"/><ellipse cx="41" cy="28" rx="4" ry="6" fill="#fff"/><rect x="22" y="41" width="20" height="4" rx="2" fill="#fff"/></svg>
-      <span>AI Interviewer</span>
+    <a class="brand" href="#" id="brand-home" aria-label="Tushar AI Interviewer home">
+      <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+      <span class="brand-word">Tushar <b>AI</b></span>
+      <span class="brand-sub">Interviewer</span>
     </a>
     <div class="topbar-right">
-      <span class="pill-note">Free · private · no sign-up</span>
-      <button class="btn btn-icon btn-ghost" id="theme-toggle" type="button" aria-label="Switch colour theme" title="Switch colour theme"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 3.5a8.5 8.5 0 0 1 0 17z" fill="currentColor"/></svg></button>
+      <span class="pill-note"><span class="tally" aria-hidden="true"></span>Free · private · no sign-up</span>
+      <button class="btn btn-icon btn-ghost" id="theme-toggle" type="button" aria-label="Switch colour theme" title="Switch colour theme" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 3.5a8.5 8.5 0 0 1 0 17z" fill="currentColor"/></svg></button>
     </div>
   </header>
 
@@ -25,48 +30,95 @@
     <!-- ======================================================= HOME -->
     <section id="screen-home" class="screen">
       <div class="hero-home">
-        <div>
-          <span class="eyebrow">Voice interview practice · BPO & customer service</span>
-          <h1>Talk to an AI interviewer, just like a real phone interview</h1>
-          <p class="lead">No typing and no chat. Tushar AI, your AI interviewer, asks every question out loud, listens to your spoken answers, asks follow-ups, and plays an upset customer in a mock call. At the end you hear how you did, and you get a full scoresheet with recordings of your answers.</p>
+        <div class="hero-copy">
+          <span class="eyebrow eyebrow-live"><span class="tally" aria-hidden="true"></span>On air · Voice interview practice for BPO &amp; customer service</span>
+          <h1 class="display">Your <em>voice</em> is the interview.</h1>
+          <p class="lead">Tushar AI asks every question out loud, listens to your answers, pushes back with follow-ups, and plays an upset customer on a mock call. Then it scores you the way a recruiter would, with recordings of every answer.</p>
           <div class="hero-actions">
-            <a class="btn btn-primary btn-big" href="#setup">📞 Start a voice interview</a>
-            <button class="btn btn-big" type="button" data-sample="average">See a sample scoresheet</button>
+            <a class="btn btn-primary btn-big btn-live" href="#setup"><span class="tally" aria-hidden="true"></span>Start the interview</a>
+            <button class="btn btn-big btn-glass" type="button" data-sample="average">See a sample scoresheet</button>
           </div>
-          <div class="badges">
-            <span class="badge">No API keys or payment</span>
-            <span class="badge">Runs in your browser</span>
-            <span class="badge">100% spoken, hands-free</span>
-            <span class="badge">Optional free local AI</span>
-          </div>
+          <dl class="stats">
+            <div><dt>Questions</dt><dd>42</dd></div>
+            <div><dt>Skills scored</dt><dd>7</dd></div>
+            <div><dt>Roles</dt><dd>5</dd></div>
+            <div><dt>API keys</dt><dd>0</dd></div>
+          </dl>
         </div>
         <div class="hero-visual" aria-hidden="true">
-          <svg class="avatar speaking" viewBox="0 0 120 120">
-            <defs>
-              <radialGradient id="hero-grad" cx="38%" cy="32%" r="75%">
-                <stop offset="0" class="av-stop-1"/>
-                <stop offset="1" class="av-stop-2"/>
-              </radialGradient>
-            </defs>
-            <circle class="av-ring" cx="60" cy="60" r="56"/>
-            <circle cx="60" cy="60" r="46" fill="url(#hero-grad)"/>
-            <g class="av-eyes"><ellipse class="av-feature" cx="46" cy="55" rx="5" ry="7"/><ellipse class="av-feature" cx="74" cy="55" rx="5" ry="7"/></g>
-            <rect class="av-mouth av-feature" x="47" y="75" width="26" height="5" rx="2.5"/>
-          </svg>
+          <div class="core-wrap">
+            <canvas class="core" data-core="demo"></canvas>
+            <svg class="orbit-text" viewBox="0 0 400 400">
+              <defs><path id="orbit-path" d="M200,200 m-176,0 a176,176 0 1,1 352,0 a176,176 0 1,1 -352,0"/></defs>
+              <text><textPath href="#orbit-path">SPEAKS ✦ LISTENS ✦ FOLLOWS UP ✦ PLAYS THE CUSTOMER ✦ SCORES ✦ GIVES FEEDBACK ✦</textPath></text>
+            </svg>
+            <div class="core-readout" data-core-readout>
+              <span class="readout-who" data-core-who>Tushar AI · on air</span>
+              <span class="readout-line" data-core-line>Tell me about a time you calmed down an angry customer.</span>
+            </div>
+          </div>
         </div>
       </div>
 
-      <div class="features">
-        <div class="feature"><span class="ico" aria-hidden="true">🎙️</span><h3>A real conversation</h3><p>Tushar AI speaks, then listens, and knows when you've finished, and you can say "repeat", "skip" or "that's all", so you never touch the screen.</p></div>
-        <div class="feature"><span class="ico" aria-hidden="true">🧠</span><h3>Reads your thought process</h3><p>Checks structure, reasoning, examples and STAR stories, and follows up when an answer is thin.</p></div>
-        <div class="feature"><span class="ico" aria-hidden="true">💪</span><h3>Measures confidence</h3><p>Looks at hedging, filler words, how quickly you start, voice strength, pauses and tone.</p></div>
-        <div class="feature"><span class="ico" aria-hidden="true">📞</span><h3>Mock customer call</h3><p>An angry customer reacts to what you actually say: empathise and they calm down; ignore them and they escalate.</p></div>
-        <div class="feature"><span class="ico" aria-hidden="true">🎧</span><h3>English & listening check</h3><p>Note-taking under pressure, sentence correction, and a grammar coach for common slips.</p></div>
-        <div class="feature"><span class="ico" aria-hidden="true">📋</span><h3>Recruiter-style scoresheet</h3><p>Seven skill scores, a verdict, role fit, red flags, and question-by-question feedback.</p></div>
+      <div class="ticker" aria-hidden="true">
+        <div class="ticker-track">
+          <span>Tell me about yourself</span><span>Why do you want to work in a BPO?</span><span>A customer is shouting about a double charge</span><span>Are you comfortable with night shifts?</span><span>Repeat these details back to me</span><span>Correct this sentence</span><span>Where do you see yourself in two years?</span><span>Do you have any questions for me?</span>
+          <span>Tell me about yourself</span><span>Why do you want to work in a BPO?</span><span>A customer is shouting about a double charge</span><span>Are you comfortable with night shifts?</span><span>Repeat these details back to me</span><span>Correct this sentence</span><span>Where do you see yourself in two years?</span><span>Do you have any questions for me?</span>
+        </div>
       </div>
 
-      <section class="card" id="setup" aria-labelledby="setup-title">
-        <h2 id="setup-title">Set up your interview</h2>
+      <section class="bento" aria-label="What the interviewer does">
+        <article class="cell cell-talk">
+          <span class="cell-k">01 · Conversation</span>
+          <h3>It talks. It listens. It knows when you’ve finished.</h3>
+          <p>Answer out loud, pause when you’re done, or say “repeat”, “skip” or “that’s all”. You never touch the screen.</p>
+          <div class="mini-chat" aria-hidden="true">
+            <p class="mc-ai"><b>Tushar AI</b>Walk me through how you’d calm that customer down.</p>
+            <p class="mc-you"><b>You</b>First I’d apologise and listen, then check the order and fix it…<span class="mc-wave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span></p>
+          </div>
+        </article>
+        <article class="cell cell-star">
+          <span class="cell-k">02 · Thought process</span>
+          <h3>Reads how you think</h3>
+          <p>Structure, reasoning, real examples and STAR stories. A thin answer gets a follow-up question.</p>
+          <div class="mini-star" aria-hidden="true"><span>Situation</span><span>Task</span><span>Action</span><span>Result</span></div>
+        </article>
+        <article class="cell cell-vu">
+          <span class="cell-k">03 · Confidence</span>
+          <h3>Hears your confidence</h3>
+          <p>Fillers, hedging, pace, pauses, how fast you start, voice strength and tone.</p>
+          <div class="mini-vu" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          <div class="mini-readouts" aria-hidden="true"><span>142 wpm</span><span>2 fillers</span><span>0.8 s start</span></div>
+        </article>
+        <article class="cell cell-call">
+          <span class="cell-k">04 · Mock call</span>
+          <h3>An angry customer who reacts to you</h3>
+          <p>Empathise and they calm down. Ignore them and they escalate.</p>
+          <div class="mini-call" aria-hidden="true">
+            <p>“I’ve been charged <b>twice</b> and nobody is helping me!”</p>
+            <div class="mood"><span>Furious</span><span class="mood-bar"><i></i></span><span>Calm</span></div>
+          </div>
+        </article>
+        <article class="cell cell-english">
+          <span class="cell-k">05 · English &amp; listening</span>
+          <h3>A grammar coach that listens</h3>
+          <p>Note-taking under pressure, sentence correction, and fixes for common slips.</p>
+          <p class="mini-fix" aria-hidden="true"><s>I am having two years experience</s><span>I have two years of experience</span></p>
+        </article>
+        <article class="cell cell-sheet">
+          <span class="cell-k">06 · Scoresheet</span>
+          <h3>A recruiter-grade verdict</h3>
+          <p>Seven skill scores, role fit, red flags, a word-for-word transcript and every recording.</p>
+          <div class="mini-dial" aria-hidden="true" style="--v:78"><span>78</span><small>Recommended</small></div>
+        </article>
+      </section>
+
+      <section class="console" id="setup" aria-labelledby="setup-title">
+        <div class="console-head">
+          <span class="eyebrow">Studio setup</span>
+          <h2 id="setup-title" class="display-2">Go live in under a minute</h2>
+          <p class="muted">Tell Tushar AI who you are and what you’re applying for. Use Chrome or Edge with headphones in a quiet room for the best results.</p>
+        </div>
         <form id="setup-form" class="form-grid" autocomplete="off">
           <div class="field">
             <label for="f-name">Your name</label>
@@ -115,7 +167,7 @@
           </div>
 
           <details class="advanced full">
-            <summary>Voice, camera & local AI settings</summary>
+            <summary><span>Studio settings</span><span class="muted small">voices, speed, recording, camera, speech engine, local AI</span></summary>
             <div class="form-grid">
               <div class="field">
                 <label for="f-ivoice">Interviewer voice</label>
@@ -162,13 +214,13 @@
           </details>
 
           <div class="field full" style="display:flex; gap:10px; flex-wrap:wrap; align-items:center">
-            <button class="btn btn-primary btn-big" type="submit" id="btn-continue">📞 Start voice interview</button>
+            <button class="btn btn-primary btn-big btn-live" type="submit" id="btn-continue"><span class="tally" aria-hidden="true"></span>Go live: start the interview</button>
             <span class="muted small" id="setup-note"></span>
           </div>
         </form>
       </section>
 
-      <section class="card" id="history-card" hidden>
+      <section class="card glass" id="history-card" hidden>
         <div style="display:flex; justify-content:space-between; align-items:center; gap:10px">
           <h2 style="margin:0">Your past interviews</h2>
           <button class="btn btn-ghost btn-danger" type="button" id="history-clear">Clear all</button>
@@ -177,10 +229,13 @@
         <p class="muted small" style="margin:8px 0 0">Saved only in this browser.</p>
       </section>
 
-      <section class="card">
-        <h2>How the scoring works</h2>
-        <p>Every answer is analysed for <strong>what</strong> you said (does it cover what a strong answer includes, is it structured, specific, positive) and <strong>how</strong> you said it (fillers, hedging, pace, pauses, start delay, voice strength and tone). The interviewer combines these into seven skill scores, weighted for the role you chose. Speech recognition is done by your browser; all analysis runs locally on your device.</p>
-        <p class="muted small" style="margin:0">Works best in Chrome or Edge with headphones in a quiet room. Other browsers use a free offline speech model that downloads once.</p>
+      <section class="card glass how">
+        <span class="eyebrow">How the scoring works</span>
+        <div class="how-grid">
+          <div><h3>What you said</h3><p>Does the answer cover what a strong answer includes? Is it structured, specific and positive?</p></div>
+          <div><h3>How you said it</h3><p>Fillers, hedging, pace, pauses, start delay, voice strength and tone.</p></div>
+          <div><h3>Seven skill scores</h3><p>Weighted for the role you chose. Speech recognition is done by your browser; all analysis runs on your device.</p></div>
+        </div>
       </section>
     </section>
 
@@ -189,6 +244,7 @@
       <div class="call-top">
         <div class="call-title">
           <span class="live-dot" aria-hidden="true"></span>
+          <span class="live-word" aria-hidden="true">Live</span>
           <strong id="who-label">Tushar AI · Interviewer</strong>
           <span class="call-time" id="room-elapsed">0:00</span>
         </div>
@@ -200,6 +256,8 @@
 
       <div class="call-stage">
         <div class="orb" id="orb" data-state="idle">
+          <canvas class="core" data-core="call" aria-hidden="true"></canvas>
+          <svg class="orb-ticks" viewBox="0 0 220 220" aria-hidden="true"><circle cx="110" cy="110" r="109"/></svg>
           <svg class="orb-timer" viewBox="0 0 220 220" aria-hidden="true">
             <circle class="orb-timer-track" cx="110" cy="110" r="104"/>
             <circle class="orb-timer-fill" id="ring-fill" cx="110" cy="110" r="104" stroke-dasharray="653.5" stroke-dashoffset="0"/>
@@ -223,6 +281,12 @@
 
         <p class="call-state" id="state-pill" data-state="idle">Connecting…</p>
         <p class="sr-only" id="sr-status" role="status" aria-live="polite"></p>
+        <div class="roleplay-banner" id="roleplay-banner" hidden><span class="tally" aria-hidden="true"></span><strong>Mock call:</strong> you are the support agent. Talk to the customer as you would on a real call.</div>
+
+        <div class="captions" id="captions" hidden aria-live="off">
+          <p class="cap-line cap-ai"><span class="cap-who" id="cap-who">Tushar AI</span><span id="caption"></span></p>
+        </div>
+
         <!-- What the microphone hears and what the interviewer understood (not a live region: a screen
              reader speaking it aloud would be picked up by the open microphone). -->
         <div class="you-panel" id="you-panel" data-state="idle">
@@ -232,49 +296,46 @@
           </div>
           <p class="you-text" id="live" data-placeholder=""></p>
         </div>
-        <p class="call-hint" id="call-hint">Say <strong>“repeat”</strong> to hear a question again · say <strong>“that’s all”</strong> when you finish</p>
-        <div class="roleplay-banner" id="roleplay-banner" hidden>📞 <strong>Mock call:</strong> you are the support agent. Talk to the customer as you would on a real call.</div>
-        <div class="notice" id="notice" role="alert" hidden></div>
-        <button class="btn btn-primary btn-big" type="button" id="btn-tap-audio" hidden>🔊 Tap to hear Tushar AI</button>
-        <div class="notice-actions" id="notice-actions" hidden>
-          <button class="btn" type="button" id="btn-retry-mic">Try again</button>
-          <button class="btn btn-ghost" type="button" id="btn-continue-anyway">Continue anyway</button>
-        </div>
 
-        <div class="captions" id="captions" hidden aria-live="off">
-          <p class="cap-line cap-ai"><span class="cap-who" id="cap-who">Tushar AI</span><span id="caption"></span></p>
+        <div class="notice" id="notice" role="alert" hidden></div>
+        <button class="btn btn-primary btn-big" type="button" id="btn-tap-audio" hidden>Tap to hear Tushar AI</button>
+        <div class="notice-actions" id="notice-actions" hidden>
+          <button class="btn btn-primary" type="button" id="btn-retry-mic">Try again</button>
+          <button class="btn btn-glass" type="button" id="btn-continue-anyway">Continue anyway</button>
         </div>
+        <p class="call-hint" id="call-hint">Say <strong>“repeat”</strong> to hear a question again · say <strong>“that’s all”</strong> when you finish</p>
       </div>
 
       <video class="cam-pip" id="cam" autoplay muted playsinline hidden></video>
 
       <div class="call-controls" role="toolbar" aria-label="Call controls">
         <button class="cbtn" type="button" id="btn-cc" aria-pressed="false" title="Show captions (C)"><span class="cbtn-ico" aria-hidden="true">CC</span><span class="cbtn-label">Captions</span></button>
-        <button class="cbtn" type="button" id="btn-repeat" disabled title="Repeat the question (R)"><span class="cbtn-ico" aria-hidden="true">↺</span><span class="cbtn-label">Repeat</span></button>
-        <button class="cbtn" type="button" id="btn-skip" disabled title="Skip this question"><span class="cbtn-ico" aria-hidden="true">⏭</span><span class="cbtn-label">Skip</span></button>
-        <button class="cbtn cbtn-done" type="button" id="btn-done" disabled title="I've finished my answer (Enter)"><span class="cbtn-ico" aria-hidden="true">✓</span><span class="cbtn-label">I'm done</span></button>
-        <button class="cbtn cbtn-end" type="button" id="btn-end" title="End the interview"><span class="cbtn-ico" aria-hidden="true">✕</span><span class="cbtn-label">End</span></button>
+        <button class="cbtn" type="button" id="btn-repeat" disabled title="Repeat the question (R)"><span class="cbtn-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.4-5.7M4 4v4.5h4.5"/></svg></span><span class="cbtn-label">Repeat</span></button>
+        <button class="cbtn" type="button" id="btn-skip" disabled title="Skip this question"><span class="cbtn-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 5l9 7-9 7zM18 5v14"/></svg></span><span class="cbtn-label">Skip</span></button>
+        <button class="cbtn cbtn-done" type="button" id="btn-done" disabled title="I've finished my answer (Enter)"><span class="cbtn-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><span class="cbtn-label">I'm done</span></button>
+        <button class="cbtn cbtn-end" type="button" id="btn-end" title="End the interview"><span class="cbtn-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3.5 14.5c4.7-4.6 12.3-4.6 17 0l-2.3 2.3-3.4-1.9v-2.4a10 10 0 0 0-5.6 0v2.4l-3.4 1.9z"/></svg></span><span class="cbtn-label">End</span></button>
       </div>
     </section>
 
     <!-- ======================================================= PROCESSING -->
     <section id="screen-processing" class="screen" hidden>
-      <div class="processing card">
-        <div class="spinner" aria-hidden="true"></div>
-        <h2 id="proc-title">Preparing your scoresheet…</h2>
+      <div class="processing">
+        <div class="proc-core" aria-hidden="true"><canvas class="core" data-core="thinking"></canvas></div>
+        <span class="eyebrow">Scoring your interview</span>
+        <h2 id="proc-title" class="display-2">Preparing your scoresheet…</h2>
         <ul class="steps" id="proc-steps"></ul>
-        <div><button class="btn" type="button" id="proc-skip" hidden>Skip AI review</button></div>
+        <div><button class="btn btn-glass" type="button" id="proc-skip" hidden>Skip AI review</button></div>
       </div>
     </section>
 
     <!-- ======================================================= REPORT -->
     <section id="screen-report" class="screen" hidden>
       <div class="report-actions no-print">
-        <button class="btn" type="button" id="rep-home">← Home</button>
+        <button class="btn btn-glass" type="button" id="rep-home">← Home</button>
         <span class="spacer"></span>
-        <button class="btn" type="button" id="rep-listen" aria-pressed="false">🔊 Hear my feedback</button>
-        <button class="btn" type="button" id="rep-json">Download data (JSON)</button>
-        <button class="btn" type="button" id="rep-print">Print / Save PDF</button>
+        <button class="btn btn-glass" type="button" id="rep-listen" aria-pressed="false">🔊 Hear my feedback</button>
+        <button class="btn btn-glass" type="button" id="rep-json">Download data (JSON)</button>
+        <button class="btn btn-glass" type="button" id="rep-print">Print / Save PDF</button>
         <button class="btn btn-primary" type="button" id="rep-again">New interview</button>
       </div>
       <div class="sample-banner no-print" id="sample-banner" hidden></div>
@@ -298,6 +359,7 @@
   <script src="js/whisper.js"></script>
   <script src="js/llm.js"></script>
   <script src="js/report.js"></script>
+  <script src="js/visuals.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

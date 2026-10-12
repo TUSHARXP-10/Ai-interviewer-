@@ -248,7 +248,7 @@
       '<div class="report-id"><div class="eyebrow">Interview scoresheet</div><h1>' + esc(sheet.candidate.name || 'Candidate') + '</h1>' +
       '<p class="muted">' + esc(sheet.role.label) + ' · ' + esc(sheet.plan.label) + ' · ' + (sheet.candidate.experience === 'experienced' ? 'Experienced' : 'Fresher') +
       '<br>' + esc(fmtDate(sheet.createdAt)) + ' · ' + esc(fmtDuration(sheet.durationSec)) + ' · ' + (sheet.config.mode === 'voice' ? 'Voice interview' : 'Typed interview') + '</p></div>' +
-      '<div class="hero"><div class="hero-num">' + sheet.overall + '<span class="hero-den">/100</span></div>' + statusBadge(tone, sheet.verdict.label) +
+      '<div class="hero"><div class="hero-num" style="--score:' + Math.max(0, Math.min(100, Number(sheet.overall) || 0)) + '"><span class="hero-val">' + sheet.overall + '</span><span class="hero-den">/100</span></div>' + statusBadge(tone, sheet.verdict.label) +
       (sheet.incomplete ? '<div class="muted small">Interview incomplete; treat with caution.</div>' : '') + '</div></header>' +
       '<div class="tiles">' + kpis + '</div>' +
       '<section class="card"><h2>Interviewer’s summary ' + (sheet.summarySource === 'llm' ? '<span class="tag">written by local AI</span>' : '') + '</h2><p class="summary">' + esc(sheet.summary) + '</p></section>' +
