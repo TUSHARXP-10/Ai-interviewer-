@@ -25,6 +25,24 @@ Open **http://localhost:8080**, enter your name, press **📞 Start voice interv
 
 > Browsers only allow the microphone on `https://` or `localhost`, which is why a tiny local server is included. If you prefer Python: `python3 -m http.server 8080`.
 
+### Use it on your phone over Wi-Fi
+
+Opening `http://<your-computer's-IP>:8080` on a phone does **not** work for the interview: the page loads, but phones only allow the microphone on `https://`. So there is an HTTPS mode for your local network:
+
+```bash
+npm run lan
+```
+
+1. Keep the computer and the phone on the **same Wi-Fi**. The terminal prints an address like **`https://192.168.1.23:8443`**; open it on the phone (Chrome on Android, Safari on iPhone).
+2. The phone warns that the connection is *not private*. That's expected: the server made its own certificate (no installs, no openssl; it's kept in `.cert/` and reused next time). Tap **Advanced → Proceed** (Chrome) or **Show Details → visit this website** (Safari).
+3. Allow the microphone and start the interview. On iPhone, Dictation must be on (Settings → General → Keyboard) for Safari's speech recognition.
+
+If the phone can't connect:
+- **Windows:** when the firewall asks about Node.js, allow it on **Private networks**. If you missed the prompt, allow `node.exe` in *Windows Defender Firewall → Allow an app*. Make sure the Wi-Fi is set to a *Private* network.
+- **Guest, office or college Wi-Fi** often stops devices from seeing each other. Turn on your **phone's hotspot**, connect the computer to it, run `npm run lan` again and open the new address.
+- Use the address on the 👉 line: other addresses (Docker, VPN, virtual machines) are not reachable from the phone.
+- Another port: `PORT=9443 npm run lan` (Windows: `set PORT=9443 && npm run lan`).
+
 ### Deploy to Vercel (free)
 
 The repo is ready for Vercel: `vercel.json` runs `npm run build`, which copies `index.html`, `css/` and `js/` into `dist/` (no dependencies, no bundler), and serves that folder over HTTPS with microphone permission allowed.
@@ -209,7 +227,8 @@ js/llm.js             Optional Ollama integration
 js/report.js          Scoresheet rendering
 js/demo.js            Scripted candidates (sample report, demo, tests)
 js/app.js             UI controller
-server.js             Zero-dependency local server (npm start)
+server.js             Zero-dependency local server (npm start; npm run lan for phones on Wi-Fi)
+tools/selfsigned.js   Self-signed HTTPS certificate with Node's crypto (for npm run lan)
 vercel.json           Vercel hosting: build command, output folder, headers
 tools/build.js        Copies the site into dist/ for static hosting (npm run build)
 tools/simulate.js     Run a scripted interview in the terminal

@@ -154,7 +154,10 @@
 
   function engineStatusText() {
     if (/FBAN|FBAV|Instagram|LinkedInApp|Line\/|Snapchat|Twitter/i.test(navigator.userAgent || '')) return '⚠️ In-app browsers (Instagram, Facebook, LinkedIn…) block the microphone. Open this page in <strong>Chrome</strong> or <strong>Safari</strong>.';
-    if (!window.isSecureContext) return '⚠️ The microphone needs <strong>https</strong> or <strong>localhost</strong>. Run <kbd>npm start</kbd> and open http://localhost:8080.';
+    if (!window.isSecureContext) {
+      return '⚠️ The microphone needs <strong>https</strong> or <strong>localhost</strong>. On this computer: run <kbd>npm start</kbd> and open http://localhost:8080. ' +
+        'On a phone over Wi-Fi: run <kbd>npm run lan</kbd> on the computer and open the <strong>https://</strong> address it prints.';
+    }
     if (!Speech.ttsSupported) return '⚠️ This browser cannot speak aloud. Please use Chrome, Edge or Safari.';
     const e = resolveEngine(settings.engine);
     if (e === 'browser') return '✅ <strong>Ready.</strong> Using your browser’s speech recognition (needs internet).';

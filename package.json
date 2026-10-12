@@ -5,6 +5,7 @@
   "private": true,
   "scripts": {
     "start": "node server.js",
+    "lan": "node server.js --lan",
     "build": "node tools/build.js",
     "test": "node --test tests/*.test.js",
     "demo": "node tools/simulate.js"
