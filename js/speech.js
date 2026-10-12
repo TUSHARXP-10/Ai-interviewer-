@@ -326,6 +326,8 @@
             fail(code, 'Speech recognition needs an internet connection in this browser.');
           } else {
             s.transient = Math.min(3000, 400 * Math.pow(2, networkErrors.length - 1));
+            // Not fatal yet, but callers can tell "no internet" apart from "can't hear you".
+            if (o.onError) o.onError(code, 'Speech recognition needs an internet connection in this browser.', false);
           }
           return;
         }

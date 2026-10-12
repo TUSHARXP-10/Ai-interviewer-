@@ -61,3 +61,17 @@ test('an abandoned answer ignores phrases that finish later', async () => {
   await settle();
   assert.equal(rec.text(), '');
 });
+
+test('a lone short reply ("Yes.") is written down once the speaker has clearly stopped', async () => {
+  const meter = fakeMeter();
+  const rec = W.createRecognizer({ meter });
+  rec.start();
+  meter.feed(0.4, true);   // "Yes." — under the normal 500 ms phrase minimum
+  meter.feed(0.8, false);  // a normal pause is not enough for such a short sound…
+  await settle();
+  assert.equal(rec.text(), '', 'not cut during an ordinary pause');
+  meter.feed(0.6, false);  // …but a clear stop (1.2 s+) is
+  await settle();
+  assert.match(rec.text(), /^phrase \d+$/, 'transcribed before the answer ends');
+  rec.abort();
+});

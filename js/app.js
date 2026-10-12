@@ -842,8 +842,11 @@
         pausedAt = 0;
         renderYou('', '');
         youPanel('waiting', 'Your turn', 'Start speaking… I’m listening.');
-        rec = makeRecognizer({
+        const r = makeRecognizer({
           onUpdate: (fin, interim) => {
+            // An aborted recogniser still reports once as it closes (after "skip", a repeat
+            // or a recovery): never write its words back over the panel.
+            if (ctl.done || rec !== r) return;
             renderYou(fin, interim);
             const t = (fin + ' ' + interim).trim();
             if (t !== lastText) {
@@ -853,11 +856,13 @@
             if (Voice.wordCount(t) >= 3) $('#btn-repeat').disabled = true;
           },
           onError: (code, message, isFatal) => {
+            if (rec !== r) return;
             if (isFatal && !ctl.done) fatal = { code, message };
             else if (code === 'whisper-failed') notice('The offline speech model could not transcribe that answer. If this keeps happening, reload the page.');
           },
           onStatus: (text) => setUi(state.ui, text),
         });
+        rec = r;
         if (state.meter) state.meter.beginSegment();
         if (state.recorder) state.recorder.start();
         rec.start();
@@ -930,7 +935,9 @@
         // so short replies ("No, thank you") still end normally.
         const startMs = live ? 1200 : 600;
         const sinceResume = now - resumedAt;
-        const sinceVoiceMs = state.meter && state.meterTrusted !== false ? Math.min(state.meter.msSinceVoice(), sinceResume) : null;
+        // meterTrusted compares the meter with the browser's recogniser; the offline engine
+        // transcribes the meter's own stream, so there the meter is always trusted.
+        const sinceVoiceMs = state.meter && (state.meterTrusted !== false || !live) ? Math.min(state.meter.msSinceVoice(), sinceResume) : null;
         const sinceResultMs = live && rec.lastResultAt ? Math.min(now - rec.lastResultAt, sinceResume) : null;
         const current = text.startsWith(settledText) ? text.slice(settledText.length) : text;
 
@@ -940,7 +947,7 @@
         if (text) youPanel('words', roleplay ? 'The customer hears' : INTERVIEWER + ' hears');
         else if (voiceNow) youPanel('hearing', live ? 'I can hear you…' : 'Recording your answer…');
         else if (live && spokeMs > 400) youPanel('hearing', 'Working out your words…');
-        else youPanel('waiting', 'Your turn', !live && spokeMs > 600 ? 'Keep going. I’ll write down your answer when you finish.' : 'Start speaking… I’m listening.');
+        else youPanel('waiting', 'Your turn', !live && spokeMs >= 250 ? 'Keep going. I’ll write down your answer when you finish.' : 'Start speaking… I’m listening.');
 
         // Spoken commands, acted on once the words AND the microphone have been quiet for a moment.
         const settledFor = Math.min(now - lastTextAt, sinceVoiceMs == null ? Infinity : sinceVoiceMs);
@@ -979,7 +986,10 @@
         // A settled one-word reply ("No.", "Yes.") is a whole answer; a lone "um" or "okay" is not.
         const settledWord = live && words === 1 && !ctl.unsureWords && !rec.interim() && rec.text().trim() &&
           !ONE_WORD_LEAD.test(Voice.norm(rec.text())) && sinceResultMs != null && sinceResultMs >= 1500;
-        const started = settledWord || (fresh != null && fresh >= 2) || (freshSpoke != null && freshSpoke >= startMs);
+        // The offline engine writes a short reply down once the speaker stops: that is a whole answer too.
+        const offlineText = !live && rec ? rec.text().trim() : '';
+        const settledReply = !!offlineText && !ONE_WORD_LEAD.test(Voice.norm(offlineText)) && sinceVoiceMs != null && sinceVoiceMs >= 1500;
+        const started = settledWord || settledReply || (fresh != null && fresh >= 2) || (freshSpoke != null && freshSpoke >= startMs);
         if (!started) {
           const idle = Voice.idleAction({ elapsedMs: elapsed, maxMs, nudgesGiven: ctl.nudges, roleplay, variant: step.index, noRepeatOffer: !!step.hideText });
           if (idle.action === 'none') {
@@ -1200,7 +1210,7 @@
         const clip = clipPromise ? await clipPromise : null;
         const first = rec && rec.firstResultAt;
         const lastRes = rec && rec.lastResultAt;
-        const trusted = state.meterTrusted !== false ? audio : null;
+        const trusted = state.meterTrusted !== false || state.engine !== 'browser' ? audio : null;
         // When the voice started, after listening began (estimated from the first words without a meter).
         const onset = trusted && trusted.onsetMs != null ? trusted.onsetMs : first ? first - t0 - 500 : null;
 
@@ -1318,6 +1328,7 @@
   /** Ask the candidate to say "I'm ready" and confirm we can hear (and understand) them. */
   async function micCheck(alive) {
     let attempt = 0;
+    let deafCount = 0;
     let prompt = "Before we begin, let's check your microphone. Please say: I'm ready.";
     $('#room-q').textContent = 'Microphone check';
     while (alive() && !state.endRequested) {
@@ -1331,14 +1342,16 @@
         // Words arrived but the level meter heard nothing: its pause/tone figures would be wrong.
         if (heard.live && !heard.voicedMs) state.meterTrusted = false;
         renderYou(heard.text || '', '');
-        youPanel('heard', '✓ Got it! Your microphone works', '');
+        youPanel('heard', heard.unconfirmed ? '✓ Your microphone works' : '✓ Got it! Your microphone works', '');
         announce('Microphone check passed.');
-        return 'heard';
+        return heard.unconfirmed ? 'unconfirmed' : 'heard';
       }
       // The mic hears a voice but the recogniser returns no words.
       const deaf = !heard.fatal && heard.live && (heard.deaf || heard.voicedMs >= 1500);
-      if (deaf && state.useTrack) {
-        // Let the browser's recogniser open the microphone itself instead of sharing ours.
+      if (deaf) deafCount++;
+      // One more try with the browser's recogniser before the 48 MB offline engine (a first
+      // result can be slow); on desktop, let it open the microphone itself instead of sharing ours.
+      if (deaf && (state.useTrack || deafCount < 2)) {
         state.useTrack = false;
         youPanel('problem', 'I can hear your voice, but not the words yet', '');
         prompt = "I can hear your voice, but I didn't catch the words. Let me adjust my listening. Please say again: I'm ready.";
@@ -1367,7 +1380,8 @@
         continue;
       }
       attempt++;
-      youPanel('problem', heard.voicedMs >= 300 ? 'I heard a sound, but no words' : 'I didn’t hear anything', '');
+      youPanel('problem', heard.code === 'network' ? 'No internet connection for speech recognition'
+        : heard.voicedMs >= 300 ? 'I heard a sound, but no words' : 'I didn’t hear anything', '');
       if (heard.fatal || attempt >= 2) {
         setUi('idle', 'Check your microphone');
         let message = heard.fatal
@@ -1404,6 +1418,8 @@
       let done = false;
       let settle = null;
       let firstWordAt = 0;
+      let failed = false;      // the offline engine reported an error
+      let sawNetwork = false;  // the browser's speech service could not be reached
       setUi('listening', 'Say: “I’m ready”');
       renderYou('', '');
       youPanel('waiting', 'Your microphone', 'Say “I’m ready”…');
@@ -1424,10 +1440,19 @@
           // candidate sees that it worked (End or a slow device never wait for it).
           youPanel('working', 'Checking what I heard…', '');
           let cancel;
-          const cancelled = new Promise((res) => { cancel = () => res(''); });
+          const cancelled = new Promise((res) => { cancel = () => res(null); });
           state.cancelBrief = cancel;
-          text = await Promise.race([rec.stop().catch(() => ''), sleep(6000).then(() => ''), cancelled]);
+          const got = await Promise.race([rec.stop().catch(() => null), sleep(6000).then(() => null), cancelled]);
           rec.abort();
+          text = got || '';
+          // The meter only knows something was loud: a cough, a door or a chair is not a voice.
+          // Whisper finished and found no words, so the check is not passed.
+          if (typeof got === 'string' && !failed && !Voice.wordCount(got)) {
+            r.ok = false;
+            r.noWords = true;
+          } else if (!Voice.wordCount(text)) {
+            r.unconfirmed = true; // too slow, or the engine failed: a voice was heard, words not confirmed
+          }
         } else if (rec) rec.abort();
         state.cancelBrief = null;
         r.text = String(text || '').trim();
@@ -1446,10 +1471,13 @@
           settle = setTimeout(() => finishWith({ ok: true }), fin && /\bready\b/i.test(t) ? 400 : 900);
         },
         onError: (code, message, fatal) => {
+          if (code === 'whisper-failed') failed = true;
+          if (code === 'network') sawNetwork = true;
           if (fatal) finishWith({ fatal: true, code, message });
         },
       });
       const t0 = performance.now();
+      const offline = () => finishWith({ fatal: true, code: 'network', message: 'Speech recognition needs an internet connection in this browser. Check your Wi-Fi or mobile data.' });
       state.cancelBrief = () => finishWith({ ok: false });
       const live = rec.live !== false;
       const timer = setInterval(() => {
@@ -1466,8 +1494,11 @@
         else if (v < 300) youPanel('waiting', 'Your microphone', 'Say “I’m ready”…');
         // The offline engine: a short phrase followed by a pause is enough.
         if (!live && ((v >= 350 && sv >= 700) || v >= 2500)) return finishWith({ ok: true });
-        // A voice, then a pause, but the recogniser gave no words at all: it can't hear us.
-        if (live && v >= 400 && sv >= 2500 && now - t0 > 3000) return finishWith({ ok: false, deaf: true });
+        // No internet: say so, rather than blaming the microphone.
+        if (live && ((sawNetwork && now - t0 > 3000) || (navigator.onLine === false && now - t0 > 1500))) return offline();
+        // A voice, then a long pause, but the recogniser gave no words at all: it can't hear us.
+        // (A first result can lag on a slow connection, so give it a few seconds.)
+        if (live && v >= 400 && sv >= 4000 && now - t0 > 4500) return finishWith({ ok: false, deaf: true });
         if (now - t0 > ms) finishWith({ ok: false });
       }, 100);
       rec.start();

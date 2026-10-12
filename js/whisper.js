@@ -314,6 +314,9 @@
   const PHRASE_PAUSE_MS = 700;
   const PHRASE_MIN_S = 1.2;
   const PHRASE_MIN_VOICE_MS = 500;
+  // A short reply on its own ("Yes.", "No.") is a phrase too, once the speaker has clearly stopped.
+  const PHRASE_SHORT_VOICE_MS = 200;
+  const PHRASE_SHORT_PAUSE_MS = 1200;
 
   /**
    * opts: { meter (AII.Audio meter, required), onUpdate(final, interim), onError(code, message, fatal), onStatus(text) }
@@ -405,7 +408,9 @@
           chunkSamples += data.length;
           rate = sr;
           if (o.meter.voiced) voicedMs += (data.length / sr) * 1000;
-          if (CFG.livePhrases && voicedMs >= PHRASE_MIN_VOICE_MS && chunkSamples / sr >= PHRASE_MIN_S && o.meter.msSinceVoice() >= PHRASE_PAUSE_MS) cut();
+          const quietMs = o.meter.msSinceVoice();
+          const enough = voicedMs >= PHRASE_MIN_VOICE_MS || (voicedMs >= PHRASE_SHORT_VOICE_MS && quietMs >= PHRASE_SHORT_PAUSE_MS);
+          if (CFG.livePhrases && enough && chunkSamples / sr >= PHRASE_MIN_S && quietMs >= PHRASE_PAUSE_MS) cut();
         });
       },
       pause() {

@@ -47,17 +47,18 @@ If the phone can't connect:
 
 The repo is ready for Vercel: `vercel.json` runs `npm run build`, which copies `index.html`, `css/` and `js/` into `dist/` (no dependencies, no bundler), and serves that folder over HTTPS with microphone permission allowed.
 
-**From the dashboard:** go to [vercel.com/new](https://vercel.com/new), import this GitHub repository and press **Deploy**. Leave every setting at its default; `vercel.json` sets the build. Every push to the branch redeploys.
+**From the dashboard:** go to [vercel.com/new](https://vercel.com/new), import this GitHub repository and press **Deploy**. If Vercel says it needs the GitHub integration, install the [Vercel GitHub app](https://github.com/apps/vercel) for this repository first. Set **Application Preset** to **Other** and leave everything else at its default; `vercel.json` sets the build. Every push to the branch redeploys.
 
 **From the terminal:**
 
 ```bash
 npm i -g vercel     # once
-vercel              # preview deployment
-vercel --prod       # production URL
+vercel --prod       # build and deploy to production
 ```
 
-Open the URL in Chrome or Edge, allow the microphone, and you're in. (To check the build locally: `npm run build`, then serve `dist/`, e.g. `python3 -m http.server 8080 -d dist`.)
+**Share the right link.** Open and share the short address, `https://<project>.vercel.app`: it's on the CLI's **Aliased** line, and in the dashboard under **Domains** (or press **Visit**). Open it in Chrome or Edge, allow the microphone, and you're in. The longer `<project>-<hash>-<team>.vercel.app` links (the *Production:*/*Preview:* lines, and every preview deployment) sit behind Vercel's default Deployment Protection, so anyone not logged in to your Vercel account sees a "Log in to Vercel" page. To make those public too, turn off **Vercel Authentication** in Project → Settings → Deployment Protection.
+
+To check the build locally: `npm run build`, then serve `dist/`, e.g. `python3 -m http.server 8080 -d dist`.
 
 ### Or GitHub Pages
 
