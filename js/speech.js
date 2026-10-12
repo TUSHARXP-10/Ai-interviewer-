@@ -56,7 +56,29 @@
     return voicesCache.filter((v) => /^en([-_]|$)/i.test(v.lang));
   }
 
-  /** Choose interviewer + customer voices, preferring the selected accent and natural voices. */
+  // How natural a voice sounds matters more than its accent: a robotic voice with the
+  // right accent sounds worse than a natural one with a neighbouring accent.
+  const NATURAL = /natural|neural|premium|enhanced|siri/i;          // Edge neural, Apple Siri/Enhanced/Premium
+  const ROBOTIC = /espeak|e-speak|festival|mbrola|pico/i;
+  // Windows' old desktop voices (Edge's "… Online (Natural)" versions of the same names are fine).
+  const SAPI = /^microsoft (david|zira|mark|ravi|heera|hazel|george|susan|catherine|james|linda|richard|sean|hayley|eva|helen)\b(?!.*online)/i;
+  // macOS joke voices.
+  const NOVELTY = /^(albert|bad news|bahh|bells|boing|bubbles|cellos|deranged|good news|hysterical|jester|organ|pipe organ|superstar|trinoids|whisper|wobble|zarvox|fred|junior|kathy|ralph|princess|grandma|grandpa|rocko|shelley|flo|eddy|reed|sandy)\b/i;
+
+  /** 0 (robotic) … 10 (neural) — a guess from the name, the only signal browsers give. */
+  function quality(v) {
+    const n = v.name || '';
+    if (NOVELTY.test(n)) return -10;
+    if (ROBOTIC.test(n) || ROBOTIC.test(v.voiceURI || '')) return 0;
+    if (NATURAL.test(n) || /\bonline\b/i.test(n)) return 10;
+    if (/^google\b/i.test(n)) return 7;                               // Chrome's network voices
+    if (SAPI.test(n)) return 1;
+    if (/android|com\.google\.android\.tts/i.test(v.voiceURI || '') || /^(english|eng)\b/i.test(n)) return 6; // Android Google TTS
+    if (/^(samantha|daniel|karen|moira|tessa|rishi|veena|serena|alex|ava|allison|tom|susan|nicky|aaron|arthur|martha|catherine|gordon|lee)\b/i.test(n)) return 5; // Apple voices
+    return 3;
+  }
+
+  /** Choose interviewer + customer voices: the most natural first, then the selected accent. */
   function pickVoices(prefs) {
     const p = prefs || {};
     const all = englishVoices();
@@ -64,13 +86,11 @@
     const accent = (p.accent || 'en-US').toLowerCase().replace('_', '-');
     const offline = root.navigator && root.navigator.onLine === false;
     const score = (v, wantFemale) => {
-      let s = 0;
+      let s = quality(v) * 2;
       const lang = v.lang.toLowerCase().replace('_', '-');
-      if (lang === accent) s += 4;
+      if (lang === accent) s += 3;
       else if (lang.slice(0, 2) === 'en') s += 1;
-      if (/natural|neural|online|premium|enhanced/i.test(v.name)) s += 3;
-      if (/google/i.test(v.name)) s += 1;
-      if (offline && v.localService === false) s -= 10; // network voices fail offline
+      if (offline && v.localService === false) s -= 40; // network voices fail offline
       if (wantFemale && FEMALE.test(v.name) && !/\bmale\b/i.test(v.name.replace(/female/i, ''))) s += 2;
       if (!wantFemale && MALE.test(v.name) && !/female/i.test(v.name)) s += 2;
       return s;
@@ -459,6 +479,7 @@
     hasVoices,
     englishVoices,
     pickVoices,
+    quality,
     speak,
     cancel,
     unlock,
