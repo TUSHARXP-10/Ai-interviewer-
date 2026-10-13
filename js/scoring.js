@@ -70,7 +70,7 @@
     const s = Object.assign({}, item.analysis.scores);
     const llm = item.llm;
     if (!llm || item.analysis.skipped) return s;
-    const share = { relevance: 0.4, thought: 0.4, customer: 0.4, communication: 0.2, confidence: 0.2, attitude: 0.3 };
+    const share = { relevance: 0.3, thought: 0.3, customer: 0.3, communication: 0.15, confidence: 0.15, attitude: 0.25 };
     for (const k of Object.keys(share)) {
       if (s[k] != null && typeof llm[k] === 'number') s[k] = Math.round((1 - share[k]) * s[k] + share[k] * clamp(llm[k], 0, 100));
     }
@@ -155,6 +155,8 @@
   function grammarAll(items) {
     const seen = new Map();
     for (const it of items) {
+      // A correction answer that repeats the error is scored as the task, not counted twice.
+      if (it.analysis.type === 'correction' || it.analysis.type === 'listening') continue;
       for (const g of it.analysis.metrics.grammar) {
         const key = g.wrong;
         if (!seen.has(key)) seen.set(key, Object.assign({ count: 0 }, g));
@@ -187,26 +189,53 @@
     return v == null ? null : Math.round(v);
   }
 
-  function languageScore(items, effScores, grammar, mode) {
+  /**
+   * How well-formed the candidate's English is across the whole interview (needs 60+ words):
+   * grammar slips per 100 words, and whether sentences carry their small words. Speakers who
+   * struggle with English drop "a/the" (“I did diploma”, “I am fresher”): fluent speakers use
+   * about 5–7 per 100 words, and that rate barely depends on the topic.
+   */
+  function englishIndex(items) {
+    let words = 0;
+    let articles = 0;
+    let errors = 0;
+    for (const it of items) {
+      const a = it.analysis;
+      if (a.skipped || !a.metrics.english || a.type === 'correction' || a.type === 'listening') continue;
+      words += a.metrics.english.words;
+      articles += a.metrics.english.articles;
+      errors += a.metrics.english.errors;
+    }
+    const errorRate = words ? (errors / words) * 100 : 0;
+    const articleRate = words ? (articles / words) * 100 : 0;
+    const grammar = words >= 120 ? curve(errorRate, [[0, 100], [0.3, 92], [0.7, 80], [1, 72], [2, 55], [3, 42], [4.5, 30], [7, 15]]) : null;
+    const structure = words >= 120 ? curve(articleRate, [[0, 15], [1, 28], [2, 45], [3, 62], [4, 78], [5, 92], [6, 100]]) : null;
+    const score = weightedMean([{ value: grammar, weight: 0.55 }, { value: structure, weight: 0.45 }]);
+    return { score: score == null ? null : Math.round(score), grammar, structure, words, errors, articles,
+      errorRate: Math.round(errorRate * 10) / 10, articleRate: Math.round(articleRate * 10) / 10 };
+  }
+
+  function languageScore(items, effScores, grammar, mode, english) {
     const tasks = [];
     items.forEach((it, i) => {
       if (effScores[i].language != null) tasks.push(effScores[i].language);
     });
     const taskScore = tasks.length ? tasks.reduce((s, x) => s + x, 0) / tasks.length : null;
-    const words = items.reduce((s, it) => s + (it.analysis.skipped ? 0 : it.analysis.metrics.wordCount), 0);
     const errors = grammar.reduce((s, g) => s + g.count, 0);
-    const grammarScore = words >= 40 ? curve((errors / words) * 100, [[0, 100], [0.5, 88], [1.5, 70], [3, 50], [5, 35]]) : null;
+    const grammarScore = english && english.grammar != null ? english.grammar : null;
+    const structureScore = english && english.structure != null ? english.structure : null;
     let mechScore = null;
     if (mode === 'text') {
       const mech = items.map((it) => it.analysis.components.communication.find((c) => c.key === 'mechanics')).filter(Boolean);
       if (mech.length) mechScore = mech.reduce((s, c) => s + c.value, 0) / mech.length;
     }
     const v = weightedMean([
-      { value: taskScore, weight: 0.6 },
+      { value: taskScore, weight: 0.45 },
       { value: grammarScore, weight: 0.3 },
+      { value: structureScore, weight: 0.25 },
       { value: mechScore, weight: 0.15 },
     ]);
-    return { score: v == null ? null : Math.round(v), taskScore, grammarScore, mechScore, errors };
+    return { score: v == null ? null : Math.round(v), taskScore, grammarScore, structureScore, mechScore, errors };
   }
 
   function avgComponent(items, dim, key) {
@@ -218,13 +247,59 @@
     return vals.length ? vals.reduce((s, x) => s + x, 0) / vals.length : null;
   }
 
+  /*
+   * What a role cannot do without, however good the rest is: a recruiter for a voice process
+   * will not hire someone customers cannot understand, or who is rude to them. Every point a
+   * gated skill falls below its bar costs GATE_COST points overall.
+   */
+  const GATES = {
+    voice: { communication: 55, customer: 50, attitude: 50 },
+    tech: { communication: 50, customer: 45, attitude: 50, thought: 45 },
+    sales: { communication: 55, confidence: 50, attitude: 50 },
+    nonvoice: { language: 55, attitude: 50 },
+    general: { communication: 50, attitude: 50 },
+  };
+  /*
+   * The recruiter's scale. Rule checks saturate: a competent answer ticks every box and
+   * scores in the 90s, while recruiters keep 90+ for excellent candidates, put an adequate
+   * one in the 60s and a weak one below 40. Every skill score (and the per-question scores
+   * on the report) is mapped onto that scale, fitted to blind recruiter ratings of full
+   * interviews. Monotonic, so the order of candidates never changes.
+   */
+  const SCALE = [[0, 0], [30, 15], [45, 24], [55, 32], [65, 43], [75, 56], [85, 72], [92, 84], [97, 93], [100, 98]];
+  const SCALES = {
+    thought: [[0, 0], [30, 16], [45, 27], [55, 38], [65, 52], [75, 67], [85, 82], [92, 91], [97, 96], [100, 98]],
+  };
+  const toScale = (v, key) => (v == null ? v : Math.round(curve(v, SCALES[key] || SCALE)));
+
+  const GATE_COST = 0.35;
+  const GATE_MAX = 25;
+  const FLAG_COST = { high: [7, 14], medium: [5, 14], low: [2, 4] }; // [each, at most]
+
+  function gateShortfalls(roleKey, dims) {
+    const out = [];
+    const g = GATES[roleKey] || GATES.general;
+    for (const k of Object.keys(g)) if (dims[k] != null && dims[k] < g[k]) out.push({ key: k, bar: g[k], score: dims[k], cost: GATE_COST * (g[k] - dims[k]) });
+    return out;
+  }
+
+  function flagCost(flags) {
+    let cost = 0;
+    for (const sev of Object.keys(FLAG_COST)) {
+      const n = flags.filter((f) => f.severity === sev).length;
+      cost += Math.min(FLAG_COST[sev][1], n * FLAG_COST[sev][0]);
+    }
+    return cost;
+  }
+
   function overallFor(roleKey, dims, flags) {
     const w = ROLE_WEIGHTS[roleKey] || ROLE_WEIGHTS.general;
     const pairs = Object.keys(w).map((k) => ({ value: dims[k], weight: w[k] }));
     let v = weightedMean(pairs) || 0;
-    const high = flags.filter((f) => f.severity === 'high').length;
-    const medium = flags.filter((f) => f.severity === 'medium').length;
-    v -= Math.min(10, high * 5) + Math.min(6, medium * 2);
+    // Penalties scale with the score (full size at 70): a weak interview has already lost
+    // those points in the skills, and a strong one should feel a red flag.
+    const cost = Math.min(GATE_MAX, gateShortfalls(roleKey, dims).reduce((sum, g) => sum + g.cost, 0)) + flagCost(flags);
+    v -= cost * Math.min(1.3, v / 70);
     return Math.round(clamp(v, 0, 100));
   }
 
@@ -336,6 +411,12 @@
     return parts.join(' ');
   }
 
+  function scaled(scores) {
+    const out = {};
+    for (const k of Object.keys(scores)) out[k] = toScale(scores[k], k);
+    return out;
+  }
+
   // ------------------------------------------------------------ main entry
 
   /**
@@ -359,9 +440,21 @@
       if (d.key === 'language') continue;
       dims[d.key] = aggregateDimension(d.key, items, effScores);
     }
-    const lang = languageScore(items, effScores, grammar, mode);
+    const english = englishIndex(items);
+    const lang = languageScore(items, effScores, grammar, mode, english);
     dims.language = lang.score;
+    // Spoken: how clearly they come across depends on sentence-level English as much as delivery.
+    // (It only ever lowers the score: a short interview with no slips proves little.)
+    if (english.score != null && dims.communication != null && mode === 'voice' && english.score < dims.communication) {
+      dims.communication = Math.round(dims.communication - 0.8 * (dims.communication - english.score));
+    }
+    // Customers have to understand the agent: weak spoken English limits customer handling too.
+    const voiceRole = role === 'voice' || role === 'sales' || role === 'tech';
+    if (voiceRole && mode === 'voice' && dims.customer != null && dims.communication != null && dims.communication < 60) {
+      dims.customer = Math.round(dims.customer - 0.5 * (60 - dims.communication));
+    }
 
+    for (const k of Object.keys(dims)) dims[k] = toScale(dims[k], k);
     const overall = overallFor(role, dims, flags);
     let verdict = VERDICTS.find((v) => overall >= v.min);
     if (flags.some((f) => f.severity === 'high') && (verdict.key === 'strong' || verdict.key === 'hire')) verdict = VERDICTS[2];
@@ -412,7 +505,7 @@
         followUps: it.followUps || [],
         skipped: a.skipped,
         mode: a.mode,
-        scores: effScores[i],
+        scores: scaled(effScores[i]),
         ruleScores: a.scores,
         quality: a.quality,
         feedback: a.feedback,

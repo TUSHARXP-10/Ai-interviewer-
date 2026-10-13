@@ -278,7 +278,140 @@
     return out;
   }
 
-  const api = { parseCommand, endOfTurn, idleAction, mergeCumulative, looksCumulative, stripEcho, trailingFiller, splitForSpeech, wordCount, norm, normWords };
+  // ------------------------------------------------------------ names
+  /**
+   * A rough sound-alike key for a name: the consonant skeleton, with spellings that
+   * speech engines mix up folded together ("Tushar" / "tishar" -> "tsr").
+   */
+  function nameKey(word) {
+    let s = String(word || '').toLowerCase().replace(/[^a-z]/g, '');
+    if (!s) return '';
+    s = s.replace(/ph/g, 'f').replace(/sh/g, 's').replace(/([tdbkgc])h/g, '$1').replace(/ck/g, 'k')
+      .replace(/q/g, 'k').replace(/w/g, 'v').replace(/z/g, 'j').replace(/x/g, 'ks').replace(/y/g, 'i')
+      .replace(/(.)h/g, '$1');                                          // soft h: "Rahul" = "raul", "Shah" = "sha"
+    return (s[0] + s.slice(1).replace(/[aeiou]/g, '')).replace(/(.)\1+/g, '$1');
+  }
+
+  function editDistance(a, b) {
+    const m = a.length;
+    const n = b.length;
+    let prev = Array.from({ length: n + 1 }, (_, j) => j);
+    for (let i = 1; i <= m; i++) {
+      const cur = [i];
+      for (let j = 1; j <= n; j++) cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+      prev = cur;
+    }
+    return prev[n];
+  }
+
+  /**
+   * How closely a heard word sounds like one part of a name: 0 (not at all) to 1 (same).
+   * Short names must sound identical; longer ones may differ by one sound.
+   */
+  function soundsLike(heard, name) {
+    const h = String(heard || '').toLowerCase().replace(/[^a-z]/g, '');
+    const n = String(name || '').toLowerCase().replace(/[^a-z]/g, '');
+    if (h.length < 2 || n.length < 2) return 0;
+    if (h === n) return 1;
+    const a = nameKey(h);
+    const b = nameKey(n);
+    if (!a || !b || a[0] !== b[0]) return 0;
+    const d = editDistance(a, b);
+    if (d > (b.length >= 4 ? 1 : 0)) return 0;
+    const sim = 1 - editDistance(h, n) / Math.max(h.length, n.length);
+    return sim >= 0.5 ? sim - d * 0.1 : 0;
+  }
+
+  // Words that often follow "I am" / "this is" and are never a misheard name.
+  const NOT_A_NAME = new Set(('a an the sure happy good fine ready very really from working looking interested currently ' +
+    'comfortable glad not also here doing studying pursuing fresher graduate eager passionate confident able okay ok so ' +
+    'basically actually just going calling speaking new one someone person candidate hard quick learner student engineer ' +
+    'done well great nervous excited thankful grateful applying in at with and fresh experienced married single twenty ' +
+    'twenty-one twenty-two twenty-three twenty-four twenty-five interviewing available free busy back sorry thank thanks').split(' '));
+  const NAME_CUES = [['my', 'name', 'is'], ['my', 'name', "'s"], ['name', 'is'], ['i', 'am'], ["i'm"], ['im'], ['myself'],
+    ['this', 'is'], ['call', 'me'], ['it', 'is'], ["it's"], ['me'], ['am']];
+
+  /**
+   * Put the candidate's own name back where the speech engine misheard it
+   * ("I am tishar chadne" -> "I am Tushar Chandane"). Only where a name belongs: right
+   * after "my name is", "I am", "myself", "this is"…, or when the whole name (first and
+   * last) appears together. names: the typed names, e.g. ["Tushar Chandane"];
+   * opts.common: everyday words never to be read as a name after "I am".
+   */
+  function correctNames(text, names, opts) {
+    const common = (opts && opts.common) || new Set();
+    const src = String(text || '');
+    const people = (names || []).map((n) => String(n || '').trim().split(/\s+/).filter((w) => /[a-z]{2,}/i.test(w)).map((w) => w.replace(/[^A-Za-z'-]/g, ''))).filter((p) => p.length);
+    if (!src.trim() || !people.length) return src;
+    const parts = src.split(/(\s+)/);
+    const words = [];
+    for (let i = 0; i < parts.length; i += 2) {
+      if (!parts[i]) continue;
+      const m = parts[i].match(/^([^A-Za-z0-9']*)([\s\S]*?)([^A-Za-z0-9']*)$/);
+      words.push({ i, pre: m[1], core: m[2], post: m[3] });
+    }
+    const low = words.map((w) => w.core.toLowerCase());
+    const cueBefore = (k) => NAME_CUES.some((cue) => cue.length <= k && cue.every((c, j) => low[k - cue.length + j] === c));
+    // Match one name part at word k, as one heard word or two run together ("chand nay"),
+    // whichever sounds closer. Returns how many words it covers (0: no match).
+    const matchAt = (k, part, cued) => {
+      if (k >= words.length || NOT_A_NAME.has(low[k])) return 0;
+      if (cued && common.has(low[k]) && low[k] !== part.toLowerCase()) return 0;
+      const one = soundsLike(words[k].core, part);
+      const two = k + 1 < words.length && !words[k].post && !NOT_A_NAME.has(low[k + 1]) && !common.has(low[k + 1])
+        ? soundsLike(words[k].core + words[k + 1].core, part) : 0;
+      if (two > one) return 2;
+      return one ? 1 : 0;
+    };
+    const edits = [];
+    // Surname-first introductions too ("myself Chandane Tushar").
+    const orders = [];
+    people.forEach((p) => { orders.push(p); if (p.length >= 2) orders.push(p.slice().reverse()); });
+    const free = (at, used) => !edits.some((e) => at < e.at + e.used && e.at < at + used);
+    // Pass 1: the whole name, anywhere. Pass 2: any part of it right after "I am", "myself"…
+    for (const pass of [1, 2]) {
+      for (const person of orders) {
+        for (let k = 0; k < words.length; k++) {
+          if (!free(k, 1)) continue;
+          const cued = cueBefore(k);
+          if (pass === 2 && !cued) continue;
+          const spans = [];
+          let pos = k;
+          for (const part of person) {
+            const used = matchAt(pos, part, cued && pos === k);
+            if (!used || !free(pos, used)) break;
+            spans.push({ at: pos, used, part });
+            pos += used;
+          }
+          let take = null;
+          if (pass === 1) {
+            if (person.length >= 2 && spans.length === person.length) take = spans;
+          } else if (spans.length && (spans.length > 1 || spans[0].part.length > 3)) {
+            take = spans;                                    // "I am tishar…" (a short name alone must be exact: "I am sad" is not "Sid")
+          } else if (!spans.length) {
+            for (const part of person.slice(1).filter((x) => x.length > 3)) {   // "myself chadne"
+              const used = matchAt(k, part, true);
+              if (used && free(k, used)) { take = [{ at: k, used, part }]; break; }
+            }
+          }
+          if (!take) continue;
+          edits.push(...take);
+          k = take[take.length - 1].at + take[take.length - 1].used - 1;
+        }
+      }
+    }
+    if (!edits.length) return src;
+    for (const e of edits) {
+      const first = words[e.at];
+      const last = words[e.at + e.used - 1];
+      const fixed = e.part.charAt(0).toUpperCase() + e.part.slice(1);
+      parts[first.i] = first.pre + fixed + last.post;
+      for (let j = first.i + 1; j <= last.i; j++) parts[j] = '';
+    }
+    return parts.join('').replace(/ {2,}/g, ' ');
+  }
+
+  const api = { parseCommand, endOfTurn, idleAction, mergeCumulative, looksCumulative, stripEcho, trailingFiller, splitForSpeech, wordCount, norm, normWords, correctNames, nameKey, soundsLike };
   if (isNode) module.exports = api;
   else (root.AII = root.AII || {}).Voice = api;
 })(typeof window !== 'undefined' ? window : globalThis);

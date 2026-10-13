@@ -60,13 +60,18 @@
     for (const rule of L.GRAMMAR) {
       const rx = grammarRegex(rule.re);
       rx.lastIndex = 0;
-      const m = rx.exec(doc.str);
-      if (!m) continue;
-      const w0 = wordAt(doc, m.index);
-      const w1 = wordAt(doc, m.index + Math.max(0, m[0].trimEnd().length - 1));
-      out.push({ wrong: rule.wrong, fix: rule.fix, why: rule.why, evidence: snippet(doc, w0, w1), w0, w1 });
+      let m;
+      let n = 0;
+      while ((m = rx.exec(doc.str)) && n < 3) {
+        if (!m[0]) { rx.lastIndex++; continue; }
+        const w0 = wordAt(doc, m.index);
+        const w1 = wordAt(doc, m.index + Math.max(0, m[0].trimEnd().length - 1));
+        if (out.some((g) => g.w0 <= w1 && w0 <= g.w1)) continue; // one slip, one count
+        out.push({ wrong: rule.wrong, fix: rule.fix, why: rule.why, evidence: snippet(doc, w0, w1), w0, w1 });
+        n++;
+      }
     }
-    return out;
+    return out.sort((a, b) => a.w0 - b.w0);
   }
 
   /** Informal or vague words, and everyday words used 3+ times in a longer answer. */
@@ -131,7 +136,7 @@
     }
     const ratio = total ? got / total : null;
     const target = question.coverageTarget || 0.6;
-    const score = ratio == null ? null : curve(ratio / target, [[0, 15], [0.34, 48], [0.67, 75], [1, 100]]);
+    const score = ratio == null ? null : curve(ratio / target, [[0, 10], [0.34, 40], [0.67, 68], [1, 95], [1.2, 100]]);
     return { ratio, score, matched: matched.map((c) => c.id), missing: missing.map((c) => c.id), matchedLabels: matched.map((c) => c.label), missingLabels: missing.map((c) => c.label) };
   }
 
@@ -254,8 +259,12 @@
     const dontKnow = dontKnowHits.length > 0 && wc < 25;
     const structure = {};
     for (const k of Object.keys(L.STRUCTURE)) structure[k] = findTerms(doc, L.STRUCTURE[k]).length;
+    // The candidate's own story: "I did…", "we called…" (past-tense first person).
+    const story = findTerms(doc, ['re:(?:i|we) (?:\\w+ed|was|were|did|had|went|told|gave|made|took|got|said|saw|felt|kept|found|put|paid|thought|knew|left|spoke|brought|sat|stood|lost|won|ran|came|began|became|understood|taught|sent|bought|read|wrote|forgot|let|met)(?= |$)']).length;
     const star = {};
     for (const k of Object.keys(L.STAR)) star[k] = findTerms(doc, L.STAR[k]).length > 0;
+    // Natural storytelling ("I sat with her, we called the bank…") is action even without textbook verbs.
+    if (story >= 2) star.action = true;
     const starCount = Object.values(star).filter(Boolean).length;
     const specificity = findTerms(doc, L.SPECIFICITY).length;
     const empathyHits = findTerms(doc, L.EMPATHY);
@@ -265,6 +274,9 @@
     const grammar = wc >= 3 ? detectGrammar(doc) : [];
     const cov = coverage(doc, question);
     const mech = mode === 'text' && wc >= 8 ? mechanics(text) : null;
+
+    const clicheHits = findTerms(doc, L.CLICHES);
+    const articles = doc.words.filter((w) => w === 'a' || w === 'an' || w === 'the').length;
 
     const alpha = doc.words.filter((w) => /^[a-z]+$/.test(w));
     const mattr = Text.mattr(alpha, 30);
@@ -307,6 +319,8 @@
       sentiment: senti,
       redFlags: redFlags.map(({ id, label, severity, evidence }) => ({ id, label, severity, evidence })),
       grammar: grammar.map(({ wrong, fix, why, evidence }) => ({ wrong, fix, why, evidence })),
+      english: { words: alpha.length, articles, errors: grammar.length },
+      cliches: countBy(clicheHits),
       coverage: cov,
       mattr,
       sophistication,
@@ -356,43 +370,69 @@
     const dims = question.dims || {};
     const longAnswer = wc >= 15;
 
+    // Flow from the microphone: how much of the answer was voice rather than silence, and how
+    // often the candidate stopped for 2+ seconds. Browsers drop "um"/"uh" from transcripts,
+    // so this is the most honest hesitation signal we have.
+    let flow = null;
+    if (audio && speakingMs >= 5000) {
+      const perMin = audio.longPauses / (speakingMs / 60000);
+      // Natural fluent speech measures about 0.55–0.7 here (gaps between phrases count as silence).
+      const ratio = audio.voicedRatio != null ? curve(audio.voicedRatio, [[0.25, 25], [0.35, 45], [0.45, 70], [0.55, 90], [0.6, 100]]) : null;
+      const gaps = curve(perMin, [[0, 100], [1, 90], [2, 75], [3.5, 58], [6, 40], [10, 25]]);
+      flow = ratio == null ? gaps : 0.5 * ratio + 0.5 * gaps;
+    }
+    const grammarPer100 = per100(grammar.length);
+
     // Communication
     if (!skipped) {
-      add('communication', 'fluency', 'Fluency (fillers & repetitions)', curve(fillerRate, [[0, 100], [1, 95], [2.5, 80], [4, 62], [6, 45], [9, 32], [14, 20]]), wc >= 8 ? 0.3 : 0.1);
-      add('communication', 'completeness', 'Completeness', completeness, 0.2);
-      if (longAnswer) add('communication', 'vocabulary', 'Vocabulary range', 0.6 * curve(mattr, [[0.4, 30], [0.55, 55], [0.68, 80], [0.78, 95], [0.85, 100]]) + 0.4 * curve(sophistication, [[0.05, 35], [0.12, 60], [0.2, 80], [0.3, 95], [0.4, 100]]), 0.2);
-      if (wpm != null) add('communication', 'pace', 'Speaking pace', curve(wpm, [[60, 35], [90, 65], [110, 88], [120, 100], [165, 100], [180, 88], [200, 70], [230, 45]]), 0.15);
-      if (audio && speakingMs >= 5000) add('communication', 'pauses', 'Flow (long pauses)', curve(audio.longPauses / (speakingMs / 60000), [[0, 100], [1.5, 88], [3, 70], [6, 45], [10, 30]]), 0.1);
-      if (metrics.audio && metrics.audio.pitchSdSemitones != null) add('communication', 'modulation', 'Voice modulation', curve(metrics.audio.pitchSdSemitones, [[0.5, 40], [1.2, 62], [2, 85], [3, 100], [5.5, 100], [8, 80]]), 0.1);
+      add('communication', 'fluency', 'Fluency (fillers, “like”, restarts)', curve(fillerRate, [[0, 100], [1, 90], [2, 72], [3, 58], [4.5, 45], [7, 32], [12, 20]]), wc >= 8 ? 0.25 : 0.08);
+      if (wc >= 12) add('communication', 'grammar', 'Grammar while speaking', curve(grammarPer100, [[0, 100], [1, 85], [2.5, 65], [4, 48], [6, 35], [10, 20]]), 0.2);
+      add('communication', 'completeness', 'Completeness', completeness, 0.22);
+      if (longAnswer) add('communication', 'vocabulary', 'Vocabulary range', 0.6 * curve(mattr, [[0.4, 30], [0.55, 55], [0.68, 80], [0.78, 95], [0.85, 100]]) + 0.4 * curve(sophistication, [[0.05, 35], [0.12, 60], [0.2, 80], [0.3, 95], [0.4, 100]]), 0.12);
+      if (wpm != null) add('communication', 'pace', 'Speaking pace', curve(wpm, [[60, 20], [80, 40], [95, 62], [110, 85], [120, 96], [125, 100], [165, 100], [180, 85], [200, 62], [230, 40]]), 0.15);
+      if (flow != null) add('communication', 'pauses', 'Flow (long pauses & silences)', flow, 0.15);
+      if (metrics.audio && metrics.audio.pitchSdSemitones != null) add('communication', 'modulation', 'Voice modulation', curve(metrics.audio.pitchSdSemitones, [[0.5, 40], [1.2, 62], [2, 85], [3, 100], [5.5, 100], [8, 80]]), 0.05);
       if (mech) add('communication', 'mechanics', 'Writing mechanics', curve(per100(mech.errors), [[0, 100], [2, 80], [5, 55], [10, 30]]), 0.2);
     }
 
     // Confidence
     if (!skipped) {
-      add('confidence', 'hedging', 'Direct language (few hedges)', curve(hedgeRate, [[0, 100], [1, 88], [2.5, 68], [4, 52], [6, 40], [10, 25]]), wc >= 8 ? 0.3 : 0.1);
-      if (latencySec != null) add('confidence', 'latency', 'Response readiness', curve(latencySec, [[0, 100], [1.5, 100], [3, 90], [5, 72], [8, 55], [12, 38]]), 0.2);
+      add('confidence', 'hedging', 'Direct language (few hedges)', curve(hedgeRate, [[0, 100], [0.5, 90], [1, 78], [1.5, 66], [2.5, 52], [4, 40], [8, 22]]), wc >= 8 ? 0.25 : 0.1);
+      // A couple of seconds to think is normal in an interview; long silences before starting are not.
+      if (latencySec != null) add('confidence', 'latency', 'Response readiness', curve(latencySec, [[0, 100], [1.5, 100], [3, 85], [4.5, 66], [6, 50], [9, 32], [13, 22]]), 0.2);
       if (audio) {
         const drop = Math.max(0, audio.trailOffDb || 0);
-        add('confidence', 'voice', 'Voice strength', curve(audio.snrDb, [[5, 35], [10, 58], [15, 80], [20, 95], [24, 100]]) - curve(drop, [[4, 0], [8, 12], [12, 20]]), 0.2);
+        // Lenient: how loud a voice measures depends a lot on the microphone and the room.
+        add('confidence', 'voice', 'Voice strength', curve(audio.snrDb, [[4, 30], [8, 55], [12, 80], [16, 95], [20, 100]]) - curve(drop, [[3, 0], [6, 10], [9, 20]]), 0.15);
       }
-      add('confidence', 'directness', 'Answer commitment', dontKnow ? 25 : curve(lenWords / minW, [[0, 15], [0.5, 50], [1, 85], [1.5, 100]]), 0.3);
-      add('confidence', 'fillers', 'Composure (fillers)', curve(fillerRate, [[0, 100], [3, 82], [6, 62], [12, 40]]), 0.15);
+      if (flow != null) add('confidence', 'flow', 'Steady delivery (few long pauses)', flow, 0.1);
+      add('confidence', 'directness', 'Answer commitment', dontKnow ? 15 : curve(lenWords / minW, [[0, 10], [0.5, 40], [1, 75], [1.5, 95], [2, 100]]), 0.2);
+      add('confidence', 'fillers', 'Composure (fillers)', curve(fillerRate, [[0, 100], [1.5, 85], [3, 66], [5, 50], [10, 30]]), 0.1);
     } else {
-      add('confidence', 'skipped', 'Question skipped', 25, 1);
+      add('confidence', 'skipped', 'Question skipped', 20, 1);
     }
+
+    // Rehearsed answers: stock phrases instead of a real example or concrete detail
+    // (two with nothing concrete, or three or more in any case).
+    const noExample = !structure.example && starCount < 2;
+    const rehearsed = !skipped && ((clicheHits.length >= 3 && noExample) || clicheHits.length >= 5 || (clicheHits.length >= 2 && specificity === 0 && noExample));
+    // Experience questions need the candidate's own story ("I did…", "we had…"), not a general statement.
+    const needsStory = question.type === 'behavioral' && !skipped && story === 0;
 
     // Thought process
     if (!skipped && ['listening', 'correction', 'closing', 'flexibility'].indexOf(question.type) === -1) {
       const s = structure;
-      const structScore = curve(Math.min(s.sequencing, 1) + 1.2 * Math.min(s.reasoning, 1) + Math.min(s.example, 1) + 0.5 * Math.min(s.contrast, 1) + 0.6 * Math.min(s.summary, 1) + 0.3 * Math.max(0, s.reasoning - 1), [[0, 40], [1, 62], [2, 80], [3, 92], [4, 100]]);
+      const structScore = curve(Math.min(s.sequencing, 1) + 1.2 * Math.min(s.reasoning, 1) + Math.min(s.example, 1) + 0.5 * Math.min(s.contrast, 1) + 0.6 * Math.min(s.summary, 1) + 0.3 * Math.max(0, s.reasoning - 1), [[0, 25], [1, 50], [2, 72], [3, 88], [4, 100]]);
       if (question.type === 'roleplay') {
         add('thought', 'structure', 'Logical flow', structScore, 0.4);
-        add('thought', 'resolution', 'Reached a resolution', call && call.map.resolution ? 100 : 35, 0.6);
+        add('thought', 'resolution', 'Reached a resolution', call && call.map.resolution ? (call.map.timeline ? 100 : 70) : 25, 0.6);
       } else {
         const w = THOUGHT_WEIGHTS[question.type] || THOUGHT_WEIGHTS.default;
         add('thought', 'structure', 'Structure & reasoning', structScore, w.structure);
-        if (w.star) add('thought', 'star', 'STAR storytelling', curve(starCount, [[0, 20], [1, 45], [2, 65], [3, 85], [4, 100]]), w.star);
-        add('thought', 'specificity', 'Specific details', curve(specificity, [[0, 45], [1, 65], [2, 80], [4, 100]]), w.specificity);
+        // A developed answer (several connected points) shows thinking even without textbook markers.
+        add('thought', 'elaboration', 'Developed answer', curve(lenWords / Math.max(lo, minW + 1), [[0.25, 15], [0.5, 40], [0.8, 70], [1, 85], [1.3, 100]]), 0.25);
+        if (w.star) add('thought', 'star', 'STAR storytelling', curve(starCount, [[0, 10], [1, 35], [2, 60], [3, 82], [4, 100]]), w.star);
+        add('thought', 'specificity', 'Specific details', curve(specificity, [[0, 30], [1, 55], [2, 75], [4, 100]]), w.specificity);
         if (covScore != null) add('thought', 'coverage', 'Considered the key angles', covScore, w.coverage);
       }
     } else if (skipped && dims.thought) {
@@ -411,25 +451,34 @@
     } else if (askedQuestion) {
       add('relevance', 'asked', 'Engaged with the interviewer', askedQuestion.asks ? 90 : 60, 1);
     } else if (cov.score != null) {
-      add('relevance', 'coverage', 'Covered the key points', dontKnow ? Math.min(covScore, 20) : covScore, 0.75);
-      add('relevance', 'completeness', 'Completeness', completeness, 0.25);
+      add('relevance', 'coverage', 'Covered the key points', dontKnow ? Math.min(covScore, 20) : covScore, 0.55);
+      // Length and detail only count for an answer that is about the question.
+      const onTopic = Math.min(1, (cov.ratio || 0) / ((question.coverageTarget || 0.6) * 0.75));
+      add('relevance', 'completeness', 'Completeness', completeness * onTopic, 0.15);
+      // Substance: a real example or concrete detail, not just the right words.
+      const substance = Math.min(specificity, 2) + Math.min(structure.example, 1) + (starCount >= 3 ? 1 : 0);
+      add('relevance', 'substance', 'Substance (examples & specifics)', dontKnow ? 10 : curve(substance, [[0, 35], [1, 65], [2, 85], [3, 100]]) * onTopic, 0.3);
     }
 
     // Customer handling
     if (dims.customer) {
       if (skipped) add('customer', 'skipped', 'Question skipped', 0, 1);
       else if (call) {
-        add('customer', 'checklist', 'Call-handling checklist', call.pct, 0.75);
-        add('customer', 'politeness', 'Politeness', curve(politeHits.length + (call.map.empathy ? 1 : 0), [[0, 40], [1, 70], [2, 90], [3, 100]]), 0.25);
+        add('customer', 'checklist', 'Call-handling checklist', call.pct, 0.55);
+        // How much warmth, not just whether one "sorry" was said.
+        add('customer', 'warmth', 'Warmth (empathy & courtesy)', curve(empathyHits.length + Math.min(2, politeHits.length) * 0.5, [[0, 15], [1, 50], [2, 75], [3, 92], [4, 100]]), 0.15);
+        if (wc >= 12) add('customer', 'clarity', 'Clear English on the call', curve(grammarPer100, [[0, 100], [1, 85], [2.5, 62], [4, 45], [6, 32], [10, 20]]), 0.15);
+        // One-line replies tick boxes without reassuring anyone.
+        add('customer', 'depth', 'Explains and reassures (not one-liners)', curve(lenWords, [[3, 15], [8, 35], [12, 52], [18, 72], [25, 90], [32, 100]]), 0.15);
       } else {
-        add('customer', 'empathy', 'Empathy language', curve(empathyHits.length, [[0, 30], [1, 65], [2, 85], [3, 100]]), 0.45);
+        add('customer', 'empathy', 'Empathy language', curve(empathyHits.length, [[0, 15], [1, 55], [2, 80], [3, 100]]), 0.45);
         if (covScore != null) add('customer', 'approach', 'Customer-handling approach', covScore, 0.55);
       }
     }
 
     // Attitude & motivation
     if (dims.attitude) {
-      const sentiScore = curve(senti.net, [[-1, 15], [-0.3, 40], [0, 58], [0.3, 78], [0.6, 92], [1, 100]]);
+      const sentiScore = curve(senti.net, [[-1, 10], [-0.3, 35], [0, 52], [0.3, 72], [0.6, 88], [1, 100]]);
       if (skipped) add('attitude', 'skipped', 'Question skipped', 30, 1);
       else if (stance) add('attitude', 'stance', 'Flexibility', stance.score, 1);
       else if (askedQuestion) add('attitude', 'curiosity', 'Curiosity about the role', askedQuestion.asks ? (askedQuestion.topics ? 94 : 82) : 58 + Math.min(8, politeHits.length * 4), 1);
@@ -437,8 +486,9 @@
         add('attitude', 'politeness', 'Courtesy', curve(politeHits.length, [[0, 50], [1, 75], [2, 90], [3, 100]]), 0.6);
         add('attitude', 'tone', 'Positive tone', sentiScore, 0.4);
       } else {
-        add('attitude', 'tone', 'Positive tone', sentiScore, 0.5);
-        if (covScore != null) add('attitude', 'motivation', 'Motivation & fit', covScore, 0.5);
+        // A story about a problem is full of "upset" and "angry": that is not the candidate's tone.
+        if (question.type !== 'behavioral' && question.type !== 'situational') add('attitude', 'tone', 'Positive tone', sentiScore, 0.35);
+        if (covScore != null) add('attitude', 'motivation', 'Motivation & fit', covScore, 0.65);
       }
     }
 
@@ -456,17 +506,26 @@
       // should not be averaged away by strong ones.
       if (dim === 'communication' || dim === 'confidence') {
         const major = comps[dim].filter((c) => c.weight >= 0.15);
-        if (major.length >= 2) v = 0.8 * v + 0.2 * Math.min(...major.map((c) => c.value));
+        if (major.length >= 2) v = 0.7 * v + 0.3 * Math.min(...major.map((c) => c.value));
       }
       if (dim === 'confidence' && !skipped) {
-        v += Math.min(15, confHits.length * 5) - Math.min(36, negSelfHits.length * 12) - Math.min(9, (events.repeats || 0) * 3);
+        v += Math.min(9, confHits.length * 3) - Math.min(36, negSelfHits.length * 12) - Math.min(9, (events.repeats || 0) * 3);
       }
-      if (dim === 'thought' && dontKnow) v = Math.min(v, 25);
+      if (dim === 'thought' && dontKnow) v = Math.min(v, 20);
+      // A short answer cannot show much reasoning, however well chosen its words.
+      if (dim === 'thought' && question.type !== 'roleplay' && !skipped) {
+        v *= 0.7 + 0.3 * Math.min(1, lenWords / minW);
+        // Well-organised reasoning about something else is not good thinking about this question.
+        if (cov.ratio != null) v *= 0.5 + 0.5 * Math.min(1, cov.ratio / ((question.coverageTarget || 0.6) * 0.75));
+      }
+      if (rehearsed && (dim === 'thought' || dim === 'relevance')) v -= Math.min(20, clicheHits.length * 5);
+      if (needsStory && (dim === 'thought' || dim === 'relevance')) v = Math.min(v, 35);
       if (dim === 'customer' && redFlags.some((f) => f.id === 'customer_hostility' || f.id === 'dishonesty')) v -= 40;
+      if (dim === 'customer' && redFlags.some((f) => f.id === 'dismissive')) v -= 25;
       if (dim === 'attitude') {
         for (const f of redFlags) {
           if (stance && f.id === 'shift_refusal') continue; // already reflected in the stance score
-          v -= f.severity === 'high' ? 35 : f.severity === 'medium' ? 22 : 10;
+          v -= f.severity === 'high' ? 35 : f.severity === 'medium' ? 25 : 10;
         }
       }
       scores[dim] = Math.round(clamp(v, 0, 100));
@@ -483,6 +542,8 @@
       stance,
       call,
       askedQuestion,
+      rehearsed,
+      noStory: needsStory,
       scores,
       components: comps,
       events: { repeats: events.repeats || 0, pasted: !!events.pasted, timedOut: !!events.timedOut, skipped: !!events.skipped },

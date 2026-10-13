@@ -47,9 +47,22 @@
   function guessAccent() {
     const langs = navigator.languages || [navigator.language || 'en-US'];
     for (const l of langs) {
-      if (/^en-(IN|US|GB|PH|AU|ZA|NG)$/i.test(l)) return 'en-' + l.slice(3).toUpperCase();
+      // en-US is most browsers' default even in India, so it says little: check the time zone first.
+      if (/^en-(IN|GB|PH|AU|ZA|NG)$/i.test(l)) return 'en-' + l.slice(3).toUpperCase();
       if (/-IN$/i.test(l) || /^(hi|ta|te|mr|bn|kn|ml|gu|pa)\b/i.test(l)) return 'en-IN';
       if (/^(fil|tl)\b/i.test(l)) return 'en-PH';
+    }
+    // A browser set to "en-US" in India still hears Indian names far better with en-IN.
+    let zone = '';
+    try { zone = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch (e) { /* unknown */ }
+    if (/^Asia\/(Kolkata|Calcutta)$/.test(zone)) return 'en-IN';
+    if (zone === 'Asia/Manila') return 'en-PH';
+    if (zone === 'Africa/Lagos') return 'en-NG';
+    if (zone === 'Africa/Johannesburg') return 'en-ZA';
+    if (zone === 'Europe/London') return 'en-GB';
+    if (/^Australia\//.test(zone)) return 'en-AU';
+    for (const l of langs) {
+      if (/^en-/i.test(l)) return /^en-(IN|US|GB|PH|AU|ZA|NG)$/i.test(l) ? 'en-' + l.slice(3).toUpperCase() : 'en-US';
     }
     return 'en-US';
   }
@@ -60,6 +73,8 @@
     showCaptions: true, engine: 'auto', llmEnabled: false, llmUrl: LLM.DEFAULT_URL, llmModel: '',
   };
   let settings = Object.assign({}, DEFAULTS, store.get(SETTINGS_KEY, {}));
+  // Older saves stored the browser's "en-US" without anyone choosing it: use the better guess.
+  if (!settings.accentChosen && settings.accent === 'en-US') settings.accent = DEFAULTS.accent;
   if ([0, 2, 3, 5].indexOf(Number(settings.silenceSec)) === -1) settings.silenceSec = 3;
 
   const state = {
@@ -253,8 +268,9 @@
 
   form.addEventListener('change', (e) => {
     if (e.target.id === 'f-llm') toggleLlmFields();
-    if (e.target.id === 'f-accent') populateVoices();
+    if (e.target.id === 'f-accent') settings.accentChosen = true;
     readSetup();
+    if (e.target.id === 'f-accent') populateVoices();
   });
   $('#f-rate').addEventListener('input', (e) => {
     $('#rate-out').textContent = Number(e.target.value).toFixed(2).replace(/0$/, '') + '×';
@@ -583,6 +599,24 @@
     }
     if (current) current.classList.add('w-now');
   }
+  /**
+   * Put the candidate's typed name back where speech recognition misheard it, only where a
+   * name belongs ("I am tishar chadne" → "I am Tushar Chandane"; see Voice.correctNames).
+   */
+  function fixNames(text) {
+    const name = String((settings && settings.name) || '').trim();
+    if (!name || !text) return text;
+    return Voice.correctNames(text, [name], { common: AII.Lexicons ? AII.Lexicons.COMMON_WORDS : null });
+  }
+  /** The same for live words: "I am" may already be final while the name is still interim. */
+  function fixNamesLive(fin, interim) {
+    const f = fixNames(fin);
+    if (!interim) return [f, interim];
+    const both = fixNames(String(fin || '').trim() + ' ' + interim);
+    const head = String(f || '').trim();
+    if (head && both.startsWith(head + ' ')) return [f, both.slice(head.length + 1)];
+    return [f, head ? fixNames(interim) : both];
+  }
   /** The candidate's words as the interviewer understood them (latest words kept in view). */
   function renderYou(fin, interim) {
     const live = $('#live');
@@ -814,6 +848,8 @@
       const maxMs = (step.maxSeconds || 120) * 1000;
       const idealWords = q && q.ideal ? q.ideal[0] : null;
       const roleplay = step.kind === 'roleplay';
+      // Where the candidate may say their own name (not the mock call, a listening test or a correction).
+      const namesOk = !roleplay && !(q && (q.type === 'correction' || q.type === 'listening'));
       const listeningText = roleplay ? 'Your turn: talk to the customer' : 'Listening… go ahead';
       let t0 = performance.now();
       let rec = null;
@@ -847,6 +883,7 @@
             // An aborted recogniser still reports once as it closes (after "skip", a repeat
             // or a recovery): never write its words back over the panel.
             if (ctl.done || rec !== r) return;
+            if (namesOk) [fin, interim] = fixNamesLive(fin, interim);
             renderYou(fin, interim);
             const t = (fin + ' ' + interim).trim();
             if (t !== lastText) {
@@ -1220,6 +1257,7 @@
         // details and the mock call (where the agent often echoes the customer).
         const echoes = !roleplay && !(q && (q.type === 'correction' || q.type === 'listening'));
         if (echoes) text = Voice.stripEcho(text, state.lastSpoken || step.prompt, { onsetMs: onset });
+        if (namesOk) text = fixNames(text); // "I am tishar chadne" → "I am Tushar Chandane"
         // Commands that only show up in the final transcript (e.g. the offline engine).
         let skipped = !!x.skipped;
         const cmd = Voice.parseCommand(text);
