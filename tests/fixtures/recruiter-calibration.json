@@ -1,0 +1,1580 @@
+{
+ "about": "Thirty full mock interviews (Customer Support, voice, fresher) as Chrome speech recognition would transcribe them, each rated blind by two simulated senior BPO recruiters (operations manager and quality lead). judge = the average of the two ratings. Audio stats are on the in-app meter scale. Used to check the scorer against recruiter judgement; see tests/calibration.test.js.",
+ "sets": [
+  {
+   "seed": 7,
+   "candidates": [
+    {
+     "id": "A",
+     "persona": "excellent: fluent, structured, specific numbers/examples, warm and professional on the call",
+     "voice": {
+      "wpm": 152,
+      "latencyMs": 900,
+      "audio": {
+       "longPauses": 0.3,
+       "longestPauseMs": 2300,
+       "snrDb": 25,
+       "trailOffDb": 1.5,
+       "voicedRatio": 0.619,
+       "pitchSdSemitones": 3.2,
+       "voicedFrames": 830,
+       "pitchFrames": 460
+      }
+     },
+     "answers": {
+      "intro_tell_me": "good morning and thank you for having me so my name is sneha kulkarni i'm 22 years old and i'm from pune i completed my bachelor of commerce from modern college pune in 2024 with 78 percent and after that i did a 6 month internship at a telecom company's helpdesk where i handled around 40 to 50 customer queries a day mostly on chat and some on calls about recharges and billing issues as a person i would say i'm calm and patient i genuinely enjoy talking to people and figuring out what's actually bothering them outside of work i teach maths to two kids in my building on weekends and i like reading and cooking so yeah that's a little about me",
+      "education": "so i did my bcom from savitri bai phule pune university with accounting and business communication as the main subjects and honestly the one that helped me the most was business communication because we had to do presentations every month and also mock customer meetings so i learned how to speak clearly how to structure what i'm saying and how to listen before i respond accounting also helps because a lot of customer issues are about billing refunds and charges so i'm comfortable reading an invoice and explaining it to someone in simple words and in final year i was the class representative so i used to coordinate between 60 students and the faculty which basically taught me to handle complaints politely",
+      "why_cs_career": "what attracts me is that every call is basically a small problem you get to solve for a real person and at the end of it they go away happier than they came during my internship there was this one elderly gentleman whose recharge had failed three times and he was really frustrated and after i sorted it out he said thank you beta you were very patient and that genuinely made my day so i think i'll be good at it because i'm patient i don't take the anger personally i'm comfortable with systems and also i like that there is a clear growth path from agent to quality to team lead",
+      "good_agent_qualities": "i think the main qualities are first empathy understanding what the customer is going through second active listening so you actually catch the details and don't make them repeat third patience and staying calm under pressure fourth clear communication and fifth ownership like following up till the issue is actually closed and of course product knowledge out of these i would say my strongest are listening and patience in my internship my quality score was 92 percent and the feedback was that i always confirmed the customer's details before acting on it the one i'm still building is product knowledge which i think comes with training and time",
+      "inbound_outbound": "so in an inbound process the customer calls the company like when they have a query a complaint or they need support for example calling a bank's customer care about a blocked card so the agent is receiving the call in an outbound process the agent calls the customer so that could be sales telemarketing collections feedback surveys or follow up calls inbound is more about solving problems and the kpis are things like average handle time and first call resolution outbound is more target driven like number of calls made or conversions",
+      "handle_angry": "first i would let the customer speak without interrupting because usually they need to vent first then i'd acknowledge it something like i completely understand how frustrating this must be and i'm really sorry you had to go through this then i'd take the order number verify the details and repeat the problem back to them so they know i've understood after that i'd explain clearly what i'm going to do and give a realistic timeline not a false promise and if it's something i can't fix myself i'd escalate it but i'd tell the customer exactly what happens next and before closing i'd make sure they're okay and thank them for their patience and i would never raise my voice even if they keep shouting",
+      "helped_someone": "during my internship one customer had been charged for a data pack she never activated and she had already called twice so she was quite upset i checked her account and found the pack was auto renewing because of an old setting so i explained it to her in simple words raised a reversal request for the 299 rupees and also turned off the auto renewal for her while she was still on the line then i called her back two days later to confirm the money had come back and she actually gave a 5 star rating and wrote my name in the feedback",
+      "listen_ticket": "sure so the customer name is david miller the refund amount is 350 dollars and the ticket number is 8193",
+      "correct_each": "each of the agents has a headset because each is singular so the verb should be has not have",
+      "shifts": "yes i'm completely comfortable with it i understand that customers need support 24 by 7 and especially for international processes the night shift is basically the main shift my family is also okay with it and i stay about 20 minutes from the office so commuting at night won't be an issue i'd just make sure i manage my sleep properly",
+      "strength_weakness": "my biggest strength is that i stay calm and i listen properly even when someone is upset and the second would be that i'm quick at learning new systems like in my internship i was taking live chats on my own within the first week the weakness i'm working on is that i sometimes take too much time on one customer because i want everything to be perfect and that can affect my handle time so now i'm practicing using a checklist and summarising faster and my a h t actually came down from like 9 minutes to around 6 and a half",
+      "five_years": "in five years i see myself as a team leader or maybe in a quality analyst role first i want to become really strong as an agent learn the process completely and get good at the metrics then maybe after one and a half or two years move into a coach or sme role and then team lead and i'd also like to do a certification in customer experience along the way",
+      "questions_for_us": "yes i have two questions first what does the training period look like for new joiners and how long is it before we go live on calls and second how is performance measured in the first three months like which metrics matter the most for this process"
+     },
+     "roleplay": [
+      "hello thank you for calling my name is sneha and i'm really sorry to hear that you've been charged twice and that you had to call us multiple times that must be really frustrating i'm going to take care of this for you right now could you please share your order number so i can check both the charges",
+      "thank you so much i've pulled up order number 4572 and i can see both the charges and yes the second one is a duplicate i've raised a refund for it right now and you'll get the money back in your original payment method within 5 to 7 working days you'll also get a confirmation email with a refund reference number in the next hour and i've added a note on your account so if you ever call again anyone can see it is that okay with you",
+      "absolutely i completely understand and i've personally marked this for follow up so i'll make sure it's done is there anything else i can help you with today thank you so much for your patience and have a lovely day"
+     ],
+     "judge": {
+      "overall": 93.5,
+      "communication": 92.5,
+      "confidence": 91,
+      "thought": 93.5,
+      "relevance": 94.5,
+      "customer": 95.5,
+      "attitude": 93,
+      "language": 95.5
+     },
+     "notes": [
+      "Fluent, well-paced (152 wpm, 0.9s latency) and highly structured, with concrete evidence: internship handling '40 to 50 customer queries a day', 'quality score was 92 percent', AHT reduced 'from like 9 minutes to around 6 and a half'. Model roleplay: empathises, takes the order number, confirms the duplicate, gives a '5 to 7 working days' timeline, refund reference email and account note, then closes properly. Perfect listening test and correction with the reason ('each is singular'), fully shift-flexible, and smart questions about training and early metrics.",
+      "Fluent, well-paced (152 wpm, 0.9 s latency) and well structured, with quantified evidence ('quality score was 92 percent', 'a h t actually came down from like 9 minutes to around 6 and a half'). Textbook mock call: acknowledged the repeat contact, took the order number, confirmed the duplicate, gave '5 to 7 working days', a confirmation email and an account note. Perfect listening test, correction with the rule ('each is singular'), realistic growth plan and sharp questions about training and metrics."
+     ]
+    },
+    {
+     "id": "B",
+     "persona": "strong but a bit nervous: good content, a few hedges and crutches, slightly slow start",
+     "voice": {
+      "wpm": 128,
+      "latencyMs": 1900,
+      "audio": {
+       "longPauses": 0.9,
+       "longestPauseMs": 3400,
+       "snrDb": 20,
+       "trailOffDb": 3.5,
+       "voicedRatio": 0.536,
+       "pitchSdSemitones": 2.4,
+       "voicedFrames": 700,
+       "pitchFrames": 380
+      }
+     },
+     "answers": {
+      "intro_tell_me": "okay so actually good morning sir my name is rohit desh pande i'm from nagpur i i just completed my bsc in computer science this year from rtm nagpur university so i'm a fresher but i i have done like a part time job at a reliance digital store for about 8 months during college where i was helping customers choose phones and also handling like returns and complaints so that's where i got some customer experience as a person i think i'm i'm quite friendly and hard working i like playing cricket and yeah i think that's about it",
+      "education": "so i did bsc computer science so mainly we learnt programming and like networking operating systems so it's not directly customer service but i think what helped is like when i explain technical things to people who are not technical like my parents or the customers in the store i have to explain in simple language so that i think will help also we had a project in final year we were a team of 4 and i was the one presenting it to the external examiner so that improved my confidence a bit",
+      "why_cs_career": "i think honestly what attracts me is that i i enjoyed talking to customers at the store like when someone came in confused and they left happy that felt good and i think i'd be good at it because i'm patient and i know a bit about technology so for a tech support kind of process i can understand the issue quickly also i think it's a good career where you can grow",
+      "good_agent_qualities": "so i think like patience is very important and listening properly and also being polite even when the customer is rude and having good knowledge about the product so you can give correct information i think i have patience and i'm a good listener like in the store sometimes customers would come and shout about a phone not working and i used to just listen first and then check the phone and mostly it would get solved product knowledge also i have a bit on the tech side",
+      "inbound_outbound": "inbound is when the customer calls us like for support or a complaint and we receive the call and outbound is when we call the customer like for sales or like follow up or surveys so in inbound the customer already has a problem and in outbound we are like reaching out to them i think outbound has more targets",
+      "handle_angry": "i would first like stay calm and let him finish speaking then i would apologise for the inconvenience and like tell him that i understand his problem then i would ask for the order number and check what exactly happened and then i would tell him what i can do like if it's a delay i'll give the updated date or if it's a wrong product i'll arrange a replacement and if i can't solve it i would escalate to my supervisor but i'd keep him informed",
+      "helped_someone": "so at the store one uncle came he had bought a phone from us and his whatsapp data was not transferring from his old phone and he was very tensed because all his business contacts and chats were there so i sat with him for like 30 minutes and we did the backup on google drive and restored it and it worked and he was very happy he actually came back after a month to buy earphones and asked for me",
+      "listen_ticket": "the customer name is david miller and the refund amount is 350 dollars and ticket number is 8193",
+      "correct_each": "each of the agents has a headset i think because each is singular",
+      "shifts": "yes sir i'm okay with night shifts and rotational shifts i i know it's part of the job my only thing is like initially i might need some time to adjust my sleep but i'm comfortable with it and my family also knows",
+      "strength_weakness": "my strength i think is that i'm patient and i learn things quickly like technical things weakness is that i get a bit nervous when i speak to new people like in interviews like now actually so i'm working on it by practicing speaking more and like joining group discussions",
+      "five_years": "in five years i want to see myself in a senior position maybe like a team leader or on the technical support side as an expert i want to learn the process properly first and then grow",
+      "questions_for_us": "yes sir actually what kind of process will this be is it tech support or like general customer service and is there any training before we start"
+     },
+     "roleplay": [
+      "hello sir i'm i'm really sorry for the trouble you've faced my name is rohit and i'll definitely help you with this can you please tell me your order number so i can check the double charge",
+      "thank you sir i have checked order 4572 and yes i can see it was charged two times i'm really sorry about that i have raised a refund request for the extra amount and it will be credited back to your account in like 5 to 7 working days and you will get an sms also",
+      "sure sir i'll make sure it's done thank you for your patience and sorry again for the inconvenience have a nice day"
+     ],
+     "judge": {
+      "overall": 76.5,
+      "communication": 69,
+      "confidence": 63,
+      "thought": 77,
+      "relevance": 81,
+      "customer": 84,
+      "attitude": 82,
+      "language": 83
+     },
+     "notes": [
+      "Genuine, relevant experience from 8 months at a retail store handling 'returns and complaints', with a vivid example (30 minutes restoring an uncle's WhatsApp, who 'came back after a month... and asked for me'). Delivery has noticeable fillers and repetitions ('i i', 'like', 'i'm i'm') and self-admitted nervousness, but is clear at 128 wpm. Roleplay is empathetic and complete (apology, order number, confirms double charge, '5 to 7 working days', SMS), with perfect listening and a correct correction; a solid hire.",
+      "Speech is clear but uses a lot of fillers ('like', repeated 'i i'), and he is visibly nervous, which he admits ('i get a bit nervous when i speak to new people like in interviews like now'). The content is genuine and specific: 8 months handling returns at a retail store, and a WhatsApp-transfer example where the customer 'came back after a month... and asked for me'. Strong mock call ('really sorry for the trouble', took order 4572, refund in '5 to 7 working days and you will get an sms'), perfect listening test, correction with the reason, and relevant questions. A solid hire who needs polish on fillers."
+     ]
+    },
+    {
+     "id": "C",
+     "persona": "good content but average English: typical Indian-English grammar slips (I am having, myself X, did not went, tense/article errors), decent structure",
+     "voice": {
+      "wpm": 118,
+      "latencyMs": 1600,
+      "audio": {
+       "longPauses": 0.8,
+       "longestPauseMs": 3100,
+       "snrDb": 21,
+       "trailOffDb": 2.5,
+       "voicedRatio": 0.543,
+       "pitchSdSemitones": 2.6,
+       "voicedFrames": 720,
+       "pitchFrames": 400
+      }
+     },
+     "answers": {
+      "intro_tell_me": "good morning mam myself tishar chadne i am from latur maharashtra i have completed my graduation in ba english from dayanand college latur in 2023 after that i was working in my uncle's mobile shop for one year so there i am handling customers daily approx 30 to 40 customers coming for recharge and mobile repair complaints so i am having good experience of talking with customers coming to my family background my father is farmer and mother is housewife and i am having one younger sister i am a hardworking and honest person and my hobbies are listening songs and playing volleyball",
+      "education": "i did ba in english literature so in that we are studying poems novels and grammar also and one subject was communication skills in that subject teacher was making us to give speech in front of class every week so first i was very scared but after some time my stage fear is gone so that confidence will help me in customer facing job also because of english literature my vocabulary and grammar is improved compare to before",
+      "why_cs_career": "i am attracted to customer support because i like to talk with people and solve their problems in shop also when customer is coming with problem and after i solved it he is going with smile so that gives me satisfaction and also in bpo there is good growth and good salary and i can improve my english also i think i will be good because i am having patience and i don't get angry easily even customer is shouting",
+      "good_agent_qualities": "great customer service executive should have patience good communication skill listening skill and he should have knowledge about product and also he should be polite and he should solve the problem in first call only so customer don't need to call again from these i am having patience and listening skill because in shop many customers are coming angry when their mobile is not repaired on time but i am listening them calmly and telling them the exact status",
+      "inbound_outbound": "inbound process means customer is calling to the company for his query or complaint and we have to resolve it for example customer care of airtel and outbound process means company agent is calling to customer for selling the product or for collection of payment or for taking feedback so in inbound customer is calling us and in outbound we are calling customer",
+      "handle_angry": "first i will listen the customer full problem without interrupting him because he is angry so he want someone to listen him then i will say sorry sir for the inconvenience i understand your problem then i will ask his order number and check the details in system after that i will tell him the solution like if order is late i will tell new delivery date and if wrong product came then i will do replacement and if problem is not solving from my side i will transfer to my senior but i will not argue with customer",
+      "helped_someone": "one time one old lady came in our shop her phone was not working she is not able to call her son who is living in pune she was very worried so i checked the phone and the sim card was not inserted properly i did it correct and also i saved her son number in speed dial so she can call him easy she was very happy and she give me blessings",
+      "listen_ticket": "customer name is devid miller refund amount is 350 dollar and ticket number is 8193",
+      "correct_each": "each of the agent has a headset",
+      "shifts": "yes mam i am comfortable for night shift and rotational shift also because i know in bpo it is required and i am staying in hostel so no problem from family side also weekends working is also okay for me",
+      "strength_weakness": "my strength is i am hardworking and i am having patience and i am quick learner my weakness is my english is not that much fluent like some time i am making grammar mistakes but i am working on it i am watching english news daily and reading english newspaper to improve it",
+      "five_years": "after five years i want to see myself as a team leader in this company and i want to lead one team and also i want to improve my communication skill more and help my family financially",
+      "questions_for_us": "yes mam what is the training period and after training in which process i will be work and what is the salary structure"
+     },
+     "roleplay": [
+      "hello sir good afternoon myself tishar i am very sorry for the inconvenience sir i understand you are charged two times please don't worry i will help you can you please tell me your order number",
+      "thank you sir i have checked your order number 4572 and yes sir double payment is deducted i have raised the refund request for the extra payment sir your money will be come back within 5 to 7 working days in same account",
+      "welcome sir i assure you it will be done this time is there anything else i can help you sir thank you for calling have a nice day"
+     ],
+     "judge": {
+      "overall": 67.5,
+      "communication": 59,
+      "confidence": 67,
+      "thought": 72,
+      "relevance": 80,
+      "customer": 80,
+      "attitude": 84,
+      "language": 59
+     },
+     "notes": [
+      "Strong substance and service instinct from a year handling '30 to 40 customers' daily at a mobile shop, with a good example (fixing an elderly lady's SIM and saving her son's number on speed dial). Roleplay is complete and empathetic (apology, order number, confirms 'double payment is deducted', '5 to 7 working days in same account', proper closing). Pace and clarity are adequate (118 wpm, 1.6s latency) and the listening test is right (350, 8193), but persistent Indian-English grammar ('i am having', 'your money will be come back') and a half-correct correction ('each of the agent has a headset') need training; hire with language coaching.",
+      "Content and call handling are good: a genuine customer-facing background ('approx 30 to 40 customers' daily at a mobile shop), a structured angry-caller approach ('listen the customer full problem without interrupting... i will not argue'), and a complete mock call (apology, order number, refund in '5 to 7 working days', assurance and close). He passed the listening test (David Miller, 350, 8193). Grammar is the gap: consistent Indianisms ('i am having patience', 'myself tishar', 'your money will be come back') and a half-right correction ('each of the agent has a headset'), which he acknowledges and is working on. Clear and understandable at 118 wpm, so a hire with grammar and accent training."
+     ]
+    },
+    {
+     "id": "D",
+     "persona": "average all-round: generic, some relevant points, short examples, ok call",
+     "voice": {
+      "wpm": 124,
+      "latencyMs": 1500,
+      "audio": {
+       "longPauses": 0.7,
+       "longestPauseMs": 2900,
+       "snrDb": 18,
+       "trailOffDb": 3,
+       "voicedRatio": 0.498,
+       "pitchSdSemitones": 2,
+       "voicedFrames": 520,
+       "pitchFrames": 290
+      }
+     },
+     "answers": {
+      "intro_tell_me": "hi my name is ankit sharma i'm from indore i have done bba from devi ahilya university in 2024 i'm a fresher and i'm looking for a job in customer service my strengths are communication and teamwork i like to watch movies and travel with friends that's it",
+      "education": "i did bba so we studied management marketing hr and all that we also had some presentations and group projects so that helped me in communication and working in a team i think that will help in customer service",
+      "why_cs_career": "i like talking to people and i think customer support is a good field for freshers there is a lot of learning and growth i think i'll be good because i'm polite and i can communicate well",
+      "good_agent_qualities": "good communication patience and problem solving and being polite with customers i have good communication and i'm patient also",
+      "inbound_outbound": "inbound means customers call us and outbound means we call customers like for sales",
+      "handle_angry": "i will stay calm and listen to the customer i will say sorry for the problem and check his order details then i'll try to solve the problem and if i can't then i'll escalate it to the senior",
+      "helped_someone": "my friend was having a problem in his laptop it was very slow so i helped him uninstall some apps and clean it and it became fast so yeah",
+      "listen_ticket": "name was david miller amount 350 dollars and ticket number 8913",
+      "correct_each": "each of the agents has a headset",
+      "shifts": "yes i'm okay with that",
+      "strength_weakness": "my strength is i'm a quick learner and a team player my weakness is i trust people easily but i'm working on it",
+      "five_years": "i see myself in a good position in this company maybe team leader",
+      "questions_for_us": "no sir everything is clear thank you"
+     },
+     "roleplay": [
+      "hello sir sorry for the inconvenience can you tell me your order number i'll check",
+      "okay sir i've checked it there is a double charge i'll raise a refund it will take 5 to 7 days",
+      "okay sir thank you have a nice day"
+     ],
+     "judge": {
+      "overall": 61.5,
+      "communication": 67,
+      "confidence": 60,
+      "thought": 48,
+      "relevance": 62,
+      "customer": 59,
+      "attitude": 62,
+      "language": 65
+     },
+     "notes": [
+      "Clear, grammatical but very thin answers ('yes i'm okay with that', 'good communication patience and problem solving'), with generic examples like cleaning a friend's slow laptop. Roleplay is functional (asks for the order number, confirms 'there is a double charge', gives '5 to 7 days') but has minimal empathy or ownership. Correct on the grammar task, but transposed the ticket number ('8913' instead of 8193), a real accuracy risk on calls. Borderline; trainable fresher.",
+      "Clear, grammatical, reasonably paced (124 wpm) but thin answers with little substance ('i'm polite and i can communicate well', laptop example 'so yeah'). The mock call covers the basics (apology, order number, 'there is a double charge i'll raise a refund it will take 5 to 7 days') with minimal empathy. In the listening test he transposed the ticket ('8913' for 8193), which is a real error on a voice floor. Borderline to low hire; needs coaching on depth and accuracy."
+     ]
+    },
+    {
+     "id": "E",
+     "persona": "fluent talker but off-topic/rambling/generic buzzwords; answers often miss what was asked",
+     "voice": {
+      "wpm": 174,
+      "latencyMs": 650,
+      "audio": {
+       "longPauses": 0.2,
+       "longestPauseMs": 2100,
+       "snrDb": 24,
+       "trailOffDb": 1.2,
+       "voicedRatio": 0.657,
+       "pitchSdSemitones": 3.7,
+       "voicedFrames": 890,
+       "pitchFrames": 490
+      }
+     },
+     "answers": {
+      "intro_tell_me": "yeah hi so basically i'm karan malhotra and you know i'm a very passionate person like i believe in growth mindset and i've always been someone who thinks outside the box so i did my bba from amity noida and during college i was like part of the entrepreneurship cell we organised a startup fest and i was also doing some instagram content creation on fitness i have like 3k followers and basically i'm very into personal branding and networking i feel communication is the key to everything in life and i'm a people's person so yeah i'm very excited to be here and i think this role is going to be a great stepping stone for my long term vision",
+      "education": "so education wise i did bba but honestly i feel like the real learning happens outside the classroom you know like i learned more from youtube and podcasts than from the syllabus i follow a lot of business podcasts like gary v and all and they talk about hustle culture and how you have to be authentic and add value so i think that mindset is what i bring to the table and in college i was always the guy who was networking and managing events so yeah that's basically my education",
+      "why_cs_career": "so for me it's not just a job it's about the experience you know like customer experience is the new marketing every brand today like apple amazon they win because of customer obsession and i feel like i'm a very customer obsessed person also i'm very good at talking i can literally talk to anyone about anything so i think this industry is booming and there's a lot of scope and i want to be part of that journey and basically leverage my skills to create value",
+      "good_agent_qualities": "great question so i feel like the main thing is attitude like your attitude determines your altitude right so if you have the right energy and you're passionate and you're a go getter you can do anything and also being a team player and leadership qualities and thinking out of the box and i have all of these honestly like in the e cell i was leading a team of 15 people and we got sponsors and everything so i'm a natural leader",
+      "inbound_outbound": "so inbound and outbound is basically like inbound marketing is when the customers come to you through content and seo and all that like hubspot talks about it and outbound is like cold calling and ads so basically today inbound is much more effective because people don't like being sold to they want value",
+      "handle_angry": "so honestly in that situation i would first of all keep my energy positive because energy is contagious right and i would tell the customer sir please relax i'm here and i'll make sure we turn this experience around and i think i would just use my communication skills to build rapport like maybe talk about something to lighten the mood and once the customer is comfortable they will automatically calm down i'm very good at reading people",
+      "helped_someone": "so my friend wanted to start his own clothing brand and he was very confused about how to market it so i basically sat with him and we did a whole brainstorming and i told him about instagram reels and influencer marketing and personal branding and now he's doing pretty well i think he has like 2k followers so yeah i love helping people grow",
+      "listen_ticket": "so the customer was mr david miller he wanted a refund of around 350 dollars and the ticket was 8139 i think",
+      "correct_each": "each of the agents have a headset is actually fine in spoken english but grammatically it should be each of the agents has a headset because you know each is singular",
+      "shifts": "yeah totally i'm a night owl anyway i'm usually up till 3 am creating content so night shifts are not an issue for me and honestly i believe in work hard party harder so weekends don't matter",
+      "strength_weakness": "my greatest strength is my communication and my confidence i can walk into any room and own it and my weakness is that i'm a perfectionist i care too much about doing things right and sometimes i overwork myself",
+      "five_years": "in five years i see myself running my own business honestly like this job is going to teach me a lot about customers and then i want to start my own brand maybe a d2c brand in the fitness space",
+      "questions_for_us": "yeah so what's the company culture like is it a young vibrant culture and do you guys have like fun activities and team outings"
+     },
+     "roleplay": [
+      "hi sir good afternoon so first of all thank you for reaching out and i totally get it you know nobody likes to call again and again so i'm going to make sure your experience today is totally different so tell me what's going on",
+      "perfect sir so don't worry at all i'm sure it's just a technical glitch these things happen with payment gateways sometimes so the refund will definitely come it usually doesn't take long and honestly our company is very customer centric so you're in safe hands",
+      "thank you so much sir it was a pleasure talking to you have an amazing day and stay positive"
+     ],
+     "judge": {
+      "overall": 47,
+      "communication": 73,
+      "confidence": 85,
+      "thought": 33,
+      "relevance": 29,
+      "customer": 30,
+      "attitude": 36,
+      "language": 58
+     },
+     "notes": [
+      "Fast and confident (174 wpm) but full of filler and buzzwords ('basically', 'you know', 'attitude determines your altitude') with little substance; he confused inbound/outbound process with inbound marketing ('seo... hubspot talks about it'). For an angry caller he would 'talk about something to lighten the mood', and in the roleplay never takes the order number or confirms anything, only vague assurance ('it usually doesn't take long'). Wrong ticket number ('8139 i think'), hedged correction ('is actually fine in spoken english'), and flight risk ('running my own business', 'work hard party harder'); reject.",
+      "Very fluent and confident, but too fast for international calls (174 wpm) and full of buzzwords ('attitude determines your altitude', 'customer obsession') rather than substance. He confused inbound/outbound with marketing ('inbound marketing is when the customers come to you through content and seo'), got the ticket wrong ('8139 i think', 'around 350'), and in the mock call never took the order number, gave no timeline and told the customer to 'stay positive'. Attrition risk is high ('running my own business', 'work hard party harder'), so fluency alone does not make him a hire."
+     ]
+    },
+    {
+     "id": "F",
+     "persona": "poor communication: broken English, short choppy sentences, many grammar errors, struggles to explain, mock call clumsy but polite",
+     "voice": {
+      "wpm": 88,
+      "latencyMs": 3400,
+      "audio": {
+       "longPauses": 2.1,
+       "longestPauseMs": 6200,
+       "snrDb": 14,
+       "trailOffDb": 5.5,
+       "voicedRatio": 0.391,
+       "pitchSdSemitones": 1.5,
+       "voicedFrames": 420,
+       "pitchFrames": 220
+      }
+     },
+     "answers": {
+      "intro_tell_me": "good morning sir my name is sachin wagh mare i am from nanded i am complete 12th and then i do diploma in mechanical i am fresher i am searching job my father is driver my hobby is cricket that's all sir",
+      "education": "i do diploma in mechanical engineering from government polytechnic nanded in diploma we learn machine and drawing that is not related to customer job but i learn how to work hard and do practical in team",
+      "why_cs_career": "i want to do customer support because my friend is working in bpo he say good job and salary is coming every month i also like to speak with people i will do good because i am working hard",
+      "good_agent_qualities": "customer service executive have good communication and he is patient he talk polite i have the patience sir and i talk polite with everybody",
+      "inbound_outbound": "inbound is customer call to us outbound is we call to customer i think outbound is for sale",
+      "handle_angry": "first i say sorry to customer then i listen his problem i tell him sir don't worry i will solve your problem then i check order and i solve if i not solve then i give to my senior",
+      "helped_someone": "one time my neighbour bike is not starting i check the plug it is dirty i clean it then bike is start he is very happy",
+      "listen_ticket": "customer name david mil i think amount is 350 ticket number i forget sir 81 something",
+      "correct_each": "each of the agent have the headset",
+      "shifts": "yes sir no problem i do any shift",
+      "strength_weakness": "my strength is hard work my weakness is english speaking i am trying to improve",
+      "five_years": "after five year i want good post in company and i want buy house for my family",
+      "questions_for_us": "no sir"
+     },
+     "roleplay": [
+      "hello sir sorry sir for problem please don't angry sir give me order number i will check",
+      "okay sir 4572 i check sir yes two time payment is cut sir i will do refund sir it will come 7 days",
+      "okay sir thank you sir sorry sir"
+     ],
+     "judge": {
+      "overall": 36,
+      "communication": 26,
+      "confidence": 32,
+      "thought": 34,
+      "relevance": 49,
+      "customer": 44,
+      "attitude": 60,
+      "language": 24
+     },
+     "notes": [
+      "Polite and willing ('yes sir no problem i do any shift', admits 'my weakness is english speaking'), but spoken English is far below the bar for an international voice process: broken grammar throughout ('i am complete 12th', 'he say good job', 'two time payment is cut sir'), 88 wpm with 3.4s latency and long pauses up to 6.2s. Failed the listening test ('ticket number i forget sir 81 something') and the correction ('each of the agent have the headset'); the roleplay apology is repetitive ('sorry sir... please don't angry sir'). Reject for this role; might suit a regional-language process.",
+      "Spoken English fails the voice gate: broken constructions throughout ('i am complete 12th', 'he say good job', 'two time payment is cut sir') with slow delivery (88 wpm, 3.4 s latency, 6.2 s pauses). Listening test only partial ('david mil... ticket number i forget sir 81 something') and the correction was wrong ('each of the agent have the headset'). Polite and willing ('i do any shift', asked for the order number in the mock call), so possibly suited to a vernacular process, but not international voice."
+     ]
+    },
+    {
+     "id": "G",
+     "persona": "very poor: 3-10 word answers, several \"i don't know\"/\"no idea\", misunderstands questions, refuses nothing but adds nothing",
+     "voice": {
+      "wpm": 72,
+      "latencyMs": 5200,
+      "audio": {
+       "longPauses": 2.8,
+       "longestPauseMs": 8400,
+       "snrDb": 10,
+       "trailOffDb": 7.5,
+       "voicedRatio": 0.315,
+       "pitchSdSemitones": 0.9,
+       "voicedFrames": 310,
+       "pitchFrames": 110
+      }
+     },
+     "answers": {
+      "intro_tell_me": "my name is rahul i am from bhopal",
+      "education": "12th pass sir",
+      "why_cs_career": "i need job sir",
+      "good_agent_qualities": "i don't know sir",
+      "inbound_outbound": "in bound means inside office outbound outside",
+      "handle_angry": "i will say sorry",
+      "helped_someone": "my friend helped me in exam",
+      "listen_ticket": "david 350",
+      "correct_each": "each of the agents have a headset",
+      "shifts": "night shift no i mean yes okay",
+      "strength_weakness": "hard working weakness i don't know",
+      "five_years": "no idea sir good job",
+      "questions_for_us": "no"
+     },
+     "roleplay": [
+      "hello sir yes tell me",
+      "okay sir i will check",
+      "okay bye"
+     ],
+     "judge": {
+      "overall": 14,
+      "communication": 11,
+      "confidence": 10,
+      "thought": 7,
+      "relevance": 12,
+      "customer": 9,
+      "attitude": 23,
+      "language": 12
+     },
+     "notes": [
+      "Cannot sustain a conversation: one-line answers ('12th pass sir', 'i need job sir', 'i don't know sir'), 72 wpm, 5.2s latency and pauses up to 8.4s. Wrong on inbound/outbound ('inside office outbound outside'), failed listening ('david 350') and the correction, unsure on shifts ('night shift no i mean yes okay'). The roleplay ('hello sir yes tell me', 'okay bye') handles nothing; clearly unsuitable.",
+      "Barely able to respond: one-line answers with very long hesitations (72 wpm, 5.2 s latency, 8.4 s pauses), 'i don't know sir', 'no idea sir good job'. Got inbound/outbound wrong ('inside office outbound outside'), recalled only 'david 350', and left the grammar error uncorrected. The mock call was non-functional ('hello sir yes tell me', 'okay bye'), and he wavered on shifts ('night shift no i mean yes okay')."
+     ]
+    },
+    {
+     "id": "H",
+     "persona": "decent English but bad attitude: complains about previous company, wants only money, refuses night shifts, rude/curt on the mock call",
+     "voice": {
+      "wpm": 140,
+      "latencyMs": 1100,
+      "audio": {
+       "longPauses": 0.4,
+       "longestPauseMs": 2600,
+       "snrDb": 22,
+       "trailOffDb": 2,
+       "voicedRatio": 0.558,
+       "pitchSdSemitones": 1.4,
+       "voicedFrames": 640,
+       "pitchFrames": 360
+      }
+     },
+     "answers": {
+      "intro_tell_me": "i'm vikram singh from delhi i did bcom from d u sol and then i worked for about 7 months at a sales company in gurgaon but honestly the management there was horrible they had no idea how to treat employees so i left now i'm looking for something that pays better and has proper work life balance",
+      "education": "bcom through open learning i didn't really attend much college to be honest most of it was self study the subjects were accounts and economics which are not really related to customer service i guess you learn more on the job anyway",
+      "why_cs_career": "frankly it's the pay and the incentives my friends in bpo are making 25 30k with incentives so that's the main thing i can talk to people so i think i'll manage fine",
+      "good_agent_qualities": "i guess patience and communication and all that standard stuff but honestly a lot of customers are just unreasonable and you can't make everyone happy i have good communication i'm direct with people i don't sugarcoat",
+      "inbound_outbound": "inbound is when customers call you and outbound is when you call them for sales or whatever i did outbound at my last job and it was terrible the targets were impossible",
+      "handle_angry": "i'd let him talk for a bit but if he keeps shouting i'd tell him clearly that i can't help him unless he speaks properly there's no point tolerating abuse then i'd check the order and tell him what's possible and if he still isn't happy i'd transfer him to the supervisor that's their job",
+      "helped_someone": "my cousin needed help with his gst filing so i did it for him he didn't even say thanks properly but anyway it got done",
+      "listen_ticket": "the customer was david miller refund 350 dollars ticket 8193",
+      "correct_each": "each of the agents has a headset",
+      "shifts": "no night shifts are not okay for me i did that in my last job and it messed up my health i can do day shift only and i need weekends off also",
+      "strength_weakness": "strength is i'm straightforward and i get the work done weakness i don't really have a major one maybe i don't tolerate nonsense from people",
+      "five_years": "honestly i don't know i'll see wherever i get a better package i'll move",
+      "questions_for_us": "yes what's the in hand salary and how much are the incentives and is the cab free"
+     },
+     "roleplay": [
+      "hello yes sir i understand you're upset but shouting won't help can you give me the order number",
+      "okay i see two charges i'll raise a refund it'll take 7 to 10 working days that's the process i can't make it faster",
+      "yeah okay anything else no okay bye"
+     ],
+     "judge": {
+      "overall": 29,
+      "communication": 71,
+      "confidence": 70,
+      "thought": 40,
+      "relevance": 48,
+      "customer": 17,
+      "attitude": 8,
+      "language": 85.5
+     },
+     "notes": [
+      "Fluent with perfect listening and correction, but multiple disqualifiers: refuses the core requirement ('no night shifts are not okay for me... i need weekends off'), badmouths his last employer ('management there was horrible'), is purely money-driven and a flight risk ('wherever i get a better package i'll move'). Customer handling is confrontational: 'shouting won't help', 'i can't make it faster', and offloading escalations because 'that's their job'. Clearly unsuitable for an international voice process.",
+      "Speaks clear English and passed the listening and correction tasks, but refuses the core conditions of an international voice role: 'night shifts are not okay for me... i need weekends off'. Several red flags: he bad-mouths his last employer ('management there was horrible'), is motivated only by money ('frankly it's the pay'), plans to job-hop ('wherever i get a better package i'll move'), and dismisses escalation ('that's their job'). The mock call was curt and adversarial ('shouting won't help', 'i can't make it faster', 'okay bye')."
+     ]
+    },
+    {
+     "id": "I",
+     "persona": "memorised template answers: polished-sounding generic phrases (\"I am a hard working and dedicated person\"), almost no real examples, recites definitions",
+     "voice": {
+      "wpm": 146,
+      "latencyMs": 1200,
+      "audio": {
+       "longPauses": 0.5,
+       "longestPauseMs": 2800,
+       "snrDb": 19,
+       "trailOffDb": 2.5,
+       "voicedRatio": 0.589,
+       "pitchSdSemitones": 1.2,
+       "voicedFrames": 680,
+       "pitchFrames": 380
+      }
+     },
+     "answers": {
+      "intro_tell_me": "good morning sir mam first of all thank you for giving me this opportunity to introduce myself my name is puja verma i am from lucknow coming to my educational qualification i have completed my graduation in bachelor of arts from lucknow university with 68 percent i have completed my intermediate from up board with 72 percent and high school with 75 percent coming to my family background there are four members in my family my father is a government employee my mother is a homemaker and i have one younger brother coming to my strengths i am a hard working and dedicated person i am a quick learner and i have positive attitude my hobbies are reading books and listening music my short term goal is to get a job in a reputed company like yours and my long term goal is to achieve a good position in the company that's all about me thank you",
+      "education": "i have completed my graduation in bachelor of arts education has taught me discipline punctuality and the importance of hard work it has also improved my communication skills and helped me to become a confident person which will help me in a customer facing job",
+      "why_cs_career": "customer support is a very good career option because it gives the opportunity to interact with different types of people and improve communication skills i think i would be good at it because i am hard working dedicated and i have good communication skills and positive attitude",
+      "good_agent_qualities": "a great customer service executive should have good communication skills patience empathy active listening problem solving skills and positive attitude i have all these qualities i am a good listener and i have positive attitude and i am a team player",
+      "inbound_outbound": "inbound process is a process in which customers call the company for their queries and complaints and the executive resolves their issues outbound process is a process in which the executive calls the customers for sales marketing surveys and collections",
+      "handle_angry": "first i will listen to the customer patiently then i will apologize for the inconvenience caused and i will empathize with the customer then i will try to resolve the issue as soon as possible and if required i will escalate the issue to my supervisor customer satisfaction is my first priority",
+      "helped_someone": "i always help people in my surroundings once my friend was facing a problem in her studies so i helped her to understand the topic and she got good marks so i felt very happy that i was able to help someone",
+      "listen_ticket": "the customer name is david miller the refund amount is 350 dollars and the ticket number is 8193",
+      "correct_each": "each of the agents has a headset",
+      "shifts": "yes sir i am comfortable with night shifts rotational shifts and working on weekends because i know that bpo works 24 by 7 and i am ready to adapt according to company requirement",
+      "strength_weakness": "my strength is i am a hard working and dedicated person and quick learner my weakness is i cannot say no to anyone but i am working on it",
+      "five_years": "in five years i see myself in a reputed position in your company where i can use my skills and knowledge for the growth of the organization",
+      "questions_for_us": "no sir i don't have any questions thank you for giving me this opportunity"
+     },
+     "roleplay": [
+      "hello sir thank you for calling my name is puja how may i assist you today",
+      "i apologize for the inconvenience caused sir your issue will be resolved as soon as possible please be patient",
+      "thank you for calling sir have a nice day"
+     ],
+     "judge": {
+      "overall": 57.5,
+      "communication": 70,
+      "confidence": 62,
+      "thought": 42,
+      "relevance": 52,
+      "customer": 38,
+      "attitude": 65,
+      "language": 84
+     },
+     "notes": [
+      "Grammatically clean and reasonably fluent (146 wpm), with perfect listening ('david miller... 350 dollars... 8193') and a correct correction, but answers are memorised templates ('coming to my family background...', 'i have all these qualities') with a flat monotone delivery and a weak example (helping a friend with studies). The roleplay is the real problem: she never asks for the order number or acknowledges the double charge, only 'your issue will be resolved as soon as possible please be patient', which would escalate a real caller. Borderline; needs significant call-handling training.",
+      "Clear, grammatical delivery and a perfect listening test and correction, but the answers are memorised templates in a flat monotone (pitch SD 1.2): 'coming to my family background', 'i have all these qualities', 'a reputed position in your company'. The mock call is the main concern: she asked 'how may i assist you today' after the customer had already explained, never asked for the order number, and offered only 'your issue will be resolved as soon as possible please be patient', with no ownership or timeline. Borderline: trainable on call handling, but shows little independent thinking."
+     ]
+    },
+    {
+     "id": "J",
+     "persona": "strong English but cold customer handling: articulate and confident, but no empathy, argues with the customer, blames policy",
+     "voice": {
+      "wpm": 158,
+      "latencyMs": 800,
+      "audio": {
+       "longPauses": 0.2,
+       "longestPauseMs": 2200,
+       "snrDb": 24,
+       "trailOffDb": 1,
+       "voicedRatio": 0.604,
+       "pitchSdSemitones": 1.6,
+       "voicedFrames": 760,
+       "pitchFrames": 420
+      }
+     },
+     "answers": {
+      "intro_tell_me": "sure i'm aditya rao i completed my btech in electronics from vit vellore last year and since then i've been preparing for a few competitive exams and doing some freelance technical writing i'm a fairly logical person i like structure and clear processes and i read a lot mostly non fiction economics and tech",
+      "education": "electronics engineering so circuits signals embedded systems the main transferable thing is structured problem solving breaking a problem into parts and eliminating causes systematically which is essentially what troubleshooting a customer issue is also i was on the debate society for three years so i'm comfortable presenting an argument and defending it",
+      "why_cs_career": "i see it as a good entry point into the corporate world with clear metrics so performance is measurable i'd be good at it because i'm efficient i communicate precisely and i don't waste time on calls i think a lot of agents spend too long on small talk",
+      "good_agent_qualities": "accuracy product knowledge efficiency and clarity the agent's job is to give the correct information and resolve the issue in the shortest possible time i'm strong on all of those people talk about empathy a lot but honestly customers mostly just want the problem fixed",
+      "inbound_outbound": "inbound is where customers initiate the contact calls chats emails for support or queries and outbound is where the company initiates contact sales collections renewals surveys inbound is measured on things like a h t and fcr and outbound on conversion and contact rate",
+      "handle_angry": "i'd let them finish then explain the situation factually if the order is delayed i'd tell them the reason and the new date and if it's within policy there's not much more to be done i'd make it clear that shouting doesn't change the process and if they continue i'd warn them once and then disconnect as per the standard abusive caller policy",
+      "helped_someone": "in final year my project teammate couldn't get his microcontroller code to work i went through it and found he had the wrong clock configuration i fixed it and explained it so we submitted on time though to be fair he should have checked the data sheet first",
+      "listen_ticket": "david miller 350 dollars ticket 8193",
+      "correct_each": "each of the agents has a headset each is the subject so it takes a singular verb",
+      "shifts": "yes that's fine i'm flexible on shifts as long as the roster is published in advance",
+      "strength_weakness": "strength is analytical thinking and clear communication weakness is probably that i'm impatient with people who don't follow instructions i'm working on being more tolerant",
+      "five_years": "probably in operations analytics or workforce management i'm more interested in the data side than staying on the floor long term",
+      "questions_for_us": "what's the addition rate in this process and what are the specific metrics an agent is evaluated on in the first quarter"
+     },
+     "roleplay": [
+      "okay sir i'll need your order number before i can check anything and just to be clear calling multiple times won't speed things up",
+      "right order 4572 i can see two transactions but the second one may just be a pending authorisation which usually reverses on its own as per policy we can only raise a refund after 72 hours so if it's not reversed by then you'll need to call back and refunds take 7 to 10 business days after that",
+      "fine is there anything else"
+     ],
+     "judge": {
+      "overall": 46.5,
+      "communication": 85,
+      "confidence": 84.5,
+      "thought": 70,
+      "relevance": 65,
+      "customer": 19,
+      "attitude": 34,
+      "language": 92
+     },
+     "notes": [
+      "Excellent English, precise knowledge (AHT/FCR vs conversion) and perfect listening/correction, but disqualifying customer orientation: 'customers mostly just want the problem fixed' dismissing empathy, would 'make it clear that shouting doesn't change the process... warn them once and then disconnect' a merely angry caller. The roleplay opens with 'calling multiple times won't speed things up' and pushes the customer to wait 72 hours and call back, ending curtly with 'fine is there anything else'; he also wants to move off the floor ('more interested in the data side'). Reject for a voice support seat despite strong language.",
+      "Excellent English and accuracy (listening and correction perfect, correct KPIs), but his customer orientation rules him out: 'people talk about empathy a lot but honestly customers mostly just want the problem fixed', and he would 'warn them once and then disconnect' a merely angry caller. In the mock call he told the customer 'calling multiple times won't speed things up', pushed a 72-hour policy wait, and closed with 'fine is there anything else'. Also shows attrition signals ('more interested in the data side than staying on the floor') and impatience ('he should have checked the data sheet first')."
+     ]
+    }
+   ]
+  },
+  {
+   "seed": 23,
+   "candidates": [
+    {
+     "id": "K",
+     "persona": "outstanding experienced-sounding fresher: crisp, warm, concrete examples with numbers, perfect mock call (apologises once, verifies, explains the refund timeline, confirms reference)",
+     "voice": {
+      "wpm": 152,
+      "latencyMs": 750,
+      "audio": {
+       "longPauses": 0.2,
+       "longestPauseMs": 2300,
+       "snrDb": 25,
+       "trailOffDb": 1.2,
+       "voicedRatio": 0.634,
+       "pitchSdSemitones": 3.3,
+       "voicedFrames": 840,
+       "pitchFrames": 470
+      }
+     },
+     "answers": {
+      "intro_tell_me": "sure so my name is meera iyer i'm 22 and i'm from kochi i completed my b com from st teresa's college last year in 2025 and while i was studying i also worked part time for about 8 months at the customer service desk of an electronics showroom where i used to handle walk in complaints exchanges and warranty calls on an average around 40 to 50 customers a day as a person i'd say i'm calm i genuinely enjoy talking to people and i like it when a problem actually gets closed instead of just being passed on outside of that i sing a bit in my church choir and on sundays i volunteer with an ngo that teaches spoken english to kids",
+      "education": "i did my bachelor of commerce with marketing as my elective and honestly the subject that helped me the most was business communication we had to do a lot of presentations and mock negotiations so i got comfortable speaking in front of people and explaining things simply and in my final year project i surveyed around 200 people on why they switch mobile networks and the biggest reason actually wasn't price it was how they were treated when they called customer care so that stayed with me that in a customer facing job the way you handle someone matters as much as the actual solution",
+      "why_cs_career": "i think what attracts me is that every call is basically a small problem with a clear end like someone comes in upset and if you do your job well they leave relieved i felt that a lot at the showroom there was this one uncle whose washing machine had been under repair for 3 weeks and he was really upset so i sat with him called the service centre myself and got him a fixed date and the next week he came back with sweets for the whole desk so that feeling is what i like and why i'd be good at it i'm patient i listen properly before i jump in and i'm quite organised with follow ups i keep notes so a customer doesn't have to repeat themselves",
+      "why_hire": "i think the main thing is i'm not starting from zero i've already dealt with real customers face to face for 8 months including angry ones so i know how to stay calm and still get to a solution my manager there trusted me to handle escalations by the fourth month and our desk feedback score went from around 4.1 to 4.6 while i was there not only because of me obviously but i was part of that and second i'm very coachable if i get feedback on a call i'll actually apply it on the next one so you'd get someone who's ready to take calls quickly and who'll keep improving",
+      "bpo_knowledge": "bpo stands for business process outsourcing so basically a company takes some of its processes that aren't its core business and gives them to a specialised outside company usually to save cost and get better efficiency the work can be voice like inbound customer support outbound sales collections technical helpdesk or non voice like chat and email support data entry back office claims processing and it can be domestic or international and in a voice process like this one you're typically measured on things like average handle time first call resolution quality scores and customer satisfaction",
+      "handle_angry": "first i'd let them speak without interrupting because usually when someone's shouting they just want to be heard once they've finished i'd acknowledge it honestly like i'm really sorry this has happened i understand how frustrating it is and then i'd move them towards the solution by asking for the order details and verifying them so they feel something is actually happening i'd keep my tone calm and a little slower than theirs and tell them clearly what i'm doing and what the next step is with a timeline if i can solve it on the call i'll do it right there and if it needs escalation i'll give them a reference number and tell them exactly when they'll hear back and i wouldn't take the shouting personally they're angry at the situation not at me",
+      "mistake": "so at the showroom once i promised a customer that his replacement tv would be delivered on saturday without checking with the warehouse and the stock actually wasn't coming till tuesday i realised it on friday evening so instead of waiting for him to find out i called him myself told him honestly that i had given him the wrong date and apologised and i i arranged with my manager for a demo tv to be dropped at his place till the replacement came he was actually fine with it after that and the lesson for me was never commit a date to a customer until i've confirmed it with the team that has to deliver it and i've followed that strictly since",
+      "listen_booking": "the new travel date is 15th march the destination city is delhi and the booking reference is 749",
+      "correct_dont": "she doesn't like to work on weekends",
+      "shifts": "yes i'm comfortable with that i've already discussed it at home and my family is supportive i stay about 20 minutes from the office area so transport isn't an issue and in the showroom job i was already working weekends and festival days because that's when it's busiest so i'm used to having my off days in the middle of the week",
+      "strength_weakness": "i'd say my biggest strength is that i stay calm under pressure and i listen properly like i actually hear what the customer is asking instead of jumping to a standard answer the weakness i'm working on is that i sometimes spend too long on one customer because i want to fix everything perfectly which on a call floor would hurt my handle time so what i've started doing is summarising the issue in the first minute and keeping a small checklist for common problems so i can resolve faster without losing quality",
+      "five_years": "in five years i'd like to have grown into a team leader or a quality analyst role the first year or two i want to be really strong on the floor like consistent quality scores handling escalations and then move into coaching new agents because i've really enjoyed that part with the ngo so i'd like to stay in customer experience and grow within the company",
+      "questions_for_us": "yes i had two questions actually what does the training look like for new joiners like how long is it and is there a nesting period on live calls with support and second how is performance measured in the first three months which metrics matter most so i know what to focus on from day one"
+     },
+     "roleplay": [
+      "i'm really sorry about this sir and i completely understand how frustrating it is to be calling a third time so let me take ownership of this and get it sorted for you right now could you please share your order number and your registered mobile number so i can check the payment",
+      "thank you so just to confirm that's order number 4 5 7 2 yes i have it here and i can see the payment was taken twice for the same amount so the second charge is clearly a duplicate i've raised the refund for it right now it will be credited back to the same card or account you paid from within 5 to 7 working days and your refund reference number is rf4572 you'll also get it by sms in a few minutes",
+      "you're most welcome sir so just to recap your refund reference is rf4572 the amount will be back in your original payment method within 5 to 7 working days and i've added a note on your account so if you ever need to call again nobody will ask you to explain it from the start have a great day"
+     ],
+     "judge": {
+      "overall": 92,
+      "communication": 92,
+      "confidence": 89,
+      "thought": 93,
+      "relevance": 92.5,
+      "customer": 95,
+      "attitude": 91,
+      "language": 94.5
+     },
+     "notes": [
+      "Natural, well-paced, expressive delivery (152 wpm, 750 ms latency, varied pitch) and specific, structured answers backed by real experience ('around 40 to 50 customers a day', desk score 'from around 4.1 to 4.6', the washing-machine uncle story). Her mistake story shows proactive ownership ('instead of waiting for him to find out i called him myself') and a durable lesson. The mock call is textbook: it acknowledges the third call, takes ownership, reads back '4 5 7 2', raises the refund with a timeline and reference 'rf4572', and recaps. Listening and correction were perfect, her questions about nesting and early metrics are sharp, and shifts are already sorted; exceptional fresher.",
+      "Natural, well-paced, expressive speech (152 wpm, 0.75s latency) with specific, quantified examples: the showroom desk handled \"40 to 50 customers a day\" and feedback went \"from around 4.1 to 4.6\". Her mistake story shows real ownership: \"i called him myself told him honestly that i had given him the wrong date\". She was fully accurate on listening and correction, and her questions about the nesting period and early metrics were sharp. Her mock call was model handling: she took ownership of the \"third time\", read back the order number, gave a refund timeline and reference \"rf4572\", recapped, and noted the account so \"nobody will ask you to explain it from the start\". Exceptional."
+     ]
+    },
+    {
+     "id": "L",
+     "persona": "good but very brief: correct, polite, grammatical answers of only 1–2 sentences each; no examples; mock call short but correct",
+     "voice": {
+      "wpm": 138,
+      "latencyMs": 1050,
+      "audio": {
+       "longPauses": 0.3,
+       "longestPauseMs": 2400,
+       "snrDb": 21,
+       "trailOffDb": 2,
+       "voicedRatio": 0.536,
+       "pitchSdSemitones": 2.3,
+       "voicedFrames": 380,
+       "pitchFrames": 210
+      }
+     },
+     "answers": {
+      "intro_tell_me": "my name is rohan verma i recently completed my bachelor's in commerce from delhi university and i am a calm and friendly person who likes talking to people",
+      "education": "i studied b com and i learned communication and teamwork through presentations and group projects which will help me talk to customers clearly",
+      "why_cs_career": "i like helping people solve their problems and i think i would be good at it because i am patient and i listen carefully",
+      "why_hire": "you should hire me because i am hardworking reliable and willing to learn whatever the job needs",
+      "bpo_knowledge": "bpo means business process outsourcing where a company gives some of its work like customer service or back office work to another company",
+      "handle_angry": "i would stay calm listen to the customer fully apologise for the problem and then try to solve it or escalate it if needed",
+      "mistake": "once i missed a deadline for a college project so i informed my professor honestly and planned my work better after that",
+      "listen_booking": "the new date is 15th march the destination is delhi and the booking reference is 749",
+      "correct_dont": "she doesn't like to work on weekends",
+      "shifts": "yes i am comfortable with night shifts rotational shifts and working on weekends",
+      "strength_weakness": "my strength is that i am patient and a good listener and my weakness is that i am a little shy in big groups but i am working on it",
+      "five_years": "in five years i see myself as a team leader in this company",
+      "questions_for_us": "yes what kind of training will be given for this role"
+     },
+     "roleplay": [
+      "i am sorry for the trouble sir can you please tell me your order number",
+      "thank you sir i can see the duplicate charge i have raised a refund for it and it will be credited in 5 to 7 working days",
+      "you're welcome sir have a nice day"
+     ],
+     "judge": {
+      "overall": 66.5,
+      "communication": 70,
+      "confidence": 63,
+      "thought": 50,
+      "relevance": 68,
+      "customer": 62,
+      "attitude": 73,
+      "language": 85
+     },
+     "notes": [
+      "Clean, grammatical, and accurate: full listening answer ('15th march... delhi... 749'), correct correction, BPO defined correctly, and a correct mock call (apology, order number, refund raised, '5 to 7 working days'). But every answer is one textbook line with no examples ('once i missed a deadline for a college project so i informed my professor honestly'), so there is little evidence of extended spontaneous speech, and the call skipped any acknowledgment of the customer's repeat calls. Borderline to low hire: trainable and safe, but thin on depth and warmth.",
+      "Clear, grammatically correct speech at a comfortable pace (138 wpm, about 1s latency). He was fully accurate on the listening and correction tasks, and he answered every shift scenario with an unqualified yes. Answers are correct but thin and generic (\"stay calm listen to the customer fully apologise... escalate it if needed\"), with almost no examples. His mock call was minimal but correct: an apology, \"can you please tell me your order number\", and a refund raised with a 5 to 7 working-day timeline. He did not acknowledge the repeat calls. A safe, trainable hire at the lower end."
+     ]
+    },
+    {
+     "id": "M",
+     "persona": "heavy mother-tongue influence but excellent customer instincts: frequent grammar errors (article/tense/plural), but empathetic, patient, solves the problem on the call, honest and motivated",
+     "voice": {
+      "wpm": 116,
+      "latencyMs": 1600,
+      "audio": {
+       "longPauses": 1,
+       "longestPauseMs": 3400,
+       "snrDb": 19,
+       "trailOffDb": 2.8,
+       "voicedRatio": 0.49,
+       "pitchSdSemitones": 2.6,
+       "voicedFrames": 690,
+       "pitchFrames": 340
+      }
+     },
+     "answers": {
+      "intro_tell_me": "good morning sir myself santosh kumar i am from muzaffar pur bihar i have completed my graduation ba from br ambedkar bihar university in 2024 my father is farmer and my mother is housewife i am having one elder brother he is working in delhi after graduation i was working in my uncle mobile shop for one year there i was doing recharge and also helping the customer with sim card problem and phone problem as a person i am very patient and i like to help the people sir",
+      "education": "sir i have did my ba in history in our college the english was not so much good but i was learning myself by watching youtube and reading the newspaper what i learn in college is how to talk with different different people because student was coming from village also and city also so i learn to adjust with everybody and i was class representative also so all the student was coming to me with their problem and i was taking it to the teacher that is helping me for customer job",
+      "why_cs_career": "sir i like this job because here we are helping the people directly when i was in mobile shop many old uncle aunty was coming they dont know how to use the phone how to do the recharge they was very confuse and sometime angry also i was explaining them slowly slowly and after that they was very happy and giving me blessing that feeling i like very much i think i will be good because i am having patience i never shout on anybody and i listen the full problem first then only i give the solution",
+      "why_hire": "sir my english is not perfect i know that but i am improving daily but one thing i can say i will never leave the customer without solving the problem in mobile shop also if any customer problem is not solved same day i was taking his number and calling him next day and telling the update i am very hard working and honest and i am ready to learn anything what company is teaching and i will give my hundred percent",
+      "bpo_knowledge": "bpo means business process outsourcing sir means one company is giving their work to another company to do like customer care calling technical support email chat like that the big companies from america and uk also giving their work to india because here cost is less in bpo there is two type voice process and non voice process in voice we are talking with customer on phone and solving their query",
+      "handle_angry": "sir first i will not get angry myself i will let the customer speak everything because when somebody is angry he want somebody to listen him then i will say sorry sir i understand your problem it is very irritating then i will take his order number and check what is actual problem and i will tell him clearly what i am doing and how many days it will take if i cannot solve myself i will take help of my senior but i will not leave him in middle in shop also one customer was shouting because his recharge was not done and money was cut i calmly checked and recharge was pending i call to the distributor and solve it then he was saying sorry to me for shouting",
+      "mistake": "sir one time in shop i was doing recharge for one customer and by mistake i put the wrong number one digit was wrong so the 299 rupees recharge was gone to some other number customer was very angry i accepted my mistake i told him sorry it is my fault first i gave him the recharge again from my own money and then i was calling the other number and requesting them they was not ready to return but i was not putting the loss on customer from that day i always read the number two time loud to the customer before doing",
+      "listen_booking": "sir new date is 15 march and city is delhi and booking reference is 749",
+      "correct_dont": "she doesn't like to work on weekend",
+      "shifts": "yes sir no problem i am ready for night shift and rotational shift also i am staying in pg with my friend near only so travelling is not problem and in shop also i was working on sunday and festival time so i am having habit of that",
+      "strength_weakness": "my strength is i am very patient and honest sir i never lie to the customer and i always try to solve the problem fully my weakness is my english grammar sir sometime i make mistake in tense and all but i am working on it daily i am reading english newspaper watching english news and speaking with my friend only in english for one hour daily",
+      "five_years": "sir after five year i want to see myself as team leader in this company i want to learn everything about the process and help the new joining people also and i want to make my parents proud and give them good life",
+      "questions_for_us": "yes sir i want to ask what is the training time and in training they will help for english also and what is the shift timing sir"
+     },
+     "roleplay": [
+      "sir first of all i am very sorry sir i can understand you are calling third time and nobody is solving that is very irritating for anyone sir dont worry now i will personally see this problem and solve it please can you tell me your order number so i can check the payment detail",
+      "thank you sir order number 4572 i am checking sir yes sir i can see the payment is deducted two time for same order so i am raising refund for the extra amount right now sir the money will come back in your same account within 5 to 7 working day and i am giving you complaint number also please note it down it is 8821 if any problem you just tell this number and nobody will ask you everything again",
+      "most welcome sir i have made the note in system also so it will be done this time sir and you will get sms when refund is processed have a nice day sir"
+     ],
+     "judge": {
+      "overall": 61.5,
+      "communication": 51,
+      "confidence": 64,
+      "thought": 76,
+      "relevance": 82,
+      "customer": 86,
+      "attitude": 86.5,
+      "language": 51
+     },
+     "notes": [
+      "Best customer instinct after C10: a real recharge-mistake story with full ownership ('i gave him the recharge again from my own money... from that day i always read the number two time loud'), and a strong mock call that acknowledged the repeat calls, raised the refund with a timeline and gave a complaint number 'so nobody will ask you everything again'. The gate concern is grammar, which is frequent and noticeable ('i have did my ba', 'they was very confuse', 'he want somebody to listen him', 'she doesn't like to work on weekend'), at a moderate 116 wpm with some pauses. Listening was correct; he is borderline for international voice and needs grammar training, but would be a strong pick for domestic voice.",
+      "Customer instincts and ownership are among the best in the batch. Real examples: he paid for a wrong recharge \"from my own money\" and now reads numbers back twice. On the mock call he acknowledged that it was the third call, raised the refund with a timeline and gave a complaint number \"so nobody will ask you everything again\". The limit is spoken grammar, with frequent tense and agreement errors (\"i have did my ba\", \"they was very confuse\", \"i am having patience\"). He also dropped the plural in the correction task (\"weekend\"), though he got the listening test right. Strong for domestic voice. For international voice he is borderline and should be selected only with grammar training."
+     ]
+    },
+    {
+     "id": "N",
+     "persona": "nervous fresher: long gaps before answering, restarts, \"sorry sir\", trails off, but when she gets going her content is reasonable; misses one listening detail",
+     "voice": {
+      "wpm": 96,
+      "latencyMs": 4200,
+      "audio": {
+       "longPauses": 2.4,
+       "longestPauseMs": 7800,
+       "snrDb": 10,
+       "trailOffDb": 7.8,
+       "voicedRatio": 0.33,
+       "pitchSdSemitones": 1.2,
+       "voicedFrames": 430,
+       "pitchFrames": 160
+      }
+     },
+     "answers": {
+      "intro_tell_me": "sorry sir yes so my name is neha joshi i am from nagpur i i completed my bsc in i mean bsc computer science from nagpur university this year i haven't worked anywhere yet this will be my first job and as a person i am i think i am a calm person i like reading and i like helping my my friends with studies i'm a bit shy but i'm trying to",
+      "education": "i studied bsc computer science so we learned programming and some networking and all but for customer facing i think in final year we had to give our project presentation to the external examiner and i was very nervous but i explained it properly so i learned to like explain technical things in a simple way to someone who doesn't know and also we had a soft skills subject in second year where we did group discussions so that",
+      "why_cs_career": "sorry sir can you yes okay so i like customer support because you get to help people with their problems directly like when my my grandmother's phone was not working i i called the customer care and the lady was very nice and she she solved it in five minutes and i felt like i want to do that also and i think i would be good because i am patient and i don't get angry easily i just need to get more confident in speaking",
+      "why_hire": "i i don't know if i'm better than others sir but i am very sincere when i take a responsibility i finish it properly i am also good with computers so i can learn the systems and the software quickly and i i will work hard to improve my communication",
+      "bpo_knowledge": "bpo is business process outsourcing so companies give their work like customer service to another company and that company has call centres where agents take calls from customers and solve their problems there is also like chat support and email support and back office work like data entry and",
+      "handle_angry": "first i will not i will not get scared i will let the customer speak and listen to the full problem then i will say sorry for the inconvenience and i'll ask for the order details and check what happened and tell the customer what i am doing so they know i am helping and if i cannot solve it i will take help from my senior or escalate it and tell them when it will be solved i'll try to keep my voice calm even if they are shouting",
+      "mistake": "sorry sir one minute so in my second year i was the group leader for a project and i i forgot to submit our group's topic on the portal before the deadline so we got a warning from the professor and my group members were upset with me so i went to the professor and told him it was my mistake not the group's and asked if we could submit late and he allowed it with some marks cut after that i started keeping reminders on my phone for every deadline",
+      "listen_booking": "the new date is 15th march and destination is delhi and the booking reference was sorry sir i i didn't catch the booking number fully i think it was 7 4 something",
+      "correct_dont": "she doesn't like to work on weekends",
+      "shifts": "yes sir i think i'm okay with it i i have spoken to my parents they were a bit worried about night shift but if the company provides cab facility then it should be fine",
+      "strength_weakness": "my strength is i am hard working and i am patient and my weakness is i i get nervous when i speak to new people like now also sorry sir but i am working on it i am practising speaking in front of the mirror and i joined an english speaking group on whatsapp where we",
+      "five_years": "in five years i want to be confident and maybe become a team leader or go into a quality role and i want to learn about the the whole process and",
+      "questions_for_us": "no sir i mean yes sir what will be the training for freshers like how long it is"
+     },
+     "roleplay": [
+      "i am i am sorry sir for the trouble i understand you have called two times i i will help you can you please tell me your order number",
+      "thank you sir 4572 i'm checking yes sir i can see you were charged two times i will raise a refund for the extra amount sir it will take sorry it will take 5 to 7 working days to come back to your account",
+      "thank you sir and sorry again for the trouble have a nice day"
+     ],
+     "judge": {
+      "overall": 50,
+      "communication": 38,
+      "confidence": 23,
+      "thought": 66,
+      "relevance": 70,
+      "customer": 64,
+      "attitude": 70,
+      "language": 62
+     },
+     "notes": [
+      "Content is sound and sincere: a real mistake with ownership ('told him it was my mistake not the group's... started keeping reminders'), a correct handling approach, and a polite, accurate mock call with apology, refund and 5 to 7 day timeline. But delivery is the problem for voice: 96 wpm, 4.2 s average latency, 7.8 s longest pause, soft trailing voice, frequent restarts ('i i', 'my my', 'sorry sir can you yes'), several answers trail off unfinished, and she missed the booking reference ('i think it was 7 4 something'). Good attitude, but not floor-ready on communication today; hold/reject with re-interview after spoken-English practice.",
+      "Her content is honest and real. The mistake story (forgot the portal deadline, owned it, \"started keeping reminders\") and her angry-customer approach are sound, and her grammar is mostly correct. Delivery fails the voice gate: 96 wpm, 4.2s average latency, a pause of up to 7.8s, a soft trailing voice, frequent restarts (\"i i\", \"sorry sir one minute\") and \"i get nervous when i speak to new people like now also\". She also missed the booking reference (\"7 4 something\"). Her mock call was polite and correct but tentative, so she is not ready for a live floor without significant confidence work."
+     ]
+    },
+    {
+     "id": "O",
+     "persona": "confident show-off: fluent and fast, talks about himself a lot, exaggerates, interrupts the customer in the call with policy talk, but not rude; weak on empathy; generic BPO knowledge",
+     "voice": {
+      "wpm": 182,
+      "latencyMs": 380,
+      "audio": {
+       "longPauses": 0.1,
+       "longestPauseMs": 2100,
+       "snrDb": 27,
+       "trailOffDb": 0.8,
+       "voicedRatio": 0.665,
+       "pitchSdSemitones": 3.1,
+       "voicedFrames": 890,
+       "pitchFrames": 490
+      }
+     },
+     "answers": {
+      "intro_tell_me": "yeah hi so i'm aditya malhotra from gurgaon i just finished my bba from amity and honestly i was like one of the most popular guys in college i was president of the entrepreneurship cell i hosted pretty much every single fest for three years so talking to people is literally my thing i've also done a bunch of internships marketing sales a bit of everything and as a person i'm super confident super outgoing i can basically talk to anyone about anything and i was captain of the college football team so leadership is something that just comes naturally to me",
+      "education": "i did bba business administration and the main thing i learned honestly is how to sell myself and sell ideas like in b plan competitions i won almost every single one we pitched to actual investors so if i can convince an investor i can definitely handle a customer on a call plus we had organisational behaviour marketing management so i understand how customers think what they want all of that",
+      "why_cs_career": "see customer support is like the front face of any company and i'm a front face kind of person you know i love being the guy who talks i'd be good at it because my communication is way above average my english is better than most people my age and i think really fast so whatever the customer throws at me i'll have the answer ready before they even finish",
+      "why_hire": "because honestly i'll be the best performer on your floor within three months i'm not saying that just like that wherever i've gone i've topped like in my sales internship i closed more leads than people who had been there a year i'm confident i'm fluent i'm a quick learner and i bring energy most freshers are scared to talk on the phone i'm the opposite you'd have to stop me from talking",
+      "bpo_knowledge": "bpo is business process outsourcing so basically companies outsource their processes to other companies like customer service tech support that kind of stuff it's a huge industry in india lots of jobs good growth basically you take calls you solve problems you hit your targets that's pretty much it",
+      "handle_angry": "with angry customers the key is control you have to take control of the call right away so i'd let him talk for a bit and then i'd jump in and say sir let me stop you right there let me explain the policy and i'd just walk him through it confidently because most of the time customers are angry because they don't know the process once you tell them the policy clearly they calm down i'm very good at that i've dealt with way worse people in my internship",
+      "mistake": "mistake honestly i'm pretty careful so not a lot of big ones but okay once during a college fest i was managing sponsors and i double booked a stage slot for two sponsors but i handled it like a pro i just convinced one of them that the evening slot was actually better for visibility and they ended up thanking me for it so it actually became a win",
+      "listen_booking": "okay so new date 15th march destination delhi booking reference 749 easy",
+      "correct_dont": "she doesn't like to work on weekends",
+      "shifts": "yeah totally no issues i'm a night owl anyway i'm up till 3 most nights so night shifts are honestly perfect for me weekends whatever as long as the growth is there i'm fine with anything",
+      "strength_weakness": "strengths i'd say communication confidence leadership and i'm a natural problem solver weakness honestly my weakness is that i'm a perfectionist and i expect too much from people around me because i work at a really high level and not everyone can keep up so i'm working on being more patient with them",
+      "five_years": "five years definitely in management like i'm thinking team leader in the first year and a half then manager by year three or four maybe heading operations eventually i don't plan to stay on the phones for long i'm more of a leadership guy",
+      "questions_for_us": "yeah how fast is the promotion cycle here like if someone's performing really well how quickly can they become a team leader and what are the incentives like for top performers"
+     },
+     "roleplay": [
+      "yes sir sir i understand just one second sir let me stop you there as per our company policy any duplicate charge is automatically reversed by the bank within 7 to 10 working days so there's actually nothing to worry about it's a very common thing it happens all the time just give me the order number i'll check it quickly",
+      "4572 okay perfect yeah i can see two transactions so like i said sir as per policy it's a duplicate it'll be reversed automatically in 7 to 10 working days you don't have to do anything from your end and you don't really need to call again it'll just come back",
+      "no problem sir it'll be done thank you for calling have a great day"
+     ],
+     "judge": {
+      "overall": 41,
+      "communication": 72,
+      "confidence": 84,
+      "thought": 53.5,
+      "relevance": 59,
+      "customer": 25.5,
+      "attitude": 28,
+      "language": 83
+     },
+     "notes": [
+      "Strong English and accurate listening/correction, but 182 wpm is too fast for international callers and the persona is overconfident ('i'll be the best performer on your floor within three months', weakness 'i expect too much from people around me'). His angry-customer approach is to interrupt ('sir let me stop you right there let me explain the policy') and in the mock call he did exactly that, then gave unverified information ('automatically reversed by the bank... you don't really need to call again') without raising a refund. Poor empathy, compliance risk, and 'i don't plan to stay on the phones for long'; reject.",
+      "His grammar is good and his listening was accurate, but he speaks too fast for an international caller (182 wpm) and is arrogant: \"my english is better than most people my age\", and his weakness is that \"not everyone can keep up\". His call-handling approach is to cut the customer off (\"sir let me stop you right there let me explain the policy\"). On the mock call he did exactly that: no apology, the issue was brushed off (\"it happens all the time\"), and he told the customer \"you don't really need to call again\" without raising a refund. He says \"i don't plan to stay on the phones for long\", which makes him an attrition and coachability risk. Reject."
+     ]
+    },
+    {
+     "id": "P",
+     "persona": "keyword stuffer: drops buzzwords (\"customer satisfaction\", \"empathy\", \"first call resolution\", \"AHT\", \"patience\") in every answer but the sentences are vague and sometimes don't answer the question; average English",
+     "voice": {
+      "wpm": 128,
+      "latencyMs": 1400,
+      "audio": {
+       "longPauses": 0.7,
+       "longestPauseMs": 3100,
+       "snrDb": 18,
+       "trailOffDb": 3.2,
+       "voicedRatio": 0.475,
+       "pitchSdSemitones": 1.8,
+       "voicedFrames": 610,
+       "pitchFrames": 300
+      }
+     },
+     "answers": {
+      "intro_tell_me": "hello sir myself vikas sharma from jaipur i have completed my bca in 2025 and i am very passionate about customer satisfaction i believe customer is the first priority and with empathy and patience we can achieve first call resolution so basically as a person i am customer centric and result oriented and i always focus on the quality",
+      "education": "i have done my bca from rajasthan university and there i learned many things like communication skills teamwork and time management which is very important for customer facing job because in customer service the main thing is customer satisfaction and empathy so my education has made me very customer centric",
+      "why_cs_career": "customer support is very important field because customer satisfaction is the key for any company growth and i have patience and empathy and good listening skills so i can give first call resolution and maintain the aht also so basically i think i am fit for this role because i am customer focused",
+      "why_hire": "you should hire me because i have all the qualities required like empathy patience active listening and i know about the kpi like aht csat first call resolution quality score so i will give best customer experience and achieve all the targets and also i am a team player",
+      "bpo_knowledge": "bpo is a industry where customer satisfaction is the main focus and the agents use empathy and patience to resolve the customer issues and they have to maintain aht and fcr and csat so basically it is a very performance oriented industry with the kpis",
+      "handle_angry": "for angry customer the most important is empathy and patience i will use the empathy statements and active listening and i will make sure the customer is satisfied and i will try for first call resolution so that customer don't call again and also i will maintain my aht so i will handle with professionalism and positive attitude",
+      "mistake": "mistakes are part of the learning and in customer service also if any mistake happens we should take ownership and give the customer satisfaction so i believe with patience and empathy any mistake can be corrected and it is important to learn and improve continuously",
+      "listen_booking": "the new date is 15 march and city is delhi and reference is 749",
+      "correct_dont": "she doesn't like to work on weekends",
+      "shifts": "yes sir i am comfortable because in bpo the customer is available 24 by 7 and customer satisfaction is important at all the times so i am flexible and adaptable for any shift",
+      "strength_weakness": "my strength is empathy patience and customer focus and my weakness is i am too much perfectionist about customer satisfaction so sometimes i spend more time on the call but i am working on my aht",
+      "five_years": "in five years i see myself in a senior position like team leader where i can ensure customer satisfaction and help the team to achieve the kpis like csat and fcr",
+      "questions_for_us": "yes sir what are the kpis for this process and how the csat is measured"
+     },
+     "roleplay": [
+      "sir i completely understand your concern and i apologise for the inconvenience caused i will ensure first call resolution for you sir please be patient and share the details",
+      "thank you sir for sharing the details i have noted your concern and i assure you customer satisfaction is our priority the refund will be processed as per the process and you will get it soon sir",
+      "thank you sir for your patience and for being a valued customer have a great day"
+     ],
+     "judge": {
+      "overall": 43,
+      "communication": 60,
+      "confidence": 58.5,
+      "thought": 25,
+      "relevance": 30,
+      "customer": 37.5,
+      "attitude": 55,
+      "language": 69
+     },
+     "notes": [
+      "Answers are rehearsed jargon with no substance: nearly every response cycles 'empathy patience... first call resolution... aht csat', BPO is never actually defined, and the mistake question gets no mistake at all ('mistakes are part of the learning'). The mock call stayed vague: he told an angry customer 'please be patient' and promised 'the refund will be processed as per the process and you will get it soon' with no confirmation of the order or a timeline. Listening and the correction were right, but there are grammar slips ('a industry', 'so that customer don't call again') and very little real thinking; reject.",
+      "Every answer is built from memorised jargon with no substance: \"empathy and patience... first call resolution... maintain the aht\". His BPO definition never mentions outsourcing, and the mistake question got a platitude with no example. He got the listening and correction tasks right but made spoken errors (\"a industry\", \"customer don't call again\"). The mock call was empty reassurance: \"i will ensure first call resolution\", then \"the refund will be processed as per the process and you will get it soon\", with no order-number confirmation and no timeline. That would generate repeat calls. Reject."
+     ]
+    },
+    {
+     "id": "Q",
+     "persona": "honest weak candidate: simple short sentences with basic grammar errors, says \"i don't know\" twice, wants a job urgently for family, polite mock call but doesn't ask for the order number or explain anything",
+     "voice": {
+      "wpm": 88,
+      "latencyMs": 2900,
+      "audio": {
+       "longPauses": 1.8,
+       "longestPauseMs": 5600,
+       "snrDb": 13,
+       "trailOffDb": 5.6,
+       "voicedRatio": 0.376,
+       "pitchSdSemitones": 1.3,
+       "voicedFrames": 340,
+       "pitchFrames": 150
+      }
+     },
+     "answers": {
+      "intro_tell_me": "my name is ramesh pal sir i am from barely i did 12th and after that i was doing ba but i am not complete because of family problem my father is not well so now i want job my mother and my small sister is at home",
+      "education": "i did 12th from up board in arts after that i joined ba first year but i leave it in school we learn some english and hindi i think talking politely with teacher and friend that will help",
+      "why_cs_career": "i want job sir because my family need money urgent and in this job salary is good and i can talk to people i am polite i do not fight with anybody",
+      "why_hire": "sir i will work hard i really need this job for my family i will come on time daily and do whatever work you give",
+      "bpo_knowledge": "sorry sir i don't know the full form of bpo i think it is call centre where we talk with customer on phone",
+      "handle_angry": "i will say sorry sir to customer and i will talk politely i will not shout back and i will try to help him",
+      "mistake": "one time i give wrong change to customer in my uncle shop then he come back i say sorry and give correct money",
+      "listen_booking": "new date is 15 march and city delhi and number is 794",
+      "correct_dont": "she does not like work on weekend",
+      "shifts": "yes sir any shift is ok night also ok i need the job",
+      "strength_weakness": "strength is i am honest and hard working weakness is my english is not good",
+      "five_years": "i don't know sir i want to have good job and help my family and my sister study",
+      "questions_for_us": "no sir what is the salary sir and when i will get the result"
+     },
+     "roleplay": [
+      "sorry sir very sorry please don't be angry sir i will help you",
+      "ok sir don't worry sir your money will come back sir please wait",
+      "thank you sir thank you for calling have a nice day"
+     ],
+     "judge": {
+      "overall": 20,
+      "communication": 19,
+      "confidence": 25.5,
+      "thought": 20,
+      "relevance": 39,
+      "customer": 25,
+      "attitude": 55,
+      "language": 15
+     },
+     "notes": [
+      "Spoken English is well below the voice bar: slow (88 wpm, 2.9 s latency) with basic errors ('i did 12th... i joined ba first year but i leave it', 'my mother and my small sister is at home', 'i give wrong change to customer'). He failed the correction ('she does not like work on weekend'), reversed the booking reference ('794'), and does not know what BPO stands for. In the mock call he never asked for details or verified anything ('your money will come back sir please wait'); sincere and flexible on shifts, but clearly unsuitable for an international voice process.",
+      "He is sincere and fully shift-flexible (\"any shift is ok night also ok i need the job\"), but his spoken English is well below the voice bar: slow (88 wpm, 2.9s latency) and with basic errors (\"i leave it\", \"he come back i say sorry\"). He failed the correction task (\"she does not like work on weekend\"), got the reference wrong (794 for 749) and did not know what BPO means. On the mock call he never asked for the order number or raised a refund, offering only \"your money will come back sir please wait\". Clearly unsuitable for an international voice process."
+     ]
+    },
+    {
+     "id": "R",
+     "persona": "misunderstands questions: decent English but repeatedly answers a different question (e.g., talks about his college when asked about a mistake), gets the listening test wrong, correction task wrong",
+     "voice": {
+      "wpm": 134,
+      "latencyMs": 1200,
+      "audio": {
+       "longPauses": 0.6,
+       "longestPauseMs": 2900,
+       "snrDb": 20,
+       "trailOffDb": 2.6,
+       "voicedRatio": 0.528,
+       "pitchSdSemitones": 2.2,
+       "voicedFrames": 650,
+       "pitchFrames": 330
+      }
+     },
+     "answers": {
+      "intro_tell_me": "hi good afternoon i am karthick raman from chennai i completed my btech in mechanical engineering from a college in kanchipuram last year after that i was preparing for gate for some time but now i want to start working i'm a friendly person i like cricket and watching movies with my friends",
+      "education": "i studied mechanical engineering and we had subjects like thermodynamics fluid mechanics manufacturing technology my final year project was on a solar powered water heating system and we got a b grade for it i think engineering teaches you to think logically and solve problems step by step which can help in any job",
+      "why_cs_career": "actually your company is one of the top companies in the city and it has a good name so i applied here my friend is also working in your company in the technical process and he told me the work environment is very good the timings are good and there is cab facility also",
+      "why_hire": "i would like to get a job where i can learn new things and grow and also a good salary because i need to support myself and i'm hoping to get some experience before i decide whether i should do an mba",
+      "bpo_knowledge": "i haven't worked in a bpo before but i applied to two or three companies last month i attended one interview in sholing a nallur also but i didn't get selected because the process was international and they wanted more experience",
+      "handle_angry": "i'm not really an angry person actually if i get angry i usually just keep quiet and go for a walk or listen to some music and after some time i'm fine i don't like to shout at anyone even at home",
+      "mistake": "my college was a very strict college we had attendance rules like 75 percent minimum and we had to wear formal dress every day with id card the faculty were good but the placements were not that great that's why many of us are looking for jobs in other fields now",
+      "listen_booking": "she is travelling from delhi to mumbai on 12th march and the booking reference is 479",
+      "correct_dont": "she do not like to work on weekends",
+      "shifts": "in mechanical plants also they have shifts like a b c shift i did my internship in a manufacturing plant in sri perumbudur and there the general shift was from 8 to 5 so i know how shift system works",
+      "strength_weakness": "my strengths are i'm good at maths and technical subjects i was good in autocad and solidworks the weak subject for me was engineering drawing in first year i got an arrear in that but i cleared it in the next semester",
+      "five_years": "in five years i hope i'll be settled in a good position maybe i would have done an mba by then and i'd like to buy a flat in chennai for my parents",
+      "questions_for_us": "yes i'd also like to add that i know ms office and basic excel and i can type around 35 words per minute"
+     },
+     "roleplay": [
+      "hello thank you for calling how can i help you today would you like to place a new order or track an existing order",
+      "okay order number 4572 let me check yes your order is confirmed and it will be delivered within 3 to 5 working days you'll get an sms once it is shipped",
+      "you're welcome thank you for calling have a nice day"
+     ],
+     "judge": {
+      "overall": 24,
+      "communication": 53,
+      "confidence": 52,
+      "thought": 21,
+      "relevance": 8,
+      "customer": 9,
+      "attitude": 34.5,
+      "language": 23
+     },
+     "notes": [
+      "Reasonably fluent sentences, but he repeatedly fails to understand the question: 'handle an angry customer' became 'if i get angry i usually just keep quiet and go for a walk', the mistake question became a description of his college's attendance rules, and 'why hire you' became what he wants from a job. The listening test was wrong on every item ('travelling from delhi to mumbai on 12th march... 479'), the correction was wrong ('she do not like'), and in the mock call he ignored the double-charge complaint ('would you like to place a new order or track an existing order') and told the customer the order 'will be delivered within 3 to 5 working days'. Comprehension is a hard gate for voice; clearly unsuitable.",
+      "Reasonably fluent, but he consistently answers a different question. Asked about an angry customer he said \"if i get angry i usually just keep quiet and go for a walk\"; asked about a mistake he described his college's attendance rules; asked about shifts he talked about a manufacturing plant. The listening test was badly wrong (\"delhi to mumbai on 12th march... 479\") and he failed the correction (\"she do not like\"). On the mock call he ignored the double-charge complaint and offered to \"place a new order or track an existing order\". His motivation is the cab facility and a stopgap before an MBA. A listening and comprehension failure like this rules him out for voice."
+     ]
+    },
+    {
+     "id": "S",
+     "persona": "good English, unprofessional: uses slang (\"bro\", \"chill\", \"whatever\"), jokes, says he'll leave in 6 months for a better job, tells the customer \"it's not my fault\"",
+     "voice": {
+      "wpm": 168,
+      "latencyMs": 600,
+      "audio": {
+       "longPauses": 0.3,
+       "longestPauseMs": 2500,
+       "snrDb": 24,
+       "trailOffDb": 1.8,
+       "voicedRatio": 0.604,
+       "pitchSdSemitones": 3.6,
+       "voicedFrames": 780,
+       "pitchFrames": 420
+      }
+     },
+     "answers": {
+      "intro_tell_me": "hey so i'm nikhil disouza from bangalore did my b com from christ last year and since then i've been chilling a bit honestly did some freelance stuff like instagram page management for a couple of cafes and i'm a pretty fun guy i'd say i get along with everyone i love gaming football and just hanging out with people",
+      "education": "b com at christ so like accounts economics business law all that stuff honestly most of it i've forgotten bro sorry i mean sir but the useful part was all the fests and presentations you learn to talk to people and not get nervous so that's useful for talking to customers i guess",
+      "why_cs_career": "honestly i'm good at talking that's the main thing and i figured this is a job where you basically talk all day and get paid for it so why not and i'm pretty chill so if a customer is losing it i'm not going to lose it with them i'll just keep it light crack a joke calm them down",
+      "why_hire": "because i'm actually fun to work with like your team won't get bored with me and my english is solid i don't need any accent training or anything and i pick things up really fast so you won't have to babysit me",
+      "bpo_knowledge": "bpo business process outsourcing basically big companies don't want to deal with their customers themselves so they pay someone else to do it so you've got voice processes like this one chat email back office stuff tech support collections all of it and most of it is for us and uk clients",
+      "handle_angry": "i'd just let them vent like whatever they want to say say it get it out of your system then i'd be like okay sir i hear you let's fix this get the order details and sort it out but honestly if they're abusing and all then i'm not going to take that i'll just tell them to chill or transfer them to my supervisor it's not worth it",
+      "mistake": "okay so once in my freelance thing i posted a cafe's offer with the wrong price like 99 instead of 199 for a coffee combo and a bunch of people came in demanding it the owner was pretty mad but i was like dude it's a typo relax and anyway i edited the post within an hour and it actually got them more footfall so it kind of worked out in the end",
+      "listen_booking": "new date 15th march going to delhi and reference 749",
+      "correct_dont": "she doesn't like to work on weekends same bro same",
+      "shifts": "yeah night shifts are fine i'm basically awake anyway weekends are a bit of a pain but whatever as long as i get some days off it's chill",
+      "strength_weakness": "strength i'm chill under pressure and i can talk to anyone weakness probably i get bored quickly like if something's too repetitive i kind of lose interest so i'm working on that i guess",
+      "five_years": "five years honestly not here to be very real with you i'd probably do this for like six months get some experience and then move to something better like a sales job with better pay or maybe start something of my own",
+      "questions_for_us": "yeah what's the salary like and are there incentives and is there a notice period because like i said i might switch in six months or so"
+     },
+     "roleplay": [
+      "hey hello sir okay okay chill chill i get it being charged twice is annoying but see it's not my fault i literally just picked up the call right now so whatever happened on the last two calls i don't know about that tell me your order number and i'll check",
+      "okay 4572 yeah i can see it it's charged twice some system glitch whatever i've put in a refund request it'll come back in like 5 to 7 days bro sorry sir 5 to 7 working days you'll get an sms",
+      "cool cool no worries sir have a good one bye"
+     ],
+     "judge": {
+      "overall": 37,
+      "communication": 67,
+      "confidence": 79,
+      "thought": 48,
+      "relevance": 59,
+      "customer": 31,
+      "attitude": 15.5,
+      "language": 74
+     },
+     "notes": [
+      "Fluent and quick (168 wpm, 600 ms latency) with a correct listening answer and correction, but the register is unprofessional throughout ('bro sorry i mean sir', 'same bro same') and it leaks into the call ('see it's not my fault i literally just picked up', 'bro sorry sir 5 to 7 working days'). Attitude is disqualifying for a voice floor: 'i'd probably do this for like six months... move to something better', asks about notice period 'because like i said i might switch', and his mistake story has him telling the owner 'dude it's a typo relax'. Clear attrition and conduct risk; reject.",
+      "Fluent (168 wpm, quick responses) with correct listening and correction answers, but the register is unprofessional throughout: \"bro sorry i mean sir\", and he even adds \"same bro same\" after the correction task. On the mock call he deflected (\"chill chill... it's not my fault i literally just picked up\") and slipped \"bro\" to the customer. He also said \"honestly not here... i'd probably do this for like six months\" and asked about the notice period, which is a clear attrition and attitude red flag. Reject."
+     ]
+    },
+    {
+     "id": "T",
+     "persona": "excellent written-style English but robotic and memorised, no personal examples; perfect correction and listening; mock call technically correct but cold and scripted",
+     "voice": {
+      "wpm": 142,
+      "latencyMs": 850,
+      "audio": {
+       "longPauses": 0.2,
+       "longestPauseMs": 2200,
+       "snrDb": 23,
+       "trailOffDb": 1,
+       "voicedRatio": 0.596,
+       "pitchSdSemitones": 0.8,
+       "voicedFrames": 760,
+       "pitchFrames": 410
+      }
+     },
+     "answers": {
+      "intro_tell_me": "good morning thank you for giving me this opportunity to introduce myself my name is ananya srivastava i hail from lucknow uttar pradesh i have completed my bachelor of arts in english literature from lucknow university with 72 percent i am a fresher and i am eager to begin my professional career in the customer service industry coming to my family background my father is a government employee and my mother is a homemaker as a person i am disciplined punctual and a quick learner my hobbies include reading novels and listening to music that is all about me thank you",
+      "education": "i have completed my graduation in english literature the curriculum enhanced my communication skills vocabulary and comprehension abilities these skills are essential in a customer facing role as they enable effective communication with customers from diverse backgrounds furthermore my education has instilled in me the values of discipline and dedication",
+      "why_cs_career": "customer support is a dynamic and rewarding field that offers ample opportunities for learning and growth it allows an individual to develop interpersonal skills and problem solving abilities i believe i would be good at it because i possess excellent communication skills a positive attitude and the ability to remain calm under pressure",
+      "why_hire": "you should hire me because i possess the right combination of skills and attitude required for this role i have strong communication skills i am a quick learner and i am adaptable to any work environment i assure you that i will give my best to contribute to the growth of the organisation",
+      "bpo_knowledge": "bpo stands for business process outsourcing it is the practice of contracting specific business operations to a third party service provider bpo services are broadly classified into two categories front office services which include customer related services such as technical support and sales and back office services which include internal business functions such as billing payroll and data processing bpos may also be classified as inbound or outbound and voice or non voice processes",
+      "handle_angry": "in such a situation i would first listen to the customer patiently without interrupting i would then empathise with the customer and apologise for the inconvenience caused i would gather the relevant details analyse the issue and provide an appropriate resolution within the stipulated time frame if required i would escalate the matter to my supervisor throughout the call i would maintain a calm and professional tone",
+      "mistake": "every individual makes mistakes and i believe that mistakes are opportunities for learning and growth whenever i make a mistake i acknowledge it take responsibility and take corrective measures to ensure that it is not repeated in the future",
+      "listen_booking": "the new travel date is the 15th of march the destination city is delhi and the booking reference is 749",
+      "correct_dont": "she doesn't like to work on weekends",
+      "shifts": "yes i am comfortable with night shifts rotational shifts and working on weekends and holidays i understand that the bpo industry operates round the clock to serve customers across different time zones and i am fully prepared to adapt to the requirements of the organisation",
+      "strength_weakness": "my greatest strengths are my communication skills my positive attitude and my ability to work under pressure my weakness is that i am a perfectionist and sometimes i spend more time than required on a task however i am working on it by prioritising my tasks and managing my time effectively",
+      "five_years": "in five years i see myself as a responsible and experienced professional in a reputed organisation like yours i aspire to take up leadership responsibilities and contribute significantly to the growth of the organisation while continuously enhancing my skills",
+      "questions_for_us": "yes i would like to know what are the key responsibilities of this role and what are the growth opportunities available in the organisation thank you"
+     },
+     "roleplay": [
+      "thank you for calling customer support my name is ananya how may i assist you today i understand your concern kindly provide your order number for verification",
+      "thank you for the information i have verified order number 4572 a duplicate charge has been identified a refund has been initiated and will be credited to the original mode of payment within 5 to 7 business days your reference number is 3318",
+      "thank you for contacting customer support is there anything else i may assist you with have a nice day"
+     ],
+     "judge": {
+      "overall": 66.5,
+      "communication": 73,
+      "confidence": 70,
+      "thought": 52,
+      "relevance": 63,
+      "customer": 59,
+      "attitude": 70,
+      "language": 90
+     },
+     "notes": [
+      "Excellent grammar and a perfect listening and correction task, with smooth delivery (142 wpm, 850 ms latency) and an accurate mock call: verified order, refund, '5 to 7 business days', and a reference number. However the answers are memorised templates ('i hail from lucknow... that is all about me thank you', weakness 'i am a perfectionist'), the mistake answer avoids giving any real example, and the pitch is very flat (0.8 semitones), which sounds robotic on calls. The call opened with a script ('thank you for calling customer support... how may i assist you') instead of responding to an upset customer, with only token empathy. Hire on language strength, with voice-modulation and soft-skills coaching.",
+      "Fluent with excellent grammar, a thorough and accurate BPO definition, and full marks on listening and correction. However, every answer sounds memorised (\"i hail from lucknow... that is all about me thank you\"). The mistake question was dodged with a platitude (\"mistakes are opportunities for learning\"), and her pitch variation is very flat (0.8 semitones), which will sound robotic on calls. The mock call was scripted (\"i understand your concern kindly provide your order number for verification\"), with no apology or acknowledgement of the repeat calls, though it did include a timeline and a reference number. A hire, but she needs soft-skills coaching to move off the script."
+     ]
+    }
+   ]
+  },
+  {
+   "seed": 3,
+   "candidates": [
+    {
+     "id": "U",
+     "persona": "genuinely great candidate speaking naturally (not essay-like): warm, clear, real examples, a good mock call (apology, verification, refund with timeline, reference), answers 40-80 words",
+     "voice": {
+      "wpm": 150,
+      "latencyMs": 900,
+      "audio": {
+       "longPauses": 0.3,
+       "longestPauseMs": 2400,
+       "snrDb": 24,
+       "trailOffDb": 1.5,
+       "voicedRatio": 0.619,
+       "pitchSdSemitones": 3.1,
+       "voicedFrames": 820,
+       "pitchFrames": 460
+      }
+     },
+     "answers": {
+      "intro_walk": "hi so my name is Ananya Reddy I'm from Hyderabad I just finished my B.Com from osmania university this year and in my final year I was working part time at a clothing store on weekends so basically I was at the billing counter and helping customers with exchanges and all that and I really enjoyed that part like talking to people sorting out their issues outside of studies I like cooking and I'm a big badminton person I play almost every evening",
+      "education": "so I did my B.Com finished this year with around 78 percent apart from accounts and all the thing that really helped me was we had a lot of presentations and group projects so I got comfortable speaking in front of people and explaining things simply we also had a business communication paper where we actually practised writing emails and doing mock calls which I think is directly useful for this job",
+      "why_bpo": "honestly I like talking to people and solving their problems like at the store when a customer came in upset and left happy that felt really good and I feel customer support is that exact thing every day also I know BPO is a place where you learn a lot fast communication handling pressure working on systems so as a fresher I think it's a really good place to start",
+      "why_hire": "I think because I already have a little bit of real customer experience from the store so I know what it's like to deal with an irritated customer and still stay calm I'm also quick with new software we had a billing system there and I picked it up in like two days and I'm genuinely okay with targets and feedback I'd rather be told what to improve",
+      "inbound_outbound": "so inbound is when the customer calls the company like for support or a complaint or some query and the agent takes those calls and outbound is when the agent calls the customers so sales calls follow ups surveys collections that kind of thing in inbound the customer already has a need and in outbound you have to sort of get their attention first",
+      "handle_angry": "first thing I would just let them speak and not interrupt because usually they just want to be heard then I'll apologise for the trouble and tell them I understand why they're upset then I'll ask for the order number verify the details check what actually went wrong and tell them clearly what I'm going to do and by when and if I can't fix it myself I'll escalate it but I won't leave them hanging",
+      "helped_someone": "so last year our neighbour aunty her pension wasn't coming into her account for two months and she was really stressed so I sat with her we called the bank helpline and found out her kyc wasn't updated then I went with her to the branch with her Aadhaar and PAN got the form filled and the next month the money came she still brings me sweets for that",
+      "listen_order": "the customer's name is Priya Sharma order number is 4572 and the city is Pune",
+      "correct_yesterday": "yesterday I completed all my tasks",
+      "shifts": "yes I'm comfortable with that I knew BPO has night shifts and rotational shifts before applying and I've already talked to my family about it also I stay like 20 minutes from this side and I think cab facility is there so travel is not an issue weekends and holidays also fine I understand customers need support all the time",
+      "strength_weakness": "my strength I would say is patience and listening even when someone is rude I don't take it personally I try to understand what they actually need weakness is I sometimes take too long on one thing because I want it to be perfect so now I'm trying to give myself a time limit and move on and come back to it later if needed",
+      "five_years": "in five years I want to be like a team leader or maybe in quality or training I've seen that in BPOs people who do well on the floor get those chances so first I want to become a really good agent learn the process properly get good scores and then grow into handling a team",
+      "questions_for_us": "yes actually two things how long is the training before we start taking live calls and is there any evaluation during that and also what do you think makes someone successful in this team in the first few months"
+     },
+     "roleplay": [
+      "hello sir I'm really sorry that you've been charged twice and that you had to call us again that's definitely not the experience we want for you I'm Ananya and I'll personally make sure this gets sorted today could you please share your order number and your registered mobile number so I can pull up the details",
+      "thank you sir I've checked order 4572 and I can see the duplicate charge so I'm raising a refund for the extra amount right now it will reach your original payment method within 5 to 7 working days and you'll get an SMS confirmation your reference number is RF 20981 please note that down and if it doesn't come in 7 days just quote that number and it'll be escalated directly",
+      "you're welcome sir and again sorry for all the trouble I've also put a note on your account so nobody asks you to explain this again is there anything else I can help you with today thank you for your patience have a good day"
+     ],
+     "judge": {
+      "overall": 88.5,
+      "communication": 86.5,
+      "confidence": 85,
+      "thought": 89,
+      "relevance": 91,
+      "customer": 93,
+      "attitude": 90,
+      "language": 89
+     },
+     "notes": [
+      "Fluent, well-paced and natural (150 wpm, 0.9s latency). Every answer has specifics: retail billing-counter experience, a precise inbound/outbound contrast ('in outbound you have to sort of get their attention first') and a detailed KYC/pension example. Listening and correction are perfect. Excellent mock call: takes ownership ('I'll personally make sure this gets sorted today'), gives a timeline and reference RF 20981, and says 'I've also put a note on your account so nobody asks you to explain this again'. She has already discussed shifts with her family and asked sharp questions about training. Strong hire.",
+      "Fluent and natural (150 wpm, 0.9s latency) with real retail-counter experience. Every answer is specific and structured: a nuanced inbound/outbound answer ('in outbound you have to sort of get their attention first'), an angry-call plan with an ETA and no-abandon escalation, and a vivid KYC/pension example. Her mock call is near-ideal: ownership ('I'll personally make sure this gets sorted today'), verification, a refund timeline, a reference number with an escalation path, and 'I've also put a note on your account'. She passed the listening and correction tests, has already planned for shifts, asked strong questions about training and evaluation, and only uses minor fillers ('and all', 'like'); a strong hire."
+     ]
+    },
+    {
+     "id": "V",
+     "persona": "very good experienced-sounding candidate with slightly Indian-English phrasing (a couple of minor slips), confident, specific, strong call",
+     "voice": {
+      "wpm": 158,
+      "latencyMs": 800,
+      "audio": {
+       "longPauses": 0.2,
+       "longestPauseMs": 2200,
+       "snrDb": 25,
+       "trailOffDb": 1.2,
+       "voicedRatio": 0.634,
+       "pitchSdSemitones": 2.8,
+       "voicedFrames": 850,
+       "pitchFrames": 470
+      }
+     },
+     "answers": {
+      "intro_walk": "good morning myself Karthik Subramanian from Chennai I have completed my BSc computer science in 2024 from loyala college after that I was working nine months in a international voice process for one telecom client handling billing and network complaints I was getting good quality scores there around 92 percent average my hobbies are cricket and I am also doing cooking videos on YouTube with my sister just for fun",
+      "education": "I did BSc computer science so technically I am comfortable with systems CRM tools all that apart from that in college I was class representative for two years so I was the one talking to professors on behalf of students handling complaints itself so that gave me patience and how to talk diplomatically which is very much needed in customer facing role",
+      "why_bpo": "see I already worked in voice process and I really liked it the fast pace every call is different and at the end of the day you know you have solved some 60 70 problems for people there is satisfaction in that also growth is very clear in BPO if you perform you will get promoted to SME or TL within one two years",
+      "why_hire": "because I am not a typical fresher I already know the call flow how to do hold procedure how to probe the customer how to document in CRM so training time will be less for me and I have proof of my performance my quality scores and I got star performer award one month so I can start contributing from day one itself",
+      "inbound_outbound": "inbound process means customer is calling to us for their query complaint or service request like telecom customer care we are just receiving the calls outbound means we are calling the customer for sales collections lead generation or feedback surveys inbound is more about resolution and outbound is more about pitching and convincing and the metrics are also different like a h t in inbound and conversions in outbound",
+      "handle_angry": "first I will let the customer vent out completely without interrupting then I will use empathy statement like I completely understand your frustration and I apologise for the inconvenience then I will take the order details verify the customer and give a proper resolution with timeline one thing I learned is never say I cannot do I will say what I can do for them and if needed I will escalate to my supervisor",
+      "helped_someone": "in my previous process one senior citizen was calling three times because his mobile data was not working after recharge previous agents just told him restart the phone I stayed on the line checked his APN settings found his phone was set on wrong network mode and guided him step by step it took 15 minutes but it worked he told me you are the first one who listened properly",
+      "listen_order": "customer name is Priya Sharma order number 4 5 7 2 and the city is Pune",
+      "correct_yesterday": "yesterday I completed all my tasks",
+      "shifts": "yes absolutely I already did night shifts for US process in my previous job 7 p.m. to 4 a.m. so I know how to manage sleep and food I am fine with rotational shifts weekends and holidays also no problem",
+      "strength_weakness": "my strength is I am very calm on calls even when customer is abusing I don't take it personally and second is product knowledge I learn fast weakness I would say sometimes I go into too much detail on the call which increases my AHT so I am working on giving to the point answers",
+      "five_years": "in five years I see myself as a team leader or operations manager I want to learn workforce management and quality also so that I understand the business side not just the floor",
+      "questions_for_us": "yes what is the process I will be working on is it domestic or international and what are the main KPIs you will be measuring in the first three months"
+     },
+     "roleplay": [
+      "I am extremely sorry sir for the inconvenience caused and I understand how frustrating it is that you have to call three times I will take ownership of this issue and make sure it is resolved on this call itself may I please have your order number and the registered email ID for verification",
+      "thank you so much sir I have verified order number 4572 and I can see the payment was deducted twice due to a technical glitch I have raised the refund request for the duplicate amount it will be credited back to your account within 5 to 7 business days your complaint reference number is 7 8 3 4 1 and I am sending you a confirmation email right now",
+      "you are most welcome sir I assure you it will be done this time and you will receive the confirmation mail within few minutes is there anything else I can assist you with thank you for calling and have a great day"
+     ],
+     "judge": {
+      "overall": 87.5,
+      "communication": 83.5,
+      "confidence": 89,
+      "thought": 87,
+      "relevance": 91,
+      "customer": 92,
+      "attitude": 87,
+      "language": 80
+     },
+     "notes": [
+      "Nine months of international voice experience with concrete proof ('quality scores... around 92 percent', star performer). He has real process vocabulary (AHT, probing, hold procedure, 'never say I cannot do'), and his APN-settings example is strong. Fluent and fast (158 wpm, 0.8s latency); listening and correction are correct. The mock call is polished: ownership, verification, root cause, reference 7 8 3 4 1 and a confirmation email. There are minor Indian-English markers ('myself Karthik', 'from day one itself', 'within few minutes'), and he is proven on US night shifts. Strong hire.",
+      "Brings 9 months of international voice experience with a credible track record ('around 92 percent average' quality, a star performer award) and process fluency (probing, hold procedure, AHT vs conversions), and has already worked US night shifts ('7 p.m. to 4 a.m.'). His mock call is polished: ownership, verification, refund with timeline and reference number, a confirmation email, and an 'anything else' close; the senior-citizen APN example shows real empathy. His pace is quick (158 wpm), and Indian-English constructions that need neutralising for an international process ('myself Karthik', 'handling complaints itself', 'from day one itself', 'within few minutes') hold language a little below his other scores; a strong hire."
+     ]
+    },
+    {
+     "id": "W",
+     "persona": "solid average: correct, decent English, some examples but brief, ok call that covers the basics without much warmth",
+     "voice": {
+      "wpm": 128,
+      "latencyMs": 1600,
+      "audio": {
+       "longPauses": 0.6,
+       "longestPauseMs": 3100,
+       "snrDb": 19,
+       "trailOffDb": 3,
+       "voicedRatio": 0.528,
+       "pitchSdSemitones": 2,
+       "voicedFrames": 560,
+       "pitchFrames": 300
+      }
+     },
+     "answers": {
+      "intro_walk": "my name is Rohit Verma I am from Lucknow I completed my BA in 2025 I don't have any work experience yet I like playing cricket and watching movies and sometimes I help my father in his shop",
+      "education": "I did BA in English and economics from Lucknow University English helped me in speaking and writing properly and we also did presentations in class so that will help me to talk with customers",
+      "why_bpo": "I want to work in BPO because it is a good place for freshers to start and I can improve my communication skills also the salary is good and there is growth",
+      "why_hire": "you should hire me because I am hard working and I learn things quickly my communication is good and I am ready to work in any shift",
+      "inbound_outbound": "inbound is when customers call us with their problems and outbound is when we call the customers like for selling products or taking feedback",
+      "handle_angry": "I will listen to the customer calmly and say sorry for the problem then I will ask for the order details and check the issue and try to solve it if I can't solve it I will transfer the call to my senior",
+      "helped_someone": "once my friend's laptop was not connecting to wifi before his online exam so I checked the settings the wifi driver was disabled I enabled it and it started working",
+      "listen_order": "name is Priya Sharma order number is 4572 and city is Pune",
+      "correct_yesterday": "yesterday I completed all my tasks",
+      "shifts": "yes I am okay with night shifts and rotational shifts I don't have any problem working on weekends also",
+      "strength_weakness": "my strength is I am hard working and punctual my weakness is I get nervous when I speak in front of many people but I am working on it",
+      "five_years": "in five years I want to be in a senior position maybe team leader in the same company",
+      "questions_for_us": "no sir I don't have any questions thank you"
+     },
+     "roleplay": [
+      "sorry for the inconvenience sir can you please tell me your order number",
+      "okay sir I have checked I will raise a refund for the extra payment it will take 5 to 7 working days",
+      "okay sir thank you for calling have a nice day"
+     ],
+     "judge": {
+      "overall": 63,
+      "communication": 65,
+      "confidence": 59,
+      "thought": 56,
+      "relevance": 69,
+      "customer": 53,
+      "attitude": 65,
+      "language": 76
+     },
+     "notes": [
+      "A typical average fresher. Answers are correct but thin: inbound/outbound is right, the angry-call steps are basic ('say sorry... ask for the order details... transfer the call to my senior'), and the wifi-driver example is genuine. Pace is adequate (128 wpm, 1.6s latency) and the listening and correction tasks are correct. The mock call is bare-minimum and scripted ('sorry for the inconvenience sir', no empathy and no reference number), and why_bpo leads with 'the salary is good'. Borderline; trainable.",
+      "A solid, plain fresher: correct inbound/outbound, a sensible angry-call approach with escalation ('if I can't solve it I will transfer the call to my senior'), a concrete wifi-driver example, a perfect listening and correction test, and full shift flexibility. Answers are short and simple at average pace (128 wpm, 1.6s latency), and he admits he 'get[s] nervous'. The mock call is functional but thin ('sorry for the inconvenience sir can you please tell me your order number'), with little empathy and no reference or confirmation, so he is borderline-to-hire with soft-skills training."
+     ]
+    },
+    {
+     "id": "X",
+     "persona": "good customer attitude and content, but noticeably slow and hesitant speaker with many restarts, short answers, average grammar",
+     "voice": {
+      "wpm": 88,
+      "latencyMs": 3200,
+      "audio": {
+       "longPauses": 2.1,
+       "longestPauseMs": 5600,
+       "snrDb": 16,
+       "trailOffDb": 4.5,
+       "voicedRatio": 0.391,
+       "pitchSdSemitones": 1.6,
+       "voicedFrames": 420,
+       "pitchFrames": 210
+      }
+     },
+     "answers": {
+      "intro_walk": "my name is my name is Suresh I am from I am from Nagpur I did my BCom last year and I was I was working in my uncle medical shop for some months so I like I like talking to people and I like playing kabbadi",
+      "education": "I did BCom from Nagpur University so in college we we had some presentations and and I learned how to how to talk with patience I think that will help with customers",
+      "why_bpo": "because I I like helping people like in medical shop people come with problem and I I try to help them so I think customer service is is same thing and also it is good job for for freshers",
+      "why_hire": "I I will work hard and I I am patient with people in shop also old people come and and they ask same thing many times but I explain again I don't get angry",
+      "inbound_outbound": "inbound is inbound is customer calling to us for for problem and outbound is we are calling to customer like for for sales or or offers",
+      "handle_angry": "first I will I will listen to him fully I will not not interrupt then I will say sorry sir I understand then I will check his order and and I will tell him what I can do",
+      "helped_someone": "one time in shop one old uncle he he didn't know how to how to do online payment so I I helped him I installed the app and showed him step by step now he he pays himself",
+      "listen_order": "name is Priya Priya Sharma order number 4 5 7 2 and city is Pune",
+      "correct_yesterday": "yesterday I I completed all my task",
+      "shifts": "yes sir I am I am okay with night shift my home is is near only so no problem",
+      "strength_weakness": "strength is I am I am patient and honest weakness is my English speaking is is little slow so I am I am practicing daily with videos",
+      "five_years": "in five years I want to I want to become team leader",
+      "questions_for_us": "no sir no no questions thank you sir"
+     },
+     "roleplay": [
+      "sorry sir I am I am really sorry for the trouble I I will help you can you can you tell me your order number please",
+      "thank you sir I I checked order 4 5 7 2 yes it is charged two times I will I will raise refund it will come in in 5 to 7 days sir",
+      "thank you sir sorry again for the for the problem have a good day"
+     ],
+     "judge": {
+      "overall": 46,
+      "communication": 30,
+      "confidence": 32,
+      "thought": 55,
+      "relevance": 68,
+      "customer": 61,
+      "attitude": 71,
+      "language": 49
+     },
+     "notes": [
+      "Content and attitude are decent. The inbound/outbound answer is correct, the angry-call approach is sensible ('listen to him fully... not interrupt... check his order'), and the online-payment example is real. Listening is correct, and the mock call follows the right flow (order number, refund, 5-7 days). Delivery fails the voice gate: constant stammering repetitions ('I am I am', 'is is', 'for for'), 88 wpm, 3.2s latency and frequent long pauses. Grammar slips too ('my uncle medical shop', 'completed all my task'). Reject for now; could be reconsidered after spoken-English training.",
+      "Content and intent are sound: correct inbound/outbound, a patient listen-apologise-check approach, a relevant pharmacy example (teaching an elderly customer to pay online), the correct order number and city, and a mock call that apologises, asks for the order, and gives a refund timeline. But fluency fails the voice gate, with constant word and phrase repetition ('I am I am okay', 'can you can you tell me'), slow pace (88 wpm, 3.2s latency, 2.1 long pauses) and a small error in the correction ('all my task'). Good attitude and honest self-awareness ('my English speaking is little slow'), so he could be reconsidered for a domestic or non-voice role, or after fluency training."
+     ]
+    },
+    {
+     "id": "Y",
+     "persona": "fluent and polite but evasive: answers sound nice but stay vague, no examples, call promises 'it will be resolved soon' without verifying or timeline",
+     "voice": {
+      "wpm": 152,
+      "latencyMs": 1000,
+      "audio": {
+       "longPauses": 0.2,
+       "longestPauseMs": 2300,
+       "snrDb": 23,
+       "trailOffDb": 1.8,
+       "voicedRatio": 0.612,
+       "pitchSdSemitones": 2.6,
+       "voicedFrames": 780,
+       "pitchFrames": 430
+      }
+     },
+     "answers": {
+      "intro_walk": "thank you so much for this opportunity so I'm a very passionate and dedicated person I have completed my graduation and I believe in continuous learning and growth I'm a people person and I really enjoy interacting with different kinds of people and I'm always eager to take up new challenges and give my best in whatever I do",
+      "education": "my education has been a really wonderful journey it taught me a lot of things like discipline teamwork and communication I learned how to deal with different situations and different people which I believe will definitely help me in a customer facing role because ultimately it's all about understanding people",
+      "why_bpo": "I believe BPO is a very dynamic and fast growing industry and it provides a great platform for young people like me to learn and grow customer service is something I'm really passionate about because I truly believe the customer is always the priority and I would love to be a part of that",
+      "why_hire": "I think I bring a very positive attitude and a strong willingness to learn I'm adaptable I'm a team player and I always give a hundred percent so I believe I can add a lot of value to the organisation and I'm confident I'll be an asset to the team",
+      "inbound_outbound": "so inbound and outbound are both very important processes in a BPO and both of them focus on customer satisfaction in the end inbound is more about the incoming side and outbound is more about the outgoing side and both of them require good communication skills",
+      "handle_angry": "I would handle the situation very calmly and professionally I believe the most important thing is to stay positive and make the customer feel valued I would assure them that their concern is very important to us and that it will be taken care of and I'll make sure they end the call with a smile",
+      "helped_someone": "there have been many situations where I've helped people actually I'm always the person my friends come to whenever they have any problem I believe in being supportive and I always try to understand the other person's point of view and help them find the best possible solution",
+      "listen_order": "the customer's name was Priya Sharma and the order number was 4572 and the city I believe was Pune",
+      "correct_yesterday": "yesterday I completed all my tasks",
+      "shifts": "I'm a very flexible person and I believe in adapting to the needs of the organisation so I'm open to whatever is required",
+      "strength_weakness": "my greatest strength is my positive attitude and my dedication towards my work and as for weakness I would say I'm a perfectionist and sometimes I work too hard but I'm learning to balance it",
+      "five_years": "in five years I see myself as a successful professional in a good position contributing to the growth of the organisation and growing along with it",
+      "questions_for_us": "no I think you have covered everything very nicely thank you so much for your time it was really a great experience"
+     },
+     "roleplay": [
+      "hello sir thank you for calling I completely understand your concern and I'm really sorry to hear that please don't worry at all you are in safe hands now and I'll make sure everything is taken care of",
+      "absolutely sir I understand rest assured your issue will be resolved very soon our team is already working on it and you will get your money back so please don't worry about it at all",
+      "thank you so much sir it was a pleasure speaking with you have a wonderful day"
+     ],
+     "judge": {
+      "overall": 55.5,
+      "communication": 80,
+      "confidence": 77,
+      "thought": 31,
+      "relevance": 33,
+      "customer": 36.5,
+      "attitude": 54,
+      "language": 86
+     },
+     "notes": [
+      "Fluent and quick (152 wpm, 1.0s latency), with clean grammar. Listening and correction are both right. Almost every answer is rehearsed buzzwords with no substance: inbound is 'more about the incoming side', 'I'm a perfectionist and sometimes I work too hard', and helped_someone has no actual example. On the mock call they never asked for the order number and made empty promises ('our team is already working on it', 'you are in safe hands'). Good voice, but needs heavy call-handling training. Borderline.",
+      "Fluent and grammatical (152 wpm, 1.0s latency, listening test and correction both right), but almost every answer is rehearsed filler with no substance: inbound/outbound is 'more about the incoming side... the outgoing side', the angry-customer answer has no steps, and helped_someone gives no actual example ('I'm always the person my friends come to'). In the mock call she never asks for the order number and makes an empty promise ('our team is already working on it... you will get your money back'), plus a cliched 'perfectionist' weakness and no questions; borderline, would need heavy process training."
+     ]
+    },
+    {
+     "id": "Z",
+     "persona": "broken English beginner: frequent grammar errors, very short answers, struggles; polite",
+     "voice": {
+      "wpm": 72,
+      "latencyMs": 4100,
+      "audio": {
+       "longPauses": 2.6,
+       "longestPauseMs": 7200,
+       "snrDb": 13,
+       "trailOffDb": 6,
+       "voicedRatio": 0.33,
+       "pitchSdSemitones": 1.2,
+       "voicedFrames": 330,
+       "pitchFrames": 130
+      }
+     },
+     "answers": {
+      "intro_walk": "my name Imran I am from Bhopal I am complete 12th and now doing BA second year I am no experience I like cricket",
+      "education": "I am study BA in Hindi medium college English is little little I am learning",
+      "why_bpo": "for job sir I need job for my family and BPO is good salary",
+      "why_hire": "I am do hard work sir I am honest",
+      "inbound_outbound": "inbound is customer call and outbound is sorry sir I don't know properly",
+      "handle_angry": "I am say sorry sir and I am listen him and solve problem",
+      "helped_someone": "my friend bike is not start I am help him push and go to mechanic",
+      "listen_order": "Priya Sharma order number 4 5 2 and city Pune sir",
+      "correct_yesterday": "yesterday I have complete all my task",
+      "shifts": "yes sir night shift ok",
+      "strength_weakness": "strength is hard work weakness is English sir",
+      "five_years": "five year I am want good job good salary",
+      "questions_for_us": "no sir thank you sir"
+     },
+     "roleplay": [
+      "sorry sir sorry what is your problem sir",
+      "ok sir I am check sir money is coming back",
+      "thank you sir"
+     ],
+     "judge": {
+      "overall": 14.5,
+      "communication": 10,
+      "confidence": 16.5,
+      "thought": 14.5,
+      "relevance": 28,
+      "customer": 14.5,
+      "attitude": 50,
+      "language": 11
+     },
+     "notes": [
+      "Cannot sustain spoken English: 72 wpm, 4.1s latency, 7.2s pauses, voicedRatio 0.44. Grammar is broken throughout ('I am study BA', 'I am do hard work'). Fails the listening test (order '4 5 2') and the correction ('yesterday I have complete all my task'), and does not know outbound. On the mock call he could not handle the complaint ('sorry sir sorry what is your problem sir'). Sincere and willing, but clearly unsuitable for a voice process at present.",
+      "His spoken English is not at a usable level: very slow, halting delivery (72 wpm, 4.1s latency, pauses up to 7.2s, voiced ratio 0.44) and broken grammar throughout ('I am no experience', 'I am study BA in Hindi medium'). He did not know outbound, dropped a digit in the listening test ('4 5 2'), and got the correction wrong ('yesterday I have complete all my task'). In the mock call he did not register the customer's stated problem ('sorry sir sorry what is your problem sir'). He seems honest and willing, but is clearly unsuitable for an international voice process right now."
+     ]
+    },
+    {
+     "id": "AA",
+     "persona": "strong English, good content, but one serious red flag: says he will leave in a few months for a government job and is not okay with night shifts",
+     "voice": {
+      "wpm": 148,
+      "latencyMs": 1000,
+      "audio": {
+       "longPauses": 0.3,
+       "longestPauseMs": 2500,
+       "snrDb": 23,
+       "trailOffDb": 1.6,
+       "voicedRatio": 0.604,
+       "pitchSdSemitones": 2.7,
+       "voicedFrames": 790,
+       "pitchFrames": 440
+      }
+     },
+     "answers": {
+      "intro_walk": "hi I'm Vikram Joshi I'm from Jaipur I completed my B.Tech in mechanical engineering last year and since then I've been preparing for government exams mainly ssc cgl and the state PSC I don't have formal work experience but I've been tutoring school kids in maths in the evenings and in my free time I like reading and I play chess online quite a lot",
+      "education": "I did mechanical engineering from a college in Jaipur the technical part isn't really related to this job but engineering taught me structured problem solving like breaking a problem into steps and checking each one I was also part of the college fest organising team where I dealt with sponsors and vendors which was actually quite customer facing",
+      "why_bpo": "honestly I'm preparing for government exams and my SSC result should come in around four or five months so I want something in the meantime that pays decently and keeps me productive and customer service also improves communication which helps in interviews later so it's a good fit for this phase",
+      "why_hire": "I think my communication is strong I'm patient because I've been teaching kids for a while I'm good with logic and systems so I'd pick up the tools fast and I stay calm under pressure exams have trained me for that",
+      "inbound_outbound": "inbound is where customers call in to the company for support complaints or queries and the agent resolves them outbound is where agents call customers proactively for sales renewals collections or surveys so inbound is reactive and service focused and outbound is proactive and usually target driven",
+      "handle_angry": "I'd stay calm and let the customer finish without interrupting then acknowledge the problem and apologise sincerely then I'd verify their details pull up the order and explain exactly what happened and what I'm doing about it with a clear timeline and if it needs a senior I'd escalate but I'd tell the customer that upfront rather than keeping them on hold forever",
+      "helped_someone": "one of the kids I tutor was failing maths and his parents were really worried I realised he wasn't bad at maths he just never understood fractions and that was breaking everything after it so I went back to basics with him for two weeks used drawings and pizza examples and in his next test he went from 35 to 72",
+      "listen_order": "Priya Sharma order number 4572 and the city is Pune",
+      "correct_yesterday": "yesterday I completed all my tasks",
+      "shifts": "to be honest night shifts would be difficult for me because I study in the mornings for my exams so I'd prefer a day shift weekends are okay occasionally but I can't really do rotational night shifts",
+      "strength_weakness": "my strength is I'm very disciplined and consistent preparing for exams for a year teaches you that weakness is I can be a bit impatient when things are slow so I'm consciously working on it by reminding myself that everyone has a different pace",
+      "five_years": "ideally in five years I'll be in a government job that's been my goal for a long time so this would be more of a stepping stone for me right now",
+      "questions_for_us": "yes is there any option for a fixed day shift and what's the notice period if someone needs to leave because I might get my result in a few months"
+     },
+     "roleplay": [
+      "sir I'm really sorry about this being charged twice and having to call again is genuinely frustrating and I'll take care of it right now could you give me your order number and the registered phone number please",
+      "thank you sir I can see order 4572 has a duplicate payment I've initiated a refund for the extra charge it'll be back in your account within 5 to 7 working days your reference number is RF 6620 and you'll also get an SMS confirmation",
+      "you're welcome sir I've noted everything on the account so you won't have to explain it again sorry once more for the trouble have a good day"
+     ],
+     "judge": {
+      "overall": 45.5,
+      "communication": 86.5,
+      "confidence": 82,
+      "thought": 87,
+      "relevance": 80,
+      "customer": 87,
+      "attitude": 18,
+      "language": 90
+     },
+     "notes": [
+      "On skills this is one of the strongest profiles. The inbound/outbound answer is crisp ('inbound is reactive... outbound is proactive and usually target driven'), the fractions tutoring example is excellent, listening and correction are perfect, and the mock call is near-ideal with refund, timeline, reference RF 6620 and an account note. The deal-breakers are availability and attrition. He says 'night shifts would be difficult... I can't really do rotational night shifts', expects an SSC result in 4-5 months, calls the job 'a stepping stone', and asks about the notice period. That rules him out for an international voice process. Reject.",
+      "On skill alone he is a strong hire: articulate (148 wpm), with a precise inbound/outbound answer ('inbound is reactive and service focused... outbound is proactive and usually target driven'), a good fractions-tutoring example and an excellent mock call with refund, reference number and account note. However, he openly treats the job as a stop-gap ('my SSC result should come in around four or five months', 'in five years I'll be in a government job'). He also refuses the core requirement of an international process ('I can't really do rotational night shifts') and already asks about the notice period. The shift refusal plus near-certain early attrition make this a reject for this role."
+     ]
+    },
+    {
+     "id": "AB",
+     "persona": "average English, rude on the mock call (blames the customer, 'you should have checked your bank first'), otherwise ordinary answers",
+     "voice": {
+      "wpm": 132,
+      "latencyMs": 1300,
+      "audio": {
+       "longPauses": 0.5,
+       "longestPauseMs": 2900,
+       "snrDb": 22,
+       "trailOffDb": 2.4,
+       "voicedRatio": 0.543,
+       "pitchSdSemitones": 2.2,
+       "voicedFrames": 540,
+       "pitchFrames": 290
+      }
+     },
+     "answers": {
+      "intro_walk": "hello my name is Deepak Yadav I am from Gurgaon I did my BBA from a private college in 2024 after that I worked for four months in field sales for credit cards I like going to gym and playing pubg",
+      "education": "I did BBA so I studied marketing management and some HR also we had communication subject and presentations so that will help me in dealing with customers",
+      "why_bpo": "BPO is good job salary is fixed and it is AC office also I did field sales before and that was very tiring so I want inside job where I can talk to customers on phone",
+      "why_hire": "because I have sales experience so I know how to talk to customers and convince them I am also confident and I can achieve targets",
+      "inbound_outbound": "inbound means customer calls us and outbound means we call the customer for sales or collection",
+      "handle_angry": "I will tell the customer to calm down first and then listen to his problem then I will check the order and tell him the solution",
+      "helped_someone": "my cousin was not able to fill his college admission form online so I helped him upload the documents and pay the fees",
+      "listen_order": "Priya Sharma order number 4572 and city Pune",
+      "correct_yesterday": "yesterday I completed all my tasks",
+      "shifts": "yes okay no problem with night shift",
+      "strength_weakness": "my strength is confidence and I am good at sales weakness is I get angry quickly sometimes but I control it",
+      "five_years": "I want to become team leader or manager in five years",
+      "questions_for_us": "what is the salary and are there any incentives"
+     },
+     "roleplay": [
+      "sir please calm down shouting will not solve anything just tell me your order number",
+      "see sir double charge happens sometimes from the bank side you should have checked your bank statement first before calling again and again I will raise the request it will take 7 to 10 days you have to wait",
+      "okay sir next time check properly first anything else"
+     ],
+     "judge": {
+      "overall": 34.5,
+      "communication": 65,
+      "confidence": 71,
+      "thought": 43,
+      "relevance": 57,
+      "customer": 10,
+      "attitude": 26,
+      "language": 74
+     },
+     "notes": [
+      "Speech is adequate (132 wpm) with correct listening and correction, and the inbound/outbound answer is right. Customer handling is a serious red flag. He would 'tell the customer to calm down first', and on the mock call he blamed the customer: 'shouting will not solve anything', 'you should have checked your bank statement first before calling again and again', 'next time check properly first'. Motivation is 'AC office' and salary, and he admits 'I get angry quickly'. Reject.",
+      "Adequate English, a correct inbound/outbound answer, and a perfect listening and correction test, but his customer-handling attitude is disqualifying. He would 'tell the customer to calm down first', and in the mock call he lectures and blames the customer ('shouting will not solve anything', 'you should have checked your bank statement first before calling again and again', 'next time check properly first'). His weakness is 'I get angry quickly', and his motivation is purely 'salary is fixed and it is AC office', so he is a CSAT and escalation risk and a reject."
+     ]
+    },
+    {
+     "id": "AC",
+     "persona": "confident and fluent but answers are mostly off-topic stories about himself; wrong listening details",
+     "voice": {
+      "wpm": 172,
+      "latencyMs": 700,
+      "audio": {
+       "longPauses": 0.1,
+       "longestPauseMs": 2100,
+       "snrDb": 26,
+       "trailOffDb": 1,
+       "voicedRatio": 0.657,
+       "pitchSdSemitones": 3.6,
+       "voicedFrames": 890,
+       "pitchFrames": 490
+      }
+     },
+     "answers": {
+      "intro_walk": "so I'm Arjun Mehta and I've always been the kind of guy who's like the life of the party you know so last year we did this road trip to Ladakh me and four friends on bikes and halfway the bike broke down near sar chu and everyone was panicking but I was the one who stayed cool found a mechanic convinced him to come out at night and we made it to Leh on time that's basically who I am I love travelling I love bikes and I did my BBA also by the way",
+      "education": "education wise I did BBA but honestly I learned more outside class like I started a small t-shirt printing thing in second year with my roommate we sold like 200 t-shirts at college fests designed them ourselves and the best part was this fest in Goa where we sold out on the first day itself so yeah that's the stuff I really learned from",
+      "why_bpo": "so actually my elder brother works in Bangalore in an IT company and he always tells me these crazy stories about his office parties and team outings and I was like I want that life you know working in a big office making friends going out on weekends so yeah that's why",
+      "why_hire": "because I'm different man like you can ask anyone in my college everyone knows Arjun I organised our farewell party for 300 people booked the DJ the venue everything in one week and it was the best farewell our college ever had people still talk about it",
+      "inbound_outbound": "inbound outbound so I think it's like when you go in and out of the office like inbound is in office work and outbound is field work going out to meet clients my cousin does outbound he travels a lot for work actually he went to Dubai last month",
+      "handle_angry": "angry customers I'm actually really good with angry people like my dad gets super angry when India loses a match and I'm the only one who can calm him down I just crack a joke and he starts laughing so I'll probably do the same thing make them laugh",
+      "helped_someone": "so there was this time at a concert in Mumbai arjit singh concert and my friend lost his phone in the crowd so I went backstage somehow talked to the security guys made friends with one of them and he actually helped us find it it was crazy best night ever",
+      "listen_order": "the customer was Priya Verma I think and the order was 4752 and the city was Mumbai or Pune I think Mumbai",
+      "correct_yesterday": "yesterday I have completed all my tasks",
+      "shifts": "night shifts are totally fine I'm a night owl anyway like I'm usually up till 3 playing FIFA online with my friends so yeah no issues",
+      "strength_weakness": "strength is definitely my confidence and my network I know people everywhere weakness I don't think I have a weakness honestly maybe I trust people too fast like once I lent my bike to a friend and he took it to lonawala without telling me",
+      "five_years": "five years I see myself owning a cafe in Goa or maybe being a travel vlogger I already have like 2000 followers on Instagram",
+      "questions_for_us": "yeah do you guys have team outings and how many leaves do we get because I've got a trip planned in December"
+     },
+     "roleplay": [
+      "hey sir chill chill don't worry I totally get it even I got charged twice once on swiggy and I was so angry but then it came back so it's all good relax",
+      "yeah sir 4572 got it I'm sure it's just some system thing it happens all the time with me also your money will come back don't stress",
+      "cool sir no problem have a great day enjoy"
+     ],
+     "judge": {
+      "overall": 25,
+      "communication": 59,
+      "confidence": 85,
+      "thought": 25,
+      "relevance": 15,
+      "customer": 10,
+      "attitude": 14,
+      "language": 25
+     },
+     "notes": [
+      "Fluent and confident (172 wpm), but rambling and off-topic throughout. Inbound/outbound is wrong ('in office work and outbound is field work'), and his plan for angry customers is to 'crack a joke'. Fails the listening test ('Priya Verma... 4752... I think Mumbai') and the correction ('yesterday I have completed'). On the mock call he told the irate customer 'chill chill... relax' and 'it happens all the time'. Major attrition flags: a 'cafe in Goa or maybe being a travel vlogger', and asking about leave for a December trip. Clearly unsuitable.",
+      "Very confident and fast (172 wpm), but he rambles into irrelevant stories on almost every question, gets inbound/outbound wrong ('inbound is in office work and outbound is field work'), and plans to handle angry customers by making them laugh. He failed both the listening test ('Priya Verma... 4752... I think Mumbai') and the correction ('yesterday I have completed'). In the mock call he is unprofessional and resolves nothing ('hey sir chill chill... relax'), and his motivation is a red flag (office parties, a cafe in Goa or travel vlogging, already asking about leave for a December trip)."
+     ]
+    },
+    {
+     "id": "AD",
+     "persona": "shy but capable: low voice, slower pace, but correct, relevant, kind answers with small real examples; good call",
+     "voice": {
+      "wpm": 112,
+      "latencyMs": 2200,
+      "audio": {
+       "longPauses": 0.9,
+       "longestPauseMs": 3600,
+       "snrDb": 11,
+       "trailOffDb": 5.2,
+       "voicedRatio": 0.467,
+       "pitchSdSemitones": 1.4,
+       "voicedFrames": 600,
+       "pitchFrames": 320
+      }
+     },
+     "answers": {
+      "intro_walk": "my name is Kavya Nair I am from Kochi I finished my BA in English last year I haven't worked in a company yet but I have been teaching spoken English to two children in my building I like reading and I like to draw",
+      "education": "I studied BA English literature at saint theresa's college reading a lot helped my vocabulary and in class discussions I learned to listen to different points of view I think listening carefully is important when talking to customers",
+      "why_bpo": "I like helping people and I think I am patient also I want to get better at speaking with confidence and I think this job will help me grow that way while I help customers",
+      "why_hire": "I may be a little quiet but I listen carefully and I don't rush people I try to understand the problem properly before answering and I am very sincere with my work",
+      "inbound_outbound": "in inbound the customer calls the company with a question or a complaint and we help them in outbound the company calls the customer for things like sales follow ups or surveys",
+      "handle_angry": "I would stay calm and let them finish speaking then I would apologise and tell them I understand why they are upset then I would ask for the order number check what went wrong and explain what I will do to fix it",
+      "helped_someone": "my neighbour's son was scared of his English exam because he couldn't write essays so I practised with him every evening for one week we made small outlines first and he passed with good marks he was very happy",
+      "listen_order": "the name is Priya Sharma order number 4572 and the city is Pune",
+      "correct_yesterday": "yesterday I completed all my tasks",
+      "shifts": "yes I am okay with it I have discussed with my parents and they are fine I would just need the cab facility for night shifts",
+      "strength_weakness": "my strength is patience and I am a good listener my weakness is I am a bit shy when I talk to new people so I joined a toast masters club near my house to practise speaking",
+      "five_years": "I would like to become a trainer or a quality analyst I enjoy teaching so I think training new agents would suit me",
+      "questions_for_us": "yes can you tell me what kind of training is given in the first few weeks"
+     },
+     "roleplay": [
+      "I'm really sorry sir that you were charged twice and had to call again I understand how upsetting that is I will help you with this could you please tell me your order number and registered mobile number",
+      "thank you sir I can see order 4572 was charged twice I have raised a refund for the extra amount it should reach your account in 5 to 7 working days your reference number is 3 3 1 8 and you will get an SMS also",
+      "thank you sir I'm sorry again for the trouble please call us if you need anything else have a nice day"
+     ],
+     "judge": {
+      "overall": 71.5,
+      "communication": 62.5,
+      "confidence": 50,
+      "thought": 76,
+      "relevance": 83,
+      "customer": 84,
+      "attitude": 82,
+      "language": 82
+     },
+     "notes": [
+      "Content is solid and specific. Gives a correct inbound/outbound definition, a structured angry-call approach ('let them finish speaking... ask for the order number... explain what I will do') and a concrete essay-tutoring example. Listening and correction are perfect. The mock call is model-quality, with an apology, a request for order number and mobile, a refund, a 5-7 day timeline, a reference number and an SMS. The concern is delivery: soft, flat and hesitant voice (112 wpm, 2.2s latency, voicedRatio 0.62, trail-off 5.2dB, low SNR), and she admits 'I am a bit shy'. Hire, with voice-projection coaching.",
+      "Content is excellent: a correct inbound/outbound distinction, a clear angry-call sequence ('let them finish speaking then I would apologise... ask for the order number'), a concrete tutoring example, and a model mock call with apology, verification, refund timeline, reference number and SMS. Delivery is the concern for voice: slow (112 wpm, 2.2s latency), a soft monotone voice (SNR 11 dB, 5.2 dB trail-off, pitch SD 1.4) and self-admitted shyness, though she is addressing it ('joined a toast masters club'). Clean grammar and a perfect listening and correction test make her a hire, with voice-projection coaching."
+     ]
+    }
+   ]
+  }
+ ]
+}

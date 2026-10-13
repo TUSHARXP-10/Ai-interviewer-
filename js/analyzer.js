@@ -169,7 +169,9 @@
       if (item.id === 'opening' && turns.length) doc = turns[0];
       if (item.id === 'closing' && turns.length) doc = turns[turns.length - 1];
       const hits = findTerms(doc, item.terms).filter((h) => !(item.id !== 'probing' && negatedAt(doc, h.w0, 2)));
-      return { id: item.id, label: item.label, tip: item.tip, hit: hits.length > 0, evidence: hits.length ? snippet(doc, hits[0].w0, hits[0].w1) : '' };
+      // A few words either side, so the evidence reads as what was said ("refund within 5 to 7 working days").
+      const ev = hits.length ? snippet(doc, Math.max(0, hits[0].w0 - 2), Math.min(doc.words.length - 1, hits[0].w1 + 5)) : '';
+      return { id: item.id, label: item.label, tip: item.tip, hit: hits.length > 0, evidence: ev };
     });
     const map = {};
     for (const it of items) map[it.id] = it.hit;
@@ -415,7 +417,8 @@
     // Rehearsed answers: stock phrases instead of a real example or concrete detail
     // (two with nothing concrete, or three or more in any case).
     const noExample = !structure.example && starCount < 2;
-    const rehearsed = !skipped && ((clicheHits.length >= 3 && noExample) || clicheHits.length >= 5 || (clicheHits.length >= 2 && specificity === 0 && noExample));
+    // (Not on knowledge questions, where terms like AHT and CSAT are the topic.)
+    const rehearsed = !skipped && question.type !== 'knowledge' && ((clicheHits.length >= 3 && noExample) || clicheHits.length >= 5 || (clicheHits.length >= 2 && specificity === 0 && noExample));
     // Experience questions need the candidate's own story ("I did…", "we had…"), not a general statement.
     const needsStory = question.type === 'behavioral' && !skipped && story === 0;
 
@@ -612,8 +615,10 @@
     if (cov && cov.ratio != null && !a.call) {
       if (cov.matchedLabels.length) good.push('Covered: ' + list(cov.matchedLabels.slice(0, 4)) + '.');
       if (cov.missingLabels.length && cov.ratio < 0.99) improve.push('Could also mention: ' + list(cov.missingLabels.slice(0, 3)) + '.');
-      if (cov.ratio === 0 && m.wordCount > 20) improve.push('The answer drifted off the question. Answer what was asked first, then add detail.');
+      if (cov.ratio < 0.25 && m.wordCount > 20) improve.push('The answer drifted away from the question. Answer what was asked in your first sentence, then add detail.');
     }
+    if (a.noStory) improve.push('This question asks for a real experience. Describe one specific time: what happened, what you did, and how it ended.');
+    if (a.rehearsed && m.cliches.length) improve.push('Sounds rehearsed: stock phrases (' + m.cliches.slice(0, 3).map((t) => '“' + t.term + '”').join(', ') + ') say little about you. Replace them with one real example.');
 
     if (m.dontKnow) improve.push('Avoid a flat "I don\'t know". Think out loud and give your best approach.');
 

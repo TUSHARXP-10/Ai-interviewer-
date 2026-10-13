@@ -123,16 +123,16 @@ Three lengths are available: **Quick** (7 questions, about 10 min), **Standard**
 ## The scoresheet
 
 - **Overall score /100** and a verdict: *Strongly recommended*, *Recommended*, *Borderline* or *Not recommended yet*.
-- **Seven skill scores** with explanations:
+- **Seven skill scores**, each with the evidence behind it from your own interview (*"14 grammar slips in 600 words, e.g. “listen the customer” → listen to the customer"*, *"Mock call: asked for the order number, raised a refund, gave a timeline (“within 5 to 7 working days”)"*). Strengths, tips and the summary are built from the same evidence, so nothing is praised or criticised that did not happen.
 
 | Skill | Built from |
 |---|---|
-| Communication & fluency | Filler words (*um, basically, you know*), repetitions, vocabulary range, completeness, speaking pace (wpm), long pauses, voice modulation |
+| Communication & fluency | Grammar while speaking (*"he say"*, *"I am complete my graduation"*, *"listen the customer"*), dropped small words (*"I did diploma"*), filler words (*basically, you know*, crutch *like*), restarts, completeness, speaking pace (wpm), long pauses and silences, voice modulation |
 | Confidence & composure | Hedging (*I think, maybe, I guess*), assertive language (*I handled, I achieved*), negative self-talk, how quickly you start, voice strength above room noise, whether your voice fades at the end |
-| Thought process & structure | Reasoning and sequencing words (*because, first… then, as a result*), examples, STAR completeness, specific details (numbers, names, timelines) |
-| Answer quality & relevance | How much of what a strong answer includes you covered (a per-question rubric with synonyms), and depth |
-| Customer handling & empathy | Empathy phrases, approach to customer situations, the mock-call checklist |
-| Attitude & motivation | Positive tone, genuine motivation, flexibility, curiosity, minus red flags |
+| Thought process & structure | Reasoning and sequencing words (*because, first… then, as a result*), real examples and your own stories, STAR completeness, specific details; stock phrases (*"hard working and dedicated"*, *"quick learner"*) and off-topic answers count against it |
+| Answer quality & relevance | How much of what a strong answer includes you covered (a per-question rubric with synonyms), whether you answered the question that was asked, and real substance |
+| Customer handling & empathy | Empathy phrases, approach to customer situations, and the mock call: apology, verifying details, a concrete fix *with a timeline*, warmth, clear English, closing — and anything rude (*"shouting won't help"*) |
+| Attitude & motivation | Genuine motivation, flexibility, curiosity, minus red flags (money only, planning to leave soon, badmouthing a past employer, refusing shifts, blaming customers) |
 | English & listening | Listening-test recall, sentence corrections, a grammar coach for common slips (*"Myself Rahul"*, *"I am having 2 years experience"*, *"revert back"*…) |
 
 The scoresheet also includes an **estimated English level (CEFR)**, **role fit** for each BPO role, **red flags to probe**, **speech analytics**, the **mock-call checklist**, an **integrity panel** (tab switches, pasted answers), and a **question-by-question breakdown** with scores, feedback and what a strong answer would include.
@@ -146,7 +146,11 @@ Scoresheets (and answer recordings) are saved in your browser's history. They ca
 1. **Per answer**, the analyser (`js/analyzer.js`) extracts signals from the transcript, the timing, and the microphone (Web Audio: loudness, pauses, pitch).
 2. Each signal maps to a 0–100 component through a calibrated curve. Components blend into dimension scores. Signals that cannot be measured (e.g. pitch when the microphone analysis is unavailable) are left out instead of counting as zero. A "weakest link" rule stops one serious problem, such as constant fillers, from being averaged away.
 3. **Across the interview** (`js/scoring.js`), each question contributes to the dimensions it informs. A situational question counts heavily towards customer handling; a listening test counts towards English. The seven dimensions are then weighted by role: confidence matters more for sales, written accuracy more for chat support.
-4. Red flags lower attitude and the overall score, and a serious one (e.g. "I'd shout back at the customer") caps the verdict.
+4. **The recruiter's scale.** Rule checks saturate (a competent answer ticks every box), so each skill is mapped onto the scale recruiters actually use: 90+ exceptional, 80+ strong hire, 66+ hire, 52+ borderline. The curve was fitted to blind ratings of 30 full mock interviews by two senior BPO recruiters, from excellent to very poor; across them the overall score is within about 9 points of the recruiters on average, and in the same order (`tests/calibration.test.js` keeps it that way).
+5. **Hiring gates.** For a voice job, customers must be able to understand you and you must treat them well: communication, customer handling and attitude each have a bar, and falling below it pulls the overall score down however good the rest is.
+6. Red flags lower attitude and the overall score, and a serious one (e.g. "I'd shout back at the customer") caps the verdict.
+
+**Your name, spelled right.** Speech recognition often mangles names (*"I am tishar chadne"*). The app knows the name you typed, so where you introduce yourself it puts it back (*"I am Tushar Chandane"*), only right after "my name is", "I am", "myself"… or when your full name appears, so ordinary words are never turned into a name.
 
 The word lists live in `js/lexicons.js` and the rubrics in `js/questionBank.js`, so you can tune the model without touching the code.
 
@@ -217,7 +221,8 @@ js/textUtils.js       Tokenising, contraction handling, pattern matching, number
 js/lexicons.js        Word lists: fillers, hedges, STAR, empathy, red flags, grammar
 js/questionBank.js    Questions, rubrics, follow-ups, interview plans
 js/analyzer.js        Per-answer signals and 0–100 scores
-js/scoring.js         Interview-level scoresheet, verdict, narrative
+js/scoring.js         Interview-level scoresheet, recruiter scale, gates, verdict
+js/explain.js         Evidence behind every score: reasons, strengths, tips, summary
 js/engine.js          Interview flow: follow-ups, reactions, branching mock call
 js/voice.js           Hands-free rules: voice commands, end-of-answer detection, nudges
 js/speech.js          Browser text-to-speech and speech recognition
@@ -233,7 +238,7 @@ tools/selfsigned.js   Self-signed HTTPS certificate with Node's crypto (for npm 
 vercel.json           Vercel hosting: build command, output folder, headers
 tools/build.js        Copies the site into dist/ for static hosting (npm run build)
 tools/simulate.js     Run a scripted interview in the terminal
-tests/                node:test suite (npm test)
+tests/                node:test suite (npm test), incl. 30 recruiter-rated interviews
 ```
 
 ## Limitations

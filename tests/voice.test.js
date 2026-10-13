@@ -193,3 +193,30 @@ test('spoken-only listening tests never invite a repeat', () => {
   assert.equal(r.action, 'nudge');
   assert.ok(!/repeat/i.test(r.say));
 });
+
+test('puts the candidate\'s own name back where the recogniser misheard it', () => {
+  const common = require('../js/lexicons.js').COMMON_WORDS;
+  const fix = (t, n) => Voice.correctNames(t, [n], { common });
+  assert.equal(fix('I am tishar chadne from Pune', 'Tushar Chandane'), 'I am Tushar Chandane from Pune');
+  assert.equal(fix('this is tishar chand nay speaking', 'Tushar Chandane'), 'this is Tushar Chandane speaking');
+  assert.equal(fix('myself chadne tishar', 'Tushar Chandane'), 'myself Chandane Tushar');
+  assert.equal(fix('my name is amit sha', 'Amit Shah'), 'my name is Amit Shah');
+  assert.equal(fix('i am raul verma', 'Rahul Verma'), 'i am Rahul Verma');
+  assert.equal(fix('hi, I am tishar. I studied commerce', 'Tushar Chandane'), 'hi, I am Tushar. I studied commerce');
+  assert.equal(fix('so i told tishar chadne to wait', 'Tushar Chandane'), 'so i told Tushar Chandane to wait');
+});
+
+test('never turns ordinary words into the candidate\'s name', () => {
+  const common = require('../js/lexicons.js').COMMON_WORDS;
+  const fix = (t, n) => Voice.correctNames(t, [n], { common });
+  for (const [t, n] of [
+    ['I admit I made a mistake', 'Amit Shah'],
+    ['I am sure I can do this job', 'Suraj Patil'],
+    ['I am sad that I left', 'Sid Rao'],
+    ['I am ready to start', 'Riddhi Shah'],
+    ['I am more interested in sales', 'Mohit Jain'],
+    ['the customer was rude so i stayed calm', 'Rudra Das'],
+    ['I am working as a support executive', 'Varun Kumar'],
+  ]) assert.equal(fix(t, n), t, t);
+  assert.equal(fix('anything', ''), 'anything');
+});

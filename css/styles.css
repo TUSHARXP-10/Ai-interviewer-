@@ -697,6 +697,11 @@ body.in-call .topbar { background: rgba(3, 4, 7, 0.55); }
 .meter::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: repeating-linear-gradient(90deg, transparent 0 calc(5% - 2px), var(--void) calc(5% - 2px) 5%); }
 .meter-fill { height: 100%; border-radius: 0; background: linear-gradient(90deg, var(--violet), var(--cyan)); box-shadow: 0 0 14px rgba(62, 230, 208, 0.45); }
 .meter-sub { font-size: 0.8rem; color: var(--muted); }
+.why { display: grid; gap: 5px; margin: 10px 0 0; padding: 0; list-style: none; }
+.why li { position: relative; padding-left: 18px; font-size: 0.86rem; line-height: 1.45; color: var(--ink-2); }
+.why li::before { content: ""; position: absolute; left: 3px; top: 0.5em; width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
+.why li.why-good::before { background: var(--good-text); box-shadow: 0 0 8px rgba(91, 227, 173, 0.6); }
+.why li.why-bad::before { background: var(--serious); box-shadow: 0 0 8px rgba(251, 138, 92, 0.6); }
 
 .list-good, .list-improve, .fb-good, .fb-improve { list-style: none; padding: 0; margin: 0; }
 .list-good li, .list-improve li, .fb-good li, .fb-improve li { position: relative; padding: 8px 0 8px 32px; border-bottom: 1px solid var(--line); }
@@ -869,6 +874,6 @@ details.qa[open] .qa-q { white-space: normal; }
   .qa-q { white-space: normal !important; }
   .chart-tip { display: none !important; }
   .tr-item { break-inside: avoid; }
-  .meter, .progress, .qbar-fill, .meter-fill, mark.hl { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .meter, .progress, .qbar-fill, .meter-fill, mark.hl, .why li::before { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .meter::after { display: none; }
 }

@@ -108,13 +108,24 @@
       legend + '<ol class="transcript">' + rows + '</ol></section>';
   }
 
-  function meter(score, label, sub, extra) {
+  /** "Confidence (33): Long silences…" with the skill and score in bold. */
+  function labelled(text) {
+    const m = String(text).match(/^([A-Z][^:()]{2,40} \(\d+\)):\s*/);
+    return m ? '<strong>' + esc(m[1]) + '</strong> ' + esc(text.slice(m[0].length)) : esc(text);
+  }
+
+  const WHY_TONE = { good: 'Strength', bad: 'Held back by', info: 'Note' };
+
+  function meter(score, label, sub, extra, why) {
     const v = score == null ? 0 : score;
+    const reasons = why && why.length
+      ? '<ul class="why">' + why.map((l) => '<li class="why-' + esc(l.tone) + '"><span class="sr-only">' + (WHY_TONE[l.tone] || '') + ': </span>' + esc(l.text) + '</li>').join('') + '</ul>'
+      : '';
     return '<div class="meter-row">' +
       '<div class="meter-head"><span class="meter-label">' + esc(label) + '</span>' +
       '<span class="meter-value">' + (score == null ? '—' : score) + '<span class="meter-band">' + esc(extra || '') + '</span></span></div>' +
       '<div class="meter" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + v + '" aria-label="' + esc(label) + '"><div class="meter-fill" style="width:' + v + '%"></div></div>' +
-      (sub ? '<div class="meter-sub">' + esc(sub) + '</div>' : '') +
+      (sub ? '<div class="meter-sub">' + esc(sub) + '</div>' : '') + reasons +
       '</div>';
   }
 
@@ -252,10 +263,10 @@
       (sheet.incomplete ? '<div class="muted small">Interview incomplete; treat with caution.</div>' : '') + '</div></header>' +
       '<div class="tiles">' + kpis + '</div>' +
       '<section class="card"><h2>Interviewer’s summary ' + (sheet.summarySource === 'llm' ? '<span class="tag">written by local AI</span>' : '') + '</h2><p class="summary">' + esc(sheet.summary) + '</p></section>' +
-      '<section class="card"><h2>Skill breakdown</h2><div class="meters">' + dims.map((d) => meter(d.score, d.label, d.about, d.band)).join('') + '</div></section>' +
+      '<section class="card"><h2>Skill breakdown</h2><p class="muted small">Each score is on a recruiter’s scale (80+ strong, 66+ hire, 52+ borderline), with the evidence from this interview behind it.</p><div class="meters">' + dims.map((d) => meter(d.score, d.label, d.about, d.band, d.why)).join('') + '</div></section>' +
       '<div class="grid-2">' +
-      '<section class="card"><h2>Strengths</h2><ul class="list-good">' + sheet.strengths.map((x) => '<li>' + esc(x) + '</li>').join('') + '</ul></section>' +
-      '<section class="card"><h2>How to improve</h2><ul class="list-improve">' + sheet.improvements.map((x) => '<li>' + esc(x) + '</li>').join('') + '</ul></section>' +
+      '<section class="card"><h2>Strengths</h2><ul class="list-good">' + sheet.strengths.map((x) => '<li>' + labelled(x) + '</li>').join('') + '</ul></section>' +
+      '<section class="card"><h2>How to improve</h2><ul class="list-improve">' + sheet.improvements.map((x) => '<li>' + labelled(x) + '</li>').join('') + '</ul></section>' +
       '</div>' + transcript(sheet, clipsFor) + flags +
       '<div class="grid-2">' + roleFit + (call || integ) + '</div>' +
       speech +

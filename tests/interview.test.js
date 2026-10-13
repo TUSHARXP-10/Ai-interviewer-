@@ -85,7 +85,7 @@ test('a full session runs to the end and produces a scoresheet', () => {
   const sheet = Scoring.buildScoresheet({ candidate: { name: 'Sam Lee', role: 'general' }, config: { length: 'standard', mode: 'text' }, items: s.results(), startedAt: 0, endedAt: 600000 });
   assert.equal(sheet.questions.length, s.total);
   for (const d of sheet.dimensions) if (d.score != null) assert.ok(d.score >= 0 && d.score <= 100, d.key);
-  assert.ok(sheet.summary.startsWith('Sam Lee completed'));
+  assert.ok(sheet.summary.startsWith('Sam Lee scored ' + sheet.overall + '/100'), sheet.summary);
 });
 
 test('scripted candidates are ranked correctly with clear gaps', () => {
