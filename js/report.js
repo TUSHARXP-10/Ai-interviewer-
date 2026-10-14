@@ -108,6 +108,17 @@
       legend + '<ol class="transcript">' + rows + '</ol></section>';
   }
 
+  /** The 4-round assessment: one card per round with its score and key evidence. */
+  function roundsCard(sheet) {
+    if (!sheet.rounds || !sheet.rounds.length) return '';
+    const tone = (v) => (v == null ? 'none' : v >= 80 ? 'good' : v >= 66 ? 'ok' : v >= 52 ? 'warn' : 'bad');
+    return '<section class="card rounds-card"><h2>Round by round</h2><div class="round-grid">' + sheet.rounds.map((r) =>
+      '<article class="round round-' + tone(r.score) + '"><div class="round-head"><span class="round-n">Round ' + r.n + '</span>' +
+      '<span class="round-score">' + (r.score == null ? '—' : r.score) + '<small>/100</small></span></div>' +
+      '<h3>' + esc(r.title) + '</h3><p class="round-focus">' + esc(r.focus || '') + '</p>' +
+      '<ul>' + r.notes.map((n) => '<li>' + esc(n) + '</li>').join('') + '</ul></article>').join('') + '</div></section>';
+  }
+
   /** "Confidence (33): Long silences…" with the skill and score in bold. */
   function labelled(text) {
     const m = String(text).match(/^([A-Z][^:()]{2,40} \(\d+\)):\s*/);
@@ -263,6 +274,7 @@
       (sheet.incomplete ? '<div class="muted small">Interview incomplete; treat with caution.</div>' : '') + '</div></header>' +
       '<div class="tiles">' + kpis + '</div>' +
       '<section class="card"><h2>Interviewer’s summary ' + (sheet.summarySource === 'llm' ? '<span class="tag">written by local AI</span>' : '') + '</h2><p class="summary">' + esc(sheet.summary) + '</p></section>' +
+      roundsCard(sheet) +
       '<section class="card"><h2>Skill breakdown</h2><p class="muted small">Each score is on a recruiter’s scale (80+ strong, 66+ hire, 52+ borderline), with the evidence from this interview behind it.</p><div class="meters">' + dims.map((d) => meter(d.score, d.label, d.about, d.band, d.why)).join('') + '</div></section>' +
       '<div class="grid-2">' +
       '<section class="card"><h2>Strengths</h2><ul class="list-good">' + sheet.strengths.map((x) => '<li>' + labelled(x) + '</li>').join('') + '</ul></section>' +

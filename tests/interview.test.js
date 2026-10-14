@@ -18,8 +18,10 @@ test('plans pick role- and experience-appropriate questions', () => {
         for (const q of plan) assert.ok(Q.eligible(q, role, experience), q.id);
         const rp = plan.find((q) => q.type === 'roleplay');
         assert.ok(rp, 'every plan has a mock call');
-        if (role === 'sales') assert.equal(rp.id, 'roleplay_sales');
-        if (role === 'tech') assert.equal(rp.id, 'roleplay_internet');
+        // (The 4-round assessment always ends with the same live customer call.)
+        if (length === 'assessment') assert.equal(rp.id, 'live_call');
+        else if (role === 'sales') assert.equal(rp.id, 'roleplay_sales');
+        else if (role === 'tech') assert.equal(rp.id, 'roleplay_internet');
       }
     }
   }

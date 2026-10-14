@@ -207,7 +207,16 @@
       const label = document.createElement('label');
       label.innerHTML = '<input type="radio" name="length" value="' + k + '"><span class="lc"><strong></strong><span></span></span>';
       label.querySelector('strong').textContent = p.label;
-      label.querySelector('.lc > span').textContent = p.slots.length + ' questions · about ' + p.minutes + ' min';
+      label.querySelector('.lc > span').textContent = p.rounds
+        ? p.rounds.map((r) => r.title).join(' · ') + ' · about ' + p.minutes + ' min'
+        : p.slots.length + ' questions · about ' + p.minutes + ' min';
+      if (p.rounds) {
+        label.classList.add('lc-rounds');
+        const badge = document.createElement('em');
+        badge.className = 'lc-badge';
+        badge.textContent = 'New';
+        label.querySelector('strong').appendChild(badge);
+      }
       lc.appendChild(label);
     }
     $('#f-name').value = settings.name;
@@ -492,9 +501,84 @@
   }
 
   function setPersona(who) {
+    const live = state.call && !$('#caller-card').hidden;
     $('#avatar').classList.toggle('customer', who === 'customer');
-    $('#who-label').textContent = who === 'customer' ? 'Customer · mock call' : INTERVIEWER + ' · Interviewer';
-    $('#cap-who').textContent = who === 'customer' ? 'Customer' : INTERVIEWER;
+    $('#who-label').textContent = who === 'customer' ? (live ? state.call.customerName + ' · Live call' : 'Customer · mock call') : INTERVIEWER + ' · Interviewer';
+    $('#cap-who').textContent = who === 'customer' ? (live ? state.call.customerName : 'Customer') : INTERVIEWER;
+  }
+
+  const clock = (ms) => {
+    const sec = Math.max(0, Math.round(ms / 1000));
+    return Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0');
+  };
+  const BANNER_HTML = $('#roleplay-banner').innerHTML;
+  const MOOD_LABEL = (m) => (m >= 80 ? 'Furious' : m >= 60 ? 'Upset' : m >= 40 ? 'Uneasy' : m >= 20 ? 'Calm' : 'Happy');
+
+  /** The 4-round assessment: the round stepper, the topic card and the live caller card. */
+  function renderRound(step) {
+    const bar = $('#rounds-bar');
+    const r = step.round;
+    bar.hidden = !r;
+    $('#dots').hidden = !!r;
+    if (r) {
+      const rounds = state.session && state.session.plan ? state.session.plan.length : r.of;
+      if (bar.children.length !== rounds) {
+        bar.innerHTML = '';
+        const titles = (Questions.PLANS[settings.length] && Questions.PLANS[settings.length].rounds) || [];
+        for (let i = 0; i < rounds; i++) {
+          const li = document.createElement('li');
+          li.innerHTML = '<span class="rb-n">' + (i + 1) + '</span><span class="rb-t"></span>';
+          li.querySelector('.rb-t').textContent = titles[i] ? titles[i].title : 'Round ' + (i + 1);
+          bar.appendChild(li);
+        }
+      }
+      Array.from(bar.children).forEach((li, i) => { li.className = i < r.n - 1 ? 'done' : i === r.n - 1 ? 'now' : ''; });
+      $('#room-q').textContent = 'Round ' + r.n + ' of ' + r.of + ' · ' + r.title;
+    }
+    // Topic talk: the word, big, with the time left.
+    const tc = $('#topic-card');
+    tc.hidden = !step.topic;
+    if (step.topic) {
+      $('#topic-word').textContent = step.topic.word;
+      $('#topic-time').textContent = clock(Math.min(180000, (step.maxSeconds || 180) * 1000));
+      $('#topic-angles').textContent = step.topic.angles && step.topic.angles.length ? 'Ideas: ' + step.topic.angles.join(' · ') : '';
+    }
+    // Live call: who is calling, what about, how angry they are, and the call clock.
+    const cc = $('#caller-card');
+    const call = step.call;
+    if (!call) {
+      if (!cc.hidden) $('#roleplay-banner').innerHTML = BANNER_HTML;
+      cc.hidden = true;
+      if (state.callTimer) clearInterval(state.callTimer);
+      state.callTimer = null;
+      state.callStart = 0;
+      state.call = null;
+      return;
+    }
+    state.call = call;
+    if (cc.hidden) {
+      cc.hidden = false;
+      $('#caller-avatar').textContent = call.customerName.split(/\s+/).map((w) => w.charAt(0)).join('').slice(0, 2).toUpperCase();
+      $('#caller-name').textContent = call.customerName;
+      $('#caller-meta').textContent = call.persona + ' · ' + call.scenario;
+      const banner = $('#roleplay-banner');
+      banner.innerHTML = '<span class="tally" aria-hidden="true"></span><strong>Live call:</strong> ';
+      banner.appendChild(document.createTextNode('you are the support agent at ' + call.company + '. Help the customer as you would on the floor.'));
+    }
+    const mood = Math.max(0, Math.min(100, call.mood));
+    cc.style.setProperty('--mood', String(mood));
+    cc.dataset.trend = call.delta == null ? '' : call.delta > 2 ? 'up' : call.delta < -2 ? 'down' : '';
+    $('#caller-mood-label').textContent = MOOD_LABEL(mood);
+    $('#mood-meter').setAttribute('aria-valuenow', String(mood));
+    $('#mood-meter').setAttribute('aria-valuetext', MOOD_LABEL(mood) + ', anger ' + mood + ' of 100');
+  }
+
+  function startCallClock() {
+    if (state.callStart) return;
+    state.callStart = performance.now();
+    const tick = () => { $('#caller-timer').textContent = clock(performance.now() - state.callStart) + ' / 3:00'; };
+    tick();
+    state.callTimer = setInterval(tick, 500);
   }
 
   function setButtons(listening, canRepeat) {
@@ -520,6 +604,7 @@
     });
     $('#room-q').textContent = 'Question ' + (step.index + 1) + ' of ' + step.total + ' · ' + step.stageLabel;
     $('#roleplay-banner').hidden = step.kind !== 'roleplay';
+    renderRound(step);
   }
 
   /** persist=false for automatic fallbacks, so only the candidate's own choice is remembered. */
@@ -562,6 +647,7 @@
 
   function startElapsed() {
     clearInterval(state.elapsedTimer);
+    if (state.callTimer) clearInterval(state.callTimer);
     state.elapsedTimer = setInterval(() => {
       const s = Math.floor((Date.now() - state.startedAt) / 1000);
       $('#room-elapsed').textContent = Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
@@ -964,6 +1050,10 @@
         const now = performance.now();
         const elapsed = now - t0;
         setTimer(1 - elapsed / maxMs);
+        if (step.topic) {
+          const left = clock(Math.min(180000, maxMs - elapsed)); // three minutes to talk (plus a little time to think)
+          if ($('#topic-time').textContent !== left) $('#topic-time').textContent = left;
+        }
         const text = rec ? (rec.text() + ' ' + rec.interim()).trim() : '';
         const live = !!rec && rec.live !== false;
         const words = live ? Voice.wordCount(text) : null;
@@ -1043,6 +1133,14 @@
             interject(idle.say, roleplay && idle.action === 'nudge' ? 'customer' : 'interviewer');
             return;
           }
+        } else if (step.longTalk && cue !== 'strong' && sinceVoiceMs != null && sinceVoiceMs >= 5000 && !(rec && rec.interim()) &&
+          (ctl.angles || 0) < 2 && elapsed < maxMs - 30000) {
+          // A three-minute talk: a silence is a chance to suggest another angle, not the end.
+          const angles = (step.topic && step.topic.angles) || [];
+          const angle = angles[(ctl.angles || 0) % Math.max(1, angles.length)];
+          ctl.angles = (ctl.angles || 0) + 1;
+          interject(angle ? 'Keep going. You could also talk about ' + angle + '.' : 'Keep going, you still have time.');
+          return;
         } else if (settings.silenceSec > 0 || cue === 'strong' || !live) {
           // "Until I say that's all" needs live words; the offline engine only hears it
           // after transcribing, so there a long pause ends the answer instead.
@@ -1052,7 +1150,7 @@
             started: true,
             sinceVoiceMs,
             sinceResultMs,
-            patienceMs: settings.silenceSec > 0 ? settings.silenceSec * 1000 : live ? 60000 : 8000,
+            patienceMs: step.longTalk ? 7000 : settings.silenceSec > 0 ? settings.silenceSec * 1000 : live ? 60000 : 8000,
             idealWords,
             roleplay,
             cue,
@@ -1294,7 +1392,7 @@
           timing: { latencyMs: onset != null ? Math.max(0, onset) : null, speakingMs, totalMs },
           audio: trusted,
           clip: skipped ? null : clip,
-          events: { repeats: ctl.repeats, skipped: skipped || !text.trim(), pasted: false, timedOut: !!x.timedOut },
+          events: { repeats: ctl.repeats, skipped: skipped || !text.trim(), pasted: false, timedOut: !!x.timedOut, callElapsedMs: state.callStart ? performance.now() - state.callStart : undefined },
         });
       }
       ctl.finish = finish;
@@ -1359,6 +1457,7 @@
     if (state.userAction) state.userAction(false);
     if (state.ctl && !state.ctl.done && state.ctl.finish) state.ctl.finish({ skipped: true });
     clearInterval(state.elapsedTimer);
+    if (state.callTimer) clearInterval(state.callTimer);
     stopMedia();
   }
 
@@ -1606,6 +1705,7 @@
     $('#room-q').textContent = 'Connecting…';
     $('#dots').innerHTML = '';
     $('#roleplay-banner').hidden = true;
+    renderRound({});
     captionWords('');
     renderYou('', '');
     youPanel('idle', 'You', '');
@@ -1668,6 +1768,7 @@
       if (state.endRequested) break;
       showPromptCaption(step);
       setPersona(step.kind === 'roleplay' ? 'customer' : 'interviewer');
+      if (step.call) startCallClock();
       const answer = await listenTurn(step);
       if (!alive()) return;
       // Ended while the interviewer waited for this answer: an unanswered question is left out, like the rest.
@@ -1703,6 +1804,7 @@
     if (!alive()) return;
     state.running = false;
     clearInterval(state.elapsedTimer);
+    if (state.callTimer) clearInterval(state.callTimer);
     await finishInterview(gen);
   }
 
@@ -1723,6 +1825,7 @@
     if (state.cancelTap) state.cancelTap();
     state.running = false;
     clearInterval(state.elapsedTimer);
+    if (state.callTimer) clearInterval(state.callTimer);
     stopMedia();
     Speech.cancel();
     goHome();
@@ -1950,6 +2053,12 @@
     closedForPrint.forEach((d) => { d.open = false; });
     closedForPrint = [];
   });
+
+  // "4-round assessment" on the home page: pick that mode, then go to the setup form.
+  $$('[data-pick-length]').forEach((a) => a.addEventListener('click', () => {
+    const el = form.querySelector('input[name="length"][value="' + a.getAttribute('data-pick-length') + '"]');
+    if (el) { el.checked = true; readSetup(); }
+  }));
 
   $$('[data-sample]').forEach((btn) => btn.addEventListener('click', () => {
     const profile = btn.getAttribute('data-sample');

@@ -15,6 +15,8 @@
   const Text = isNode ? require('./textUtils.js') : root.AII.Text;
   const Questions = isNode ? require('./questionBank.js') : root.AII.Questions;
   const Analyzer = isNode ? require('./analyzer.js') : root.AII.Analyzer;
+  const CallSim = isNode ? require('./callsim.js') : root.AII.CallSim;
+  const CallContent = isNode ? require('./callContent.js') : root.AII.CallContent;
 
   const ACKS = {
     high: ['Great answer, thank you.', "Excellent, that's very clear.", "That's a strong answer.", 'Very well put, thank you.', 'I like that, thank you.'],
@@ -43,12 +45,54 @@
   // Follow-ups that already open with an acknowledgement get no extra "Thanks." in front.
   const ACK_START = /^(?:thank(?:s| you)\b|that'?s (?:a good|fine|okay|alright)|that is (?:completely )?fine|i understand|i see\b|good to hear|okay\b|alright\b|great\b|understood\b|salary matters)/i;
 
+  const NUMBER_WORDS = ['zero', 'one', 'two', 'three', 'four', 'five'];
+
+  /** The topic-talk round for one random word: the word becomes part of the rubric. */
+  function topicQuestion(q, topic) {
+    const fillWord = (t) => String(t).replace(/\{word\}/g, topic.word);
+    const terms = topic.terms.concat([topic.word.toLowerCase()]);
+    return Object.assign({}, q, {
+      text: fillWord(q.text),
+      display: fillWord(q.display),
+      topic: { word: topic.word, angles: topic.angles || [] },
+      concepts: [{ id: 'topic', label: 'Staying on “' + topic.word + '”', weight: 1.5, terms }].concat(q.concepts || []),
+    });
+  }
+
+  /** The live-call round for one random customer: their problem shapes the rubric. */
+  function liveQuestion(q, sim) {
+    const sc = sim.scenario;
+    return Object.assign({}, q, {
+      text: 'Live call: ' + sc.title.charAt(0).toLowerCase() + sc.title.slice(1) + ' (' + sim.persona.label.toLowerCase() + ' customer)',
+      tip: sc.goodPractice || q.tip,
+      scenarioId: sc.id,
+      personaId: sim.persona.id,
+      issueTerms: sc.issueTerms,
+    });
+  }
+
   function createSession(opts) {
     const o = Object.assign({ length: 'standard', role: 'general', experience: 'fresher', mode: 'voice', interviewerName: 'Tushar AI' }, opts);
     const rand = Text.rng(o.seed != null ? o.seed : Date.now());
+    const planDef = Questions.PLANS[o.length] || Questions.PLANS.standard;
     const plan = Questions.buildPlan({ length: o.length, role: o.role, experience: o.experience, random: rand });
-    const items = plan.map((q) => ({ question: q, parts: [], followUps: [], turns: [], pendingCustomer: null }));
-    const maxFollowUps = o.maxFollowUps != null ? o.maxFollowUps : MAX_FOLLOWUPS[o.length] || 4;
+    const items = plan.map((q, i) => {
+      const item = { question: q, parts: [], followUps: [], turns: [], pendingCustomer: null, sim: null, round: null };
+      if (q.slot === 'topic') item.question = topicQuestion(q, pickTopic());
+      if (q.live) {
+        item.sim = CallSim.createCall({ random: rand, gender: o.customerGender, scenarioId: o.scenarioId, personaId: o.personaId });
+        item.question = liveQuestion(q, item.sim);
+      }
+      if (planDef.rounds && planDef.rounds[i]) item.round = Object.assign({ n: i + 1, of: plan.length }, planDef.rounds[i]);
+      return item;
+    });
+    const maxFollowUps = o.maxFollowUps != null ? o.maxFollowUps : planDef.maxFollowUps != null ? planDef.maxFollowUps : MAX_FOLLOWUPS[o.length] || 4;
+
+    function pickTopic() {
+      const all = CallContent.TOPICS;
+      const fixed = o.topicWord && all.find((t) => t.word.toLowerCase() === String(o.topicWord).toLowerCase());
+      return fixed || all[Math.floor(rand() * all.length) % all.length];
+    }
     let followUpsUsed = 0;
     let idx = 0;
     let step = null;
@@ -87,6 +131,12 @@
       const ending = b.pauseEnds
         ? "When you finish an answer, simply pause, or say that's all."
         : "When you finish an answer, say that's all, or press I'm done.";
+      if (p.rounds) {
+        return 'This assessment is for the ' + role.short + ' position. It has ' + (NUMBER_WORDS[items.length] || items.length) + ' rounds: ' +
+          'you introduce yourself, tell me why you want to work in a BPO, talk for up to three minutes on a random word, ' +
+          'and then handle a live customer call. It takes about ' + p.minutes.replace(/\s*[–-]\s*/, ' to ') + ' minutes. ' +
+          ending + " Let's begin.";
+      }
       return 'This interview is for the ' + role.short + ' position. It has ' + items.length + ' questions and takes about ' +
         p.minutes.replace(/\s*[–-]\s*/, ' to ') + ' minutes. If you want to hear a question again, just say repeat. ' +
         ending + " Let's get started.";
@@ -96,8 +146,16 @@
       const q = item.question;
       const speak = [];
       if (lead) speak.push({ text: lead, voice: 'interviewer' });
-      if (q.stageLabel !== lastStage && lastStage !== null && TRANSITIONS[q.stageLabel]) speak.push({ text: TRANSITIONS[q.stageLabel], voice: 'interviewer' });
+      if (item.round) speak.push({ text: 'Round ' + (NUMBER_WORDS[item.round.n] || item.round.n) + ': ' + item.round.title.toLowerCase() + '.', voice: 'interviewer' });
+      else if (q.stageLabel !== lastStage && lastStage !== null && TRANSITIONS[q.stageLabel]) speak.push({ text: TRANSITIONS[q.stageLabel], voice: 'interviewer' });
       lastStage = q.stageLabel;
+      if (q.live) {
+        speak.push({ text: 'You are a customer support agent at ' + item.sim.scenario.company + ". I'll put a customer through now. They could be in any mood, so handle the call exactly as you would on the floor. The call lasts about three minutes.", voice: 'interviewer' });
+        const line = item.sim.opening();
+        item.pendingCustomer = line;
+        speak.push({ text: line, voice: 'customer' });
+        return makeStep('roleplay', item, speak, line, 0);
+      }
       if (q.type === 'roleplay') {
         speak.push({ text: q.intro, voice: 'interviewer' });
         const line = q.turns[0].customer;
@@ -125,6 +183,11 @@
         turn: turn == null ? null : turn,
         turns: q.turns ? q.turns.length : null,
         followUpsUsed,
+        round: item.round,
+        topic: q.topic || null,
+        longTalk: !!q.longTalk,
+        prepSeconds: q.prepSeconds || 0,
+        call: item.sim ? item.sim.snapshot() : null,
       };
     }
 
@@ -184,6 +247,17 @@
       return { done: false, step };
     }
 
+    /** What the interviewer says when the live call ends. */
+    function callEnding(sum) {
+      const how = {
+        resolved: sum.moodEnd <= 45 ? 'You calmed the customer down and resolved the problem.' : 'The problem is resolved, though the customer is still not happy.',
+        unresolved: 'The customer was left without a clear solution.',
+        hangup: 'The customer hung up.',
+        time: "We're out of time on that call.",
+      }[sum.endedBy] || '';
+      return "That's the end of the call. " + how;
+    }
+
     function nextCustomerLine(q, item) {
       const spec = q.turns[item.turns.length];
       if (!spec) return null;
@@ -204,6 +278,26 @@
       const item = items[idx];
       const q = item.question;
       const ans = Object.assign({ mode: o.mode, events: {} }, answer);
+
+      if (q.live) {
+        const agent = (ans.text || '').trim();
+        item.turns.push({ customer: item.pendingCustomer, agent, timing: ans.timing, audio: ans.audio, events: ans.events, mode: ans.mode });
+        const skipped = !!(ans.events && ans.events.skipped) && !agent;
+        const r = skipped ? { line: '', done: true } : item.sim.reply(agent, { elapsedMs: ans.events && ans.events.callElapsedMs });
+        if (!r.done) {
+          item.pendingCustomer = r.line;
+          step = makeStep('roleplay', item, [{ text: r.line, voice: 'customer' }], r.line, item.turns.length);
+          step.call.delta = r.delta;
+          return { done: false, step };
+        }
+        const analysis = Analyzer.analyzeAnswer(q, combine(item));
+        const res = advance(skipped ? skippedAck() : callEnding(item.sim.summary()));
+        if (r.line) {
+          const target = res.step ? res.step.speak : res.speak;
+          target.unshift({ text: r.line, voice: 'customer' });
+        }
+        return Object.assign(res, { analysis, call: item.sim.summary() });
+      }
 
       if (q.type === 'roleplay') {
         item.turns.push({ customer: item.pendingCustomer, agent: (ans.text || '').trim(), timing: ans.timing, audio: ans.audio, events: ans.events, mode: ans.mode });
@@ -265,6 +359,7 @@
       return {
         text: texts.join(' '),
         turns: q.type === 'roleplay' ? item.turns.map((t) => ({ customer: t.customer, agent: t.agent })) : undefined,
+        call: item.sim ? item.sim.summary() : undefined,
         mode,
         timing,
         audio,
@@ -317,6 +412,7 @@
             mainText: main ? main.answer.text || '' : null,
             followUps: it.parts.filter((p) => p.kind === 'followup').map((p) => ({ text: p.prompt, answer: p.answer.text || '' })),
             analysis: Analyzer.analyzeAnswer(it.question, response),
+            round: it.round,
           };
         });
     }

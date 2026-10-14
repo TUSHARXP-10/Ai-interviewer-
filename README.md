@@ -94,6 +94,17 @@ To check the build locally: `npm run build`, then serve `dist/`, e.g. `python3 -
 
 On-screen buttons (Captions, Repeat, Skip, I'm done, End) are there if you want them. Keyboard: <kbd>Enter</kbd> finishes an answer, <kbd>R</kbd> repeats, <kbd>C</kbd> toggles captions.
 
+## The 4-round assessment (new)
+
+A focused 10–12 minute test, picked on the setup page (or from the home page):
+
+1. **Introduction** — flow, confidence, pauses and how quickly you start.
+2. **Why BPO** — whether your reason is genuine: personal and specific, not a recital or money alone.
+3. **Topic talk** — you get one **random word** (60 of them: *Patience, Traffic, Social media, Night shift…*) and talk for up to **three minutes**. It scores your thought process: staying on the word, several points, a real example, why it matters, a conclusion, and how long you keep going. If you dry up, the interviewer suggests another angle.
+4. **Live customer call** — about **three minutes** with a customer who is **different every time**: one of 10 problems (double charge, internet down, unknown card payment, cancelled flight, missing food, rejected claim, wrong bill, recharge not active, wrong product, missing hotel booking) and one of 6 moods (angry, impatient, confused elderly, anxious, polite, sarcastic). The customer reacts to what you actually say: empathy, asking for details, a concrete fix and a timeline calm them down; vague promises, stalling or rudeness make them angrier, and they may hang up. A late complication tests you once things are going well. On screen you see the caller's name, problem, a live mood meter and the call clock.
+
+The scoresheet adds a **round-by-round** card (score and key evidence per round, e.g. *"Mood 85 → 17 · resolved"*). Content lives in `js/callContent.js`, the customer's behaviour in `js/callsim.js`.
+
 ## What the interview covers
 
 | Stage | Example question | What it checks |
@@ -223,7 +234,9 @@ js/questionBank.js    Questions, rubrics, follow-ups, interview plans
 js/analyzer.js        Per-answer signals and 0–100 scores
 js/scoring.js         Interview-level scoresheet, recruiter scale, gates, verdict
 js/explain.js         Evidence behind every score: reasons, strengths, tips, summary
-js/engine.js          Interview flow: follow-ups, reactions, branching mock call
+js/engine.js          Interview flow: follow-ups, reactions, branching mock call, rounds
+js/callsim.js         The live customer for the 4-round assessment (mood, reactions, outcome)
+js/callContent.js     Call problems, customer moods, caller names, topic words
 js/voice.js           Hands-free rules: voice commands, end-of-answer detection, nudges
 js/speech.js          Browser text-to-speech and speech recognition
 js/whisper.js         Offline Whisper speech recognition (transformers.js, loaded on demand)

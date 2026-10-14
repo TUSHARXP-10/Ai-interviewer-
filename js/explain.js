@@ -46,8 +46,21 @@
 
   // ------------------------------------------------------------ per skill
 
+  const MOOD_WORD = (m) => (m >= 80 ? 'furious' : m >= 60 ? 'upset' : m >= 40 ? 'uneasy' : m >= 20 ? 'calm' : 'happy');
+
+  function fmtSec(sec) {
+    const m = Math.floor(sec / 60);
+    const r = Math.round(sec % 60);
+    return m ? m + ' min ' + (r ? r + ' s' : '') : r + ' s';
+  }
+
   function communication(ctx) {
     const out = [];
+    for (const it of ctx.items.filter((x) => x.analysis.talkSec != null)) {
+      const sec = it.analysis.talkSec;
+      const word = it.question.topic ? '“' + it.question.topic.word + '”' : 'the topic';
+      out.push(line(sec >= 120 ? 'good' : sec >= 60 ? 'info' : 'bad', 'Talked for about ' + fmtSec(sec).trim() + ' on ' + word + ' (up to 3 minutes allowed).'));
+    }
     const s = ctx.speech;
     const e = ctx.english;
     if (s.avgWpm) {
@@ -118,6 +131,14 @@
 
   function thought(ctx) {
     const out = [];
+    for (const it of ctx.items.filter((x) => x.question.topic && !x.analysis.skipped)) {
+      const cov = it.analysis.metrics.coverage;
+      const low = (x) => x.charAt(0).toLowerCase() + x.slice(1);
+      const got = cov.matchedLabels.map(low);
+      const miss = cov.missingLabels.map(low);
+      if (got.length) out.push(line(got.length >= 3 ? 'good' : 'info', 'Topic talk on “' + it.question.topic.word + '”: ' + list(got) + '.'));
+      if (miss.length) out.push(line('bad', 'Topic talk did not include: ' + list(miss) + '.'));
+    }
     const open = ctx.items.filter((it) => !it.analysis.skipped && OPEN_TYPES.indexOf(it.question.type) !== -1);
     if (!open.length) return out;
     const withExample = open.filter((it) => {
@@ -166,6 +187,15 @@
 
   function customer(ctx) {
     const out = [];
+    for (const it of ctx.items.filter((x) => x.analysis.liveCall)) {
+      const c = it.analysis.liveCall;
+      const ending = { resolved: 'resolved the problem', unresolved: 'the customer was left without a solution', hangup: 'the customer hung up', time: 'the call ran out of time', open: 'the call ended unfinished' }[c.endedBy] || '';
+      const moved = c.moodStart - c.moodEnd;
+      out.push(line(c.endedBy === 'resolved' && c.moodEnd <= 45 ? 'good' : c.endedBy === 'hangup' || moved < 0 ? 'bad' : 'info',
+        'Live call with ' + (/^[aeiou]/i.test(c.persona) ? 'an ' : 'a ') + c.persona.toLowerCase() + ' customer (' + c.scenario.toLowerCase() + '): went from ' + MOOD_WORD(c.moodStart) + ' to ' + MOOD_WORD(c.moodEnd) +
+        ' (' + c.moodStart + ' → ' + c.moodEnd + ' on a 0–100 anger scale), and ' + ending + '.'));
+      if (c.curveball) out.push(line(c.curveball.handled ? 'good' : 'bad', (c.curveball.handled ? 'Handled' : 'Did not handle') + ' the late complication: “' + c.curveball.line.replace(/[.!?]$/, '') + '”.'));
+    }
     const callItem = ctx.items.find((it) => it.analysis.call);
     if (callItem) {
       const call = callItem.analysis.call;
@@ -196,6 +226,13 @@
 
   function attitude(ctx) {
     const out = [];
+    for (const it of ctx.items.filter((x) => x.analysis.genuine)) {
+      const g = it.analysis.genuine;
+      if (g.money) out.push(line('bad', 'Main reason for choosing BPO sounded like money or a last resort.'));
+      else if (g.personal >= 2 && g.reasons >= 2) out.push(line('good', 'Genuine, personal reason for choosing BPO: ' + quote(it.response.text, 16) + '.'));
+      else if (g.personal === 0) out.push(line('bad', 'Reason for choosing BPO was general, with nothing from their own life or experience.'));
+      else out.push(line('info', 'Gave a reason for choosing BPO, with little personal detail.'));
+    }
     for (const f of ctx.flags.filter((x) => ['customer_hostility', 'dismissive', 'dishonesty'].indexOf(x.id) === -1)) {
       out.push(line(f.severity === 'low' ? 'info' : 'bad', f.label + ': “' + f.evidence + '”.'));
     }
@@ -213,7 +250,7 @@
     }
     const motive = ctx.items.filter((it) => it.question.type === 'motivation' && !it.analysis.skipped);
     const strong = motive.filter((it) => it.analysis.scores.attitude != null && it.analysis.scores.attitude >= 75);
-    if (motive.length && strong.length === motive.length && !ctx.flags.some((f) => f.severity !== 'low')) out.push(line('good', 'Gave genuine reasons for wanting the job (' + quote(strong[0].response.text, 12) + ').'));
+    if (motive.length && strong.length === motive.length && !ctx.flags.some((f) => f.severity !== 'low') && !ctx.items.some((x) => x.analysis.genuine)) out.push(line('good', 'Gave genuine reasons for wanting the job (' + quote(strong[0].response.text, 12) + ').'));
     return out;
   }
 
@@ -300,7 +337,7 @@
       const bad = why[d.key].find((l) => l.tone === 'bad');
       if (bad && d.score < 80) { focus = { key: d.key, label: d.short, score: d.score, evidence: bad.text, tip: TIPS[d.key] }; break; }
     }
-    return { why, strengths, improvements, focus, summary: summary(sheet, why, byHigh, byLow) };
+    return { why, strengths, improvements, focus, rounds: rounds(items), summary: summary(sheet, why, byHigh, byLow) };
   }
 
   const GATE_LABEL = { communication: 'spoken communication', customer: 'customer handling', attitude: 'attitude', confidence: 'confidence', thought: 'problem solving', language: 'written English' };
@@ -333,6 +370,37 @@
     }[sheet.verdict.key];
     if (close) parts.push(close);
     return parts.join(' ');
+  }
+
+  /** One card per round of the 4-round assessment: what was asked and the key evidence. */
+  function rounds(items) {
+    const rs = items.filter((it) => it.round);
+    if (!rs.length) return null;
+    return rs.map((it) => {
+      const a = it.analysis;
+      const m = a.metrics;
+      const notes = [];
+      if (a.skipped) notes.push('Skipped.');
+      else if (a.liveCall) {
+        const c = a.liveCall;
+        notes.push(c.customerName + ', ' + c.persona.toLowerCase() + ': ' + c.scenario.toLowerCase());
+        notes.push('Mood ' + c.moodStart + ' → ' + c.moodEnd + ' · ' + ({ resolved: 'resolved', unresolved: 'not resolved', hangup: 'customer hung up', time: 'out of time', open: 'unfinished' }[c.endedBy] || c.endedBy) + ' · ' + c.turns + ' replies');
+      } else if (it.question.topic) {
+        notes.push('Word: “' + it.question.topic.word + '” · ' + fmtSec(a.talkSec || 0).trim() + ' · ' + m.wordCount + ' words');
+        const cov = m.coverage;
+        if (cov.matchedLabels.length) notes.push(list(cov.matchedLabels.map((x, i) => (i ? x.charAt(0).toLowerCase() + x.slice(1) : x))));
+      } else {
+        const bits = [m.wordCount + ' words'];
+        if (m.wpm) bits.push(Math.round(m.wpm) + ' wpm');
+        if (m.latencySec != null) bits.push(m.latencySec < 1 ? 'started promptly' : 'started after ' + Math.round(m.latencySec * 10) / 10 + ' s');
+        if (m.audio && m.audio.longPauses) bits.push(m.audio.longPauses + ' long pause' + (m.audio.longPauses === 1 ? '' : 's'));
+        notes.push(bits.join(' · '));
+        if (a.genuine) notes.push(a.genuine.money ? 'Reason sounded like money or a last resort' : a.genuine.personal >= 2 ? 'Genuine, personal reason' : a.genuine.personal ? 'Some personal detail' : 'General reasons, nothing personal');
+        else if (m.fillers.per100 >= 2) notes.push('Fillers: ' + m.fillers.top.slice(0, 2).map((t) => '“' + t.term + '” ×' + t.count).join(', '));
+        else if (m.wordCount >= 25) notes.push('Smooth, few fillers');
+      }
+      return { n: it.round.n, title: it.round.title, focus: it.round.focus, qid: it.question.id, notes };
+    });
   }
 
   const api = { explain, quote, shortQ };

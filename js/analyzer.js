@@ -169,8 +169,13 @@
       if (item.id === 'opening' && turns.length) doc = turns[0];
       if (item.id === 'closing' && turns.length) doc = turns[turns.length - 1];
       const hits = findTerms(doc, item.terms).filter((h) => !(item.id !== 'probing' && negatedAt(doc, h.w0, 2)));
-      // A few words either side, so the evidence reads as what was said ("refund within 5 to 7 working days").
-      const ev = hits.length ? snippet(doc, Math.max(0, hits[0].w0 - 2), Math.min(doc.words.length - 1, hits[0].w1 + 5)) : '';
+      // A few words either side, from the one turn where it was said ("refund within 5 to 7 working days").
+      let ev = '';
+      if (hits.length) {
+        const src = doc === all ? turns.find((d) => findTerms(d, item.terms).length) || all : doc;
+        const h = doc === all && src !== all ? findTerms(src, item.terms)[0] : hits[0];
+        ev = snippet(src, Math.max(0, h.w0 - 2), Math.min(src.words.length - 1, h.w1 + 5));
+      }
       return { id: item.id, label: item.label, tip: item.tip, hit: hits.length > 0, evidence: ev };
     });
     const map = {};
@@ -463,6 +468,25 @@
       add('relevance', 'substance', 'Substance (examples & specifics)', dontKnow ? 10 : curve(substance, [[0, 35], [1, 65], [2, 85], [3, 100]]) * onTopic, 0.3);
     }
 
+    // The live call: how the customer's mood moved, and how the call ended.
+    const live = question.type === 'roleplay' && resp.call ? resp.call : null;
+    // The topic talk: how long the candidate kept talking (target: most of three minutes).
+    const talkSec = question.longTalk && !skipped ? Math.max(speakingMs / 1000, wc / 2.3) : null;
+    if (talkSec != null) {
+      const sustain = curve(talkSec, [[10, 10], [30, 30], [60, 55], [100, 78], [140, 92], [165, 100]]);
+      add('communication', 'sustain', 'Kept talking (speaking time)', sustain, 0.25);
+      add('confidence', 'sustain', 'Kept going without drying up', sustain, 0.25);
+      add('thought', 'sustain', 'Enough to say on the topic', sustain, 0.2);
+    }
+    // Why BPO: a genuine reason is personal and specific, not a recital or money alone.
+    let genuine = null;
+    if (question.id === 'why_bpo' && !skipped) {
+      const personal = (story > 0 ? 1 : 0) + (structure.example > 0 ? 1 : 0) + Math.min(1, specificity);
+      const reasons = cov.matched ? cov.matched.length : 0;
+      const money = redFlags.some((f) => f.id === 'money_only' || f.id === 'no_option' || f.id === 'temporary');
+      genuine = { personal, reasons, money, score: Math.max(0, curve(personal * 1.2 + Math.min(reasons, 3) * 0.6, [[0, 15], [1, 40], [2, 62], [3, 82], [4, 100]]) - (rehearsed ? 20 : 0) - (money ? 30 : 0)) };
+    }
+
     // Customer handling
     if (dims.customer) {
       if (skipped) add('customer', 'skipped', 'Question skipped', 0, 1);
@@ -473,6 +497,14 @@
         if (wc >= 12) add('customer', 'clarity', 'Clear English on the call', curve(grammarPer100, [[0, 100], [1, 85], [2.5, 62], [4, 45], [6, 32], [10, 20]]), 0.15);
         // One-line replies tick boxes without reassuring anyone.
         add('customer', 'depth', 'Explains and reassures (not one-liners)', curve(lenWords, [[3, 15], [8, 35], [12, 52], [18, 72], [25, 90], [32, 100]]), 0.15);
+        if (live) {
+          // Calming an angry customer down is the job: where the mood ended, and how far it moved.
+          const calm = 0.6 * curve(live.moodEnd, [[5, 100], [25, 92], [45, 72], [65, 48], [80, 28], [100, 5]]) +
+            0.4 * curve(live.moodStart - live.moodEnd, [[-25, 0], [0, 30], [20, 62], [40, 85], [60, 100]]);
+          const ended = { resolved: 100, time: 50, open: 45, unresolved: 30, hangup: 0 }[live.endedBy];
+          add('customer', 'deescalation', 'Calmed the customer down', calm, 0.5);
+          add('customer', 'outcome', 'How the call ended', ended != null ? ended : 45, 0.35);
+        }
       } else {
         add('customer', 'empathy', 'Empathy language', curve(empathyHits.length, [[0, 15], [1, 55], [2, 80], [3, 100]]), 0.45);
         if (covScore != null) add('customer', 'approach', 'Customer-handling approach', covScore, 0.55);
@@ -489,6 +521,7 @@
         add('attitude', 'politeness', 'Courtesy', curve(politeHits.length, [[0, 50], [1, 75], [2, 90], [3, 100]]), 0.6);
         add('attitude', 'tone', 'Positive tone', sentiScore, 0.4);
       } else {
+        if (genuine) add('attitude', 'genuine', 'A genuine, personal reason', genuine.score, 0.6);
         // A story about a problem is full of "upset" and "angry": that is not the candidate's tone.
         if (question.type !== 'behavioral' && question.type !== 'situational') add('attitude', 'tone', 'Positive tone', sentiScore, 0.35);
         if (covScore != null) add('attitude', 'motivation', 'Motivation & fit', covScore, 0.65);
@@ -547,6 +580,9 @@
       askedQuestion,
       rehearsed,
       noStory: needsStory,
+      liveCall: live,
+      talkSec: talkSec != null ? Math.round(talkSec) : null,
+      genuine,
       scores,
       components: comps,
       events: { repeats: events.repeats || 0, pasted: !!events.pasted, timedOut: !!events.timedOut, skipped: !!events.skipped },

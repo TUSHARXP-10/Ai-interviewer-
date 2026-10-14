@@ -41,6 +41,8 @@
     listening: 'English & Listening',
     correction: 'English & Listening',
     extempore: 'Speaking Exercise',
+    topic: 'Topic Talk',
+    livecall: 'Live Call',
     shifts: 'Flexibility',
     self: 'Self-awareness',
     future: 'Self-awareness',
@@ -59,6 +61,19 @@
       minutes: '18–22',
       slots: ['intro', 'background', 'motivation', 'why_hire', 'knowledge', 'situational', 'behavioral',
         'roleplay', 'listening', 'correction', 'shifts', 'self', 'future', 'closing'],
+    },
+    // Four rounds, each testing one thing in depth. A slot starting with "=" is one fixed question.
+    assessment: {
+      label: '4-round assessment',
+      minutes: '10–12',
+      slots: ['intro', '=why_bpo', 'topic', 'livecall'],
+      rounds: [
+        { title: 'Introduction', focus: 'Flow, confidence and pauses' },
+        { title: 'Why BPO', focus: 'A genuine, specific reason' },
+        { title: 'Topic talk', focus: 'Thought process on a random word' },
+        { title: 'Live call', focus: 'Handling a real customer' },
+      ],
+      maxFollowUps: 0,
     },
     full: {
       label: 'Full assessment',
@@ -692,6 +707,29 @@
       tip: 'Give a one-line summary, then two reasons you like it, with one specific scene or detail. End with what it taught you.',
     },
 
+    // ---------------- 4-round assessment: topic talk and live call (filled in per session by the engine)
+    {
+      id: 'topic_talk', slot: 'topic', type: 'extempore', longTalk: true,
+      text: 'Your word is: {word}. Talk about it for up to three minutes: what it means to you, an example from your life, and why it matters. Take a few seconds to think, then begin. Say that\'s all when you finish.',
+      display: 'Your word: {word}. Talk about it for up to three minutes.',
+      dims: { communication: 1.5, confidence: 1.2, thought: 2, relevance: 1 },
+      minWords: 120, ideal: [250, 450], maxSeconds: 200, prepSeconds: 20, coverageTarget: 0.6,
+      concepts: [
+        { id: 'points', label: 'Several distinct points', weight: 1, terms: ['first', 'firstly', 'second', 'secondly', 'another', 'also', 'apart from that', 'on the other hand', 'moreover', 'besides', 'one more', 'next', 'then'] },
+        { id: 'example', label: 'A real example', weight: 1.2, terms: ['for example', 'for instance', 'once', 'one time', 'i remember', 'when i was', 'in my life', 'my friend', 'my mother', 'my father', 'last year', 'one day', 'in my experience', 'personally'] },
+        { id: 'why', label: 'Why it matters', weight: 1, terms: ['because', 'that is why', 'which is why', 'important', 'matters', 'helps', 'so that', 'the reason'] },
+        { id: 'conclusion', label: 'A conclusion', weight: 0.8, terms: ['so overall', 'overall', 'in the end', 'to conclude', 'in conclusion', 'to sum up', 'finally', 'that is all', 'at the end of the day', 'in short'] },
+      ],
+      tip: 'Open with what the word means to you, make two or three points with one real example, and end with a one-line conclusion. Keep talking steadily; a short pause to think is fine.',
+    },
+    {
+      id: 'live_call', slot: 'livecall', type: 'roleplay', live: true, checklist: 'support',
+      text: 'Live customer call',
+      dims: { communication: 1.2, confidence: 1, thought: 0.6, relevance: 1, customer: 3.5, attitude: 0.5 },
+      minWords: 12, ideal: [20, 80], maxSeconds: 60, coverageTarget: 0.75,
+      tip: 'Greet, apologise and acknowledge the exact problem, verify the details, give a concrete fix with a timeline or reference number, handle any extra worry calmly, and close politely.',
+    },
+
     // ---------------- Flexibility
     {
       id: 'shifts', slot: 'shifts', type: 'flexibility',
@@ -775,7 +813,9 @@
     const used = new Set();
     const out = [];
     for (const slot of plan.slots) {
-      const pool = QUESTIONS.filter((q) => q.slot === slot && !used.has(q.id) && eligible(q, opts.role, opts.experience));
+      const pool = slot.charAt(0) === '='
+        ? QUESTIONS.filter((q) => q.id === slot.slice(1))
+        : QUESTIONS.filter((q) => q.slot === slot && !used.has(q.id) && eligible(q, opts.role, opts.experience));
       if (!pool.length) continue;
       const q = pool[Math.floor(rand() * pool.length)];
       used.add(q.id);

@@ -459,6 +459,12 @@
     sheet.improvements = ex.improvements;
     sheet.summary = ex.summary;
     sheet.focus = ex.focus;
+    if (ex.rounds) {
+      sheet.rounds = ex.rounds.map((r) => {
+        const q = sheet.questions.find((x) => x.id === r.qid);
+        return Object.assign(r, { score: q ? (q.skipped ? null : q.quality) : null });
+      });
+    }
     return sheet;
   }
 

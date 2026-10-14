@@ -38,6 +38,11 @@
             <a class="btn btn-primary btn-big btn-live" href="#setup"><span class="tally" aria-hidden="true"></span>Start the interview</a>
             <button class="btn btn-big btn-glass" type="button" data-sample="average">See a sample scoresheet</button>
           </div>
+          <a class="promo-rounds" href="#setup" data-pick-length="assessment">
+            <span class="promo-head"><em class="lc-badge">New</em><strong>4-round assessment</strong><span class="promo-time">10–12 min</span></span>
+            <span class="promo-steps"><i><b>1</b>Introduction</i><i><b>2</b>Why BPO</i><i><b>3</b>Random word · 3 min</i><i><b>4</b>Live customer call · 3 min</i></span>
+            <span class="promo-note">Every call is different: an angry, confused, impatient or worried customer with a new problem each time.</span>
+          </a>
           <dl class="stats">
             <div><dt>Questions</dt><dd>42</dd></div>
             <div><dt>Skills scored</dt><dd>7</dd></div>
@@ -251,6 +256,7 @@
         <div class="call-progress">
           <span id="room-q">Connecting…</span>
           <div class="dots" id="dots" aria-hidden="true"></div>
+          <ol class="rounds-bar" id="rounds-bar" aria-label="Rounds" hidden></ol>
         </div>
       </div>
 
@@ -281,6 +287,21 @@
 
         <p class="call-state" id="state-pill" data-state="idle">Connecting…</p>
         <p class="sr-only" id="sr-status" role="status" aria-live="polite"></p>
+        <div class="topic-card" id="topic-card" hidden>
+          <span class="topic-eyebrow">Your word</span>
+          <strong class="topic-word" id="topic-word"></strong>
+          <span class="topic-time" id="topic-time" aria-label="Time left">3:00</span>
+          <p class="topic-angles" id="topic-angles"></p>
+        </div>
+        <div class="caller-card" id="caller-card" hidden>
+          <span class="caller-avatar" id="caller-avatar" aria-hidden="true"></span>
+          <span class="caller-info"><strong id="caller-name"></strong><span id="caller-meta"></span></span>
+          <span class="caller-timer" id="caller-timer">0:00 / 3:00</span>
+          <span class="caller-mood">
+            <span class="caller-mood-head"><span>Customer mood</span><b id="caller-mood-label">Upset</b></span>
+            <span class="mood-track" id="mood-meter" role="meter" aria-label="Customer anger" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50"><span class="mood-fill"></span></span>
+          </span>
+        </div>
         <div class="roleplay-banner" id="roleplay-banner" hidden><span class="tally" aria-hidden="true"></span><strong>Mock call:</strong> you are the support agent. Talk to the customer as you would on a real call.</div>
 
         <div class="captions" id="captions" hidden aria-live="off">
@@ -351,6 +372,8 @@
   <script src="js/analyzer.js"></script>
   <script src="js/explain.js"></script>
   <script src="js/scoring.js"></script>
+  <script src="js/callContent.js"></script>
+  <script src="js/callsim.js"></script>
   <script src="js/engine.js"></script>
   <script src="js/demo.js"></script>
   <script src="js/voice.js"></script>
