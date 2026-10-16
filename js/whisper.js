@@ -357,7 +357,8 @@
     function silenceDb() {
       // Treat anything near the room's noise level as silence when trimming.
       const floor = o.meter && Number.isFinite(o.meter.noiseFloor) ? o.meter.noiseFloor : -55;
-      return Math.min(-30, Math.max(-60, floor + 10));
+      // A soft voice can be only a few dB above a fan or air conditioner: keep it.
+      return Math.min(-36, Math.max(-62, floor + 6));
     }
 
     /** Send the phrase heard so far to be transcribed (the worker keeps them in order). */

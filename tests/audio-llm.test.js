@@ -64,23 +64,46 @@ test('local AI: scores are parsed and scaled, failures return null', async () =>
   }
 });
 
-test('the meter stops counting as running when the microphone is disconnected', async () => {
+// A stand-in audio engine (the meter shares one for the whole page): `signal` fills each
+// 2048-sample frame the meter analyses.
+let signal = (buf) => buf.fill(0);
+globalThis.AudioContext = class {
+  constructor() { this.state = 'running'; this.sampleRate = 48000; }
+  createMediaStreamSource() { return { connect() {}, disconnect() {} }; }
+  createAnalyser() { return { fftSize: 2048, connect() {}, getFloatTimeDomainData: (buf) => signal(buf) }; }
+};
+const fakeStream = () => {
   const track = { readyState: 'live', stop() { this.readyState = 'ended'; } };
-  const stream = { getAudioTracks: () => [track], getTracks: () => [track] };
-  globalThis.AudioContext = class {
-    constructor() { this.state = 'running'; this.sampleRate = 48000; }
-    createMediaStreamSource() { return { connect() {}, disconnect() {} }; }
-    createAnalyser() { return { fftSize: 2048, connect() {}, getFloatTimeDomainData() {} }; }
-  };
+  return { track, getAudioTracks: () => [track], getTracks: () => [track] };
+};
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
+test('the meter stops counting as running when the microphone is disconnected', async () => {
+  const stream = fakeStream();
   const meter = globalThis.AII.Audio.createMeter();
   try {
     await meter.start(stream);
     assert.equal(meter.running, true);
-    track.readyState = 'ended'; // headset unplugged, Bluetooth link dropped
+    stream.track.readyState = 'ended'; // headset unplugged, Bluetooth link dropped
     assert.equal(meter.running, false, 'a dead track is not a working microphone');
   } finally {
     meter.stop();
-    delete globalThis.AudioContext;
+  }
+});
+
+test('a soft voice only a little above the room noise counts as speech', async () => {
+  const meter = globalThis.AII.Audio.createMeter();
+  try {
+    signal = (buf) => { for (let i = 0; i < buf.length; i++) buf[i] = (Math.random() * 2 - 1) * 0.00308; }; // fan noise, about -55 dBFS
+    await meter.start(fakeStream());
+    await wait(1500);
+    assert.equal(meter.voiced, false, 'room noise alone is not speech');
+    signal = (buf) => { for (let i = 0; i < buf.length; i++) buf[i] = 0.0089 * Math.sin(i / 7); }; // a soft voice, about -44 dBFS
+    await wait(300);
+    assert.equal(meter.voiced, true, 'heard without having to raise the voice');
+  } finally {
+    meter.stop();
+    signal = (buf) => buf.fill(0);
   }
 });
 

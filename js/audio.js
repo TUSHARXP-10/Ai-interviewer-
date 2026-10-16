@@ -168,7 +168,9 @@
       const p10 = recent.slice().sort((x, y) => x - y)[Math.floor(recent.length * 0.1)];
       noiseFloor = recent.length < 12 ? p10 : 0.9 * noiseFloor + 0.1 * p10;
       noiseFloor = Math.max(-100, Math.min(noiseFloor, -25));
-      const threshold = Math.min(-30, Math.max(-58, noiseFloor + 12));
+      // A normal speaking voice is clearly above the room, but not by much on quiet laptop
+      // mics: too high a bar makes people raise their voice to be heard.
+      const threshold = Math.min(-36, Math.max(-60, noiseFloor + 9));
       voiced = db > threshold;
       const now = performance.now();
       if (voiced) lastVoiceAt = now;
