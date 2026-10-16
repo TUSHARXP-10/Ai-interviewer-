@@ -210,6 +210,7 @@
       startedAt,
       endedAt: startedAt + clock,
       integrity: { tabSwitches: 0, pastes: 0, repeats: 0 },
+      proctoring: o.proctoring || null, // camera proctoring results, when a test supplies them
     });
     return { sheet, transcript, session };
   }

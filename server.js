@@ -113,7 +113,7 @@ if (LAN) {
       shown.forEach((a, i) => console.log('    ' + (i === 0 ? '👉 ' : '   ') + 'https://' + a.address + ':' + PORT + (shown.length > 1 ? '   (' + a.name + ')' : '')));
       console.log('\n  The phone will warn that the connection is "not private": this is your own');
       console.log('  certificate' + (reused ? '' : ', just created') + '. Tap Advanced → Proceed (Chrome) or Show Details →');
-      console.log('  visit this website (Safari). Then allow the microphone.\n');
+      console.log('  visit this website (Safari). Then allow the microphone and camera.\n');
       console.log('  Can\'t connect? Allow Node.js through the firewall (Windows asks once: tick');
       console.log('  "Private networks"), and check both are on the same Wi-Fi. Guest and office');
       console.log('  Wi-Fi often block devices from seeing each other: use your phone\'s hotspot.\n');
@@ -125,7 +125,7 @@ if (LAN) {
   server.on('error', fail);
   server.listen(PORT, HOST, () => {
     console.log('\n  AI Interviewer is running →  http://localhost:' + PORT + '\n');
-    console.log('  Open it in Chrome or Edge, allow the microphone, and good luck!');
+    console.log('  Open it in Chrome or Edge, allow the microphone and camera, and good luck!');
     console.log('  To use it on your phone over Wi-Fi, run: npm run lan');
     console.log('  Press Ctrl+C to stop.\n');
   });

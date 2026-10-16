@@ -6,6 +6,7 @@ A free **voice** interviewer for **BPO and customer-service jobs**. It works lik
 - **No API keys, no payment, no sign-up.** It runs entirely in your browser.
 - **Works in any modern browser.** Chrome and Edge use their built-in speech recognition; other browsers (Firefox, Brave…) use a free **offline Whisper model** that runs on your device.
 - **Hear yourself back.** Every answer is recorded (on your device only) so you can replay it next to its feedback.
+- **AI-proctored, camera on.** Like a video call, your camera stays on and an AI on your device checks that you stay in view, alone and looking at the screen, with no phone, and on this window. Three warnings end the interview, and the scoresheet gets an integrity rating with photos of the flagged moments.
 - **Transparent scoring model.** Every score traces back to concrete signals in your answers.
 - **Optional free local AI.** If you have [Ollama](https://ollama.com) installed, a local model can review each answer as a second opinion.
 
@@ -75,11 +76,12 @@ To check the build locally: `npm run build`, then serve `dist/`, e.g. `python3 -
 
 ## How the voice interview works
 
-1. **Mic check.** Tushar AI greets you and asks you to say *"I'm ready"*. The **You** panel under the orb shows your mic level and the words it understands as you speak, then *"✓ Got it! Your microphone works"*. If your voice comes through without words, Tushar AI adjusts how it listens, then switches to the offline engine; if nothing comes through, you're told what to check.
-2. **Questions.** Tushar AI speaks each question. The orb turns green while it's your turn to talk, the ring around it shows the time left, and the **You** panel shows your words live (*"Tushar AI hears…"*), then what will be scored (*"You said…"*).
-3. **Turn-taking.** When you stop talking, Tushar AI waits a moment, then replies, waiting longer if you've only just started, so thinking pauses are safe. Short replies such as *"No."* count as answers too. You can set how long the wait is (2, 3 or 5 seconds), or have Tushar AI wait until you say *"that's all"* (with the offline Whisper engine, which only reads your words after you finish, a long pause of about 8 seconds ends the answer instead).
-4. **Voice commands.** Say *"Can you repeat the question?"* or *"pardon?"* to hear it again (even after a false start), *"skip this one"* or *"next"* to move on, or end your answer with *"that's all"* or *"I'm done"*. Tushar AI confirms out loud, so you never need to look at the screen. If you say *"I don't know"*, you get time to think (or say *"skip"*); if you're silent for a while, you get a gentle nudge. In the mock call, the customer asks *"Hello? Are you still there?"*
-5. **Spoken feedback.** After the last question, Tushar AI reads out your score, your strongest area, and your top tip. The full scoresheet opens with ▶ playback (and download) of each of your answers.
+1. **Camera check.** The camera is required. Tushar AI asks you to look at the screen for a moment and calibrates the AI proctor on your normal position (it needs to see you alone, in good light).
+2. **Mic check.** Tushar AI greets you and asks you to say *"I'm ready"*. The **You** panel under the orb shows your mic level and the words it understands as you speak, then *"✓ Got it! Your microphone works"*. If your voice comes through without words, Tushar AI adjusts how it listens, then switches to the offline engine; if nothing comes through, you're told what to check.
+3. **Questions.** Tushar AI speaks each question. The orb turns green while it's your turn to talk, the ring around it shows the time left, and the **You** panel shows your words live (*"Tushar AI hears…"*), then what will be scored (*"You said…"*).
+4. **Turn-taking.** When you stop talking, Tushar AI waits a moment, then replies, waiting longer if you've only just started, so thinking pauses are safe. Short replies such as *"No."* count as answers too. You can set how long the wait is (2, 3 or 5 seconds), or have Tushar AI wait until you say *"that's all"* (with the offline Whisper engine, which only reads your words after you finish, a long pause of about 8 seconds ends the answer instead).
+5. **Voice commands.** Say *"Can you repeat the question?"* or *"pardon?"* to hear it again (even after a false start), *"skip this one"* or *"next"* to move on, or end your answer with *"that's all"* or *"I'm done"*. Tushar AI confirms out loud, so you never need to look at the screen. If you say *"I don't know"*, you get time to think (or say *"skip"*); if you're silent for a while, you get a gentle nudge. In the mock call, the customer asks *"Hello? Are you still there?"*
+6. **Spoken feedback.** After the last question, Tushar AI reads out your score, your strongest area, and your top tip. The full scoresheet opens with ▶ playback (and download) of each of your answers.
 
 **If something goes wrong, Tushar AI handles it:**
 
@@ -177,7 +179,7 @@ ollama pull llama3.2      # or qwen2.5:3b, gemma2:2b, phi3:mini
 ollama serve              # usually already running after install
 ```
 
-In the app, open **Voice, camera & local AI settings**, tick **Use a free local AI model**, press **Test**, and pick the model. After the interview, the model rates each answer and writes the summary. Its scores are **blended** with the rule-based ones (the rules stay the majority), and it adds a one-line tip per answer. Everything stays on your computer.
+In the app, open **Studio settings**, tick **Use a free local AI model**, press **Test**, and pick the model. After the interview, the model rates each answer and writes the summary. Its scores are **blended** with the rule-based ones (the rules stay the majority), and it adds a one-line tip per answer. Everything stays on your computer.
 
 > If the app is hosted somewhere other than `localhost` (e.g. Vercel or GitHub Pages), allow that site in Ollama: `OLLAMA_ORIGINS="https://<your-app>.vercel.app" ollama serve`. Some browsers block an online page from talking to `localhost`; if **Test** can't connect, run the app locally with `npm start`.
 
@@ -194,12 +196,32 @@ The interview picks automatically, and switches to Whisper mid-interview if the 
 
 > Self-hosting the model (e.g. for an intranet with no internet): set `window.AII_CONFIG = { whisper: { libUrl, modelHost, wasmPaths } }` before the scripts load. See the comments at the top of `js/whisper.js`.
 
+## AI proctoring
+
+The camera tile on the right of the call is read about eight times a second by Google's free [MediaPipe](https://ai.google.dev/edge/mediapipe) models, running in your browser: a face landmarker (478 points, eye and head direction) and an object detector (phones). The models download once (about 21 MB) when the interview starts.
+
+| What it checks | Noted after | Warning after |
+|---|---|---|
+| Your face is in view | 2 s missing | 5 s missing |
+| Camera not covered or dark | 1.5 s | 4 s |
+| Nobody else in view (a much smaller face, like a photo on the wall, doesn't count) | 0.7 s | 2 s |
+| No phone in view (seen twice in a row) | at once | 1 s |
+| Eyes and head towards the screen (down or to the side; looking up to think doesn't count) | 3 s | 8 s |
+| Repeated short glances away (4 within 45 s, like reading notes) | yes | no |
+| You stay on this tab and this window | | at once (2.5 s for the window) |
+| A second screen is connected (Chrome) | yes | no |
+
+- **Calibrated to you.** Before the questions, Tushar AI calibrates on how you normally sit and look at the screen, so a camera above or beside the screen does not count against you. Blinks, a glance and a single bad frame never count.
+- **Warnings.** Each serious incident is a spoken warning (*"Please keep your eyes on the screen while we talk. This is warning one of three."*), at most one every few seconds and not the same one twice within 20 s. If it carries on, it is warned again. **The third warning ends the interview.**
+- **Integrity rating** at the top of the scoresheet: **Clean**, **Needs review** (a warning, three or more notes, eyes often off the screen, or a second screen) or **High risk** (ended after three warnings, or a phone or another person was confirmed). High risk caps the verdict at *Not recommended yet*. The **AI proctoring** card lists every incident with its time, question and a photo.
+- **Not a lie detector.** No camera check can make cheating impossible: an earpiece, someone out of frame or a device below the camera can't be seen, and phone screens reflected in glasses can't be read reliably (your own monitor always reflects in them). Lighting and camera angle can mislead the checks. Treat flags as evidence for a person to review, using the photos.
+
 ## Privacy
 
 - All analysis and scoring runs locally in your browser. Nothing is sent to any server of this project; there is no server.
 - **Speech recognition:** with the built-in engine, Chrome and Edge transcribe speech through their own cloud speech service (that's what makes it free and keyless). With the offline Whisper engine, audio never leaves your device.
 - **Recordings** of your answers are stored only in this browser (IndexedDB) so you can replay them. Turn recording off in the settings, or delete them with the history.
-- The camera preview is optional, for realism only, and is never recorded.
+- **Camera:** required, for the AI proctoring. The face and phone checks run on your device; the video is never recorded or uploaded. When something is flagged, a small photo of that moment is saved with the scoresheet in this browser only (and deleted with the history). The proctoring models come from Google's and jsDelivr's CDNs.
 - History is stored in your browser's `localStorage`. Use **Clear all** on the home page to delete it, recordings included.
 
 ## Browser support
@@ -240,6 +262,7 @@ js/callContent.js     Call problems, customer moods, caller names, topic words
 js/voice.js           Hands-free rules: voice commands, end-of-answer detection, nudges
 js/speech.js          Browser text-to-speech and speech recognition
 js/whisper.js         Offline Whisper speech recognition (transformers.js, loaded on demand)
+js/proctor.js         AI proctoring from the camera: face, eyes, extra people, phones (MediaPipe, loaded on demand)
 js/audio.js           Microphone analysis: pauses, loudness, pitch
 js/recorder.js        Answer recordings (MediaRecorder + IndexedDB)
 js/llm.js             Optional Ollama integration
@@ -259,4 +282,5 @@ tests/                node:test suite (npm test), incl. 30 recruiter-rated inter
 - Speech-to-text can mishear words, especially with strong accents or background noise, and both engines often drop "um"/"uh". Pause analysis from the microphone partly compensates.
 - The conversation is half-duplex, like a polite phone call: Tushar AI doesn't listen while speaking, so you can't interrupt mid-sentence.
 - The built-in model judges *signals* (structure, coverage, delivery), not deep meaning. A well-structured answer with the right ideas scores well even if a human would phrase it differently. The optional local AI adds a semantic check.
+- The AI proctoring flags what a webcam can see; it can be misled by lighting or angle and cannot see what is out of frame (see **AI proctoring**).
 - Treat the scoresheet as practice feedback and one input to a hiring decision, never the only one.

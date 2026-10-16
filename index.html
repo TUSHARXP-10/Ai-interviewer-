@@ -172,7 +172,7 @@
           </div>
 
           <details class="advanced full">
-            <summary><span>Studio settings</span><span class="muted small">voices, speed, recording, camera, speech engine, local AI</span></summary>
+            <summary><span>Studio settings</span><span class="muted small">voices, speed, recording, speech engine, local AI</span></summary>
             <div class="form-grid">
               <div class="field">
                 <label for="f-ivoice">Interviewer voice</label>
@@ -189,7 +189,6 @@
               <div class="field">
                 <span class="label">Options</span>
                 <label class="check"><input type="checkbox" id="f-record" name="record"> Record my answers so I can replay them in the scoresheet (saved only in this browser)</label>
-                <label class="check"><input type="checkbox" id="f-camera" name="camera"> Show my camera like a video call (preview only; never recorded)</label>
               </div>
               <div class="field">
                 <label for="f-engine">Speech recognition</label>
@@ -217,6 +216,11 @@
               </div>
             </div>
           </details>
+
+          <div class="field full proctor-note">
+            <span class="pn-eye" aria-hidden="true"></span>
+            <p><strong>AI-proctored: your camera stays on.</strong> An AI checks on your device that you stay in view, alone and looking at the screen, with no phone, and that you stay on this window. Three warnings end the interview. The video is never recorded or uploaded; a photo is saved with your scoresheet only when something is flagged.</p>
+          </div>
 
           <div class="field full" style="display:flex; gap:10px; flex-wrap:wrap; align-items:center">
             <button class="btn btn-primary btn-big btn-live" type="submit" id="btn-continue"><span class="tally" aria-hidden="true"></span>Go live: start the interview</button>
@@ -260,6 +264,7 @@
         </div>
       </div>
 
+      <div class="call-main">
       <div class="call-stage">
         <div class="orb" id="orb" data-state="idle">
           <canvas class="core" data-core="call" aria-hidden="true"></canvas>
@@ -327,7 +332,31 @@
         <p class="call-hint" id="call-hint">Say <strong>“repeat”</strong> to hear a question again · say <strong>“that’s all”</strong> when you finish</p>
       </div>
 
-      <video class="cam-pip" id="cam" autoplay muted playsinline hidden></video>
+      <!-- The candidate's camera, read by the AI proctor (no live region: it would be read into the microphone). -->
+      <aside class="proctor-tile" id="proctor-tile" hidden data-state="ok" aria-label="Your camera, checked by the AI proctor">
+        <div class="pt-frame">
+          <video id="cam" autoplay muted playsinline></video>
+          <canvas class="pt-overlay" id="proctor-overlay" aria-hidden="true"></canvas>
+          <span class="pt-scan" aria-hidden="true"></span>
+          <div class="pt-top">
+            <span class="pt-badge"><span class="pt-dot" aria-hidden="true"></span><span id="pt-label">AI proctor</span></span>
+            <span class="pt-strikes" id="pt-strikes" role="img" aria-label="Warnings: 0 of 3"><i></i><i></i><i></i></span>
+          </div>
+          <div class="pt-alert" id="pt-alert" hidden></div>
+          <div class="pt-bottom">
+            <span class="pt-name" id="pt-name">You</span>
+            <span class="pt-gaze" id="pt-gaze"></span>
+          </div>
+        </div>
+        <ul class="pt-checks" aria-label="Proctor checks">
+          <li id="pt-c-face" data-state="ok">Face</li>
+          <li id="pt-c-eyes" data-state="ok">Eyes</li>
+          <li id="pt-c-alone" data-state="ok">Alone</li>
+          <li id="pt-c-phone" data-state="ok">No phone</li>
+          <li id="pt-c-window" data-state="ok">This window</li>
+        </ul>
+      </aside>
+      </div>
 
       <div class="call-controls" role="toolbar" aria-label="Call controls">
         <button class="cbtn" type="button" id="btn-cc" aria-pressed="false" title="Show captions (C)"><span class="cbtn-ico" aria-hidden="true">CC</span><span class="cbtn-label">Captions</span></button>
@@ -384,6 +413,7 @@
   <script src="js/llm.js"></script>
   <script src="js/report.js"></script>
   <script src="js/visuals.js"></script>
+  <script src="js/proctor.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

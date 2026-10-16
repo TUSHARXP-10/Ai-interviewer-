@@ -69,7 +69,7 @@
 
   const DEFAULTS = {
     name: '', role: 'voice', experience: 'fresher', length: 'standard', accent: guessAccent(),
-    silenceSec: 3, interviewerVoice: '', customerVoice: '', rate: 1, camera: false, record: true,
+    silenceSec: 3, interviewerVoice: '', customerVoice: '', rate: 1, record: true,
     showCaptions: true, engine: 'auto', llmEnabled: false, llmUrl: LLM.DEFAULT_URL, llmModel: '',
   };
   let settings = Object.assign({}, DEFAULTS, store.get(SETTINGS_KEY, {}));
@@ -227,7 +227,6 @@
     $('#rate-out').textContent = Number(settings.rate).toFixed(2).replace(/0$/, '') + '×';
     $('#f-record').checked = settings.record;
     $('#f-record').disabled = !window.MediaRecorder;
-    $('#f-camera').checked = settings.camera;
     $('#f-engine').value = settings.engine;
     $$('#f-engine option').forEach((o) => {
       if (o.value === 'whisper') o.disabled = !hasWhisper();
@@ -261,7 +260,6 @@
       customerVoice: fd.get('customerVoice') || '',
       rate: Number(fd.get('rate') || 1),
       record: $('#f-record').checked,
-      camera: $('#f-camera').checked,
       engine: fd.get('engine') || 'auto',
       llmEnabled: $('#f-llm').checked,
       llmUrl: String(fd.get('llmUrl') || LLM.DEFAULT_URL).trim(),
@@ -359,7 +357,7 @@
         '<span class="history-actions"><button class="btn" type="button" data-act="view">View</button><button class="btn btn-ghost btn-danger" type="button" data-act="del" aria-label="Delete">✕</button></span>';
       li.querySelector('.history-score').textContent = h.overall;
       li.querySelector('strong').textContent = h.name + ' — ' + h.verdict;
-      li.querySelector('.muted').textContent = h.role + ' · ' + new Date(h.createdAt).toLocaleString();
+      li.querySelector('.muted').textContent = h.role + (h.integrity && h.integrity !== 'Clean' ? ' · Integrity: ' + h.integrity : '') + ' · ' + new Date(h.createdAt).toLocaleString();
       li.querySelector('[data-act="view"]').addEventListener('click', async () => {
         const sheet = store.get(SHEET_PREFIX + h.id, null);
         if (!sheet) return alert('This scoresheet is no longer stored.');
@@ -386,7 +384,7 @@
   /** Save the scoresheet (localStorage) and its recordings (IndexedDB). Resolves the clip-save result. */
   async function saveSheet(sheet, clips) {
     const list = store.get(HISTORY_KEY, []).filter((x) => x.id !== sheet.id);
-    list.unshift({ id: sheet.id, name: sheet.candidate.name, role: sheet.role.label, overall: sheet.overall, verdict: sheet.verdict.label, createdAt: sheet.createdAt });
+    list.unshift({ id: sheet.id, name: sheet.candidate.name, role: sheet.role.label, overall: sheet.overall, verdict: sheet.verdict.label, integrity: sheet.proctoring && sheet.proctoring.rating ? sheet.proctoring.rating.label : null, createdAt: sheet.createdAt });
     while (list.length > 12) {
       const old = list.pop();
       store.del(SHEET_PREFIX + old.id);
@@ -449,28 +447,49 @@
     }
   }
 
-  async function startCamera(alive) {
+  const cameraLive = () => !!(state.camStream && state.camStream.getVideoTracks().some((t) => t.readyState === 'live'));
+
+  /** Open the camera. It is required: the interview is AI-proctored. */
+  async function ensureCamera() {
+    if (cameraLive()) return { ok: true };
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      return { ok: false, message: 'This browser cannot use the camera on this page. Open it in Chrome or Edge on https or http://localhost.' };
+    }
+    const gen = state.callGen;
     try {
-      const s = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480, facingMode: 'user' } });
+      const s = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' } });
       // The camera opened after the call ended (slow permission prompt): turn it straight off.
-      if (!alive() || !state.running) {
-        s.getTracks().forEach((t) => t.stop());
-        return;
+      if (gen !== state.callGen || !state.running) {
+        s.getTracks().forEach((tr) => tr.stop());
+        return { ok: false, aborted: true, message: 'The interview was closed.' };
       }
-      if (state.camStream) state.camStream.getTracks().forEach((t) => t.stop());
+      if (state.camStream) state.camStream.getTracks().forEach((tr) => tr.stop());
       state.camStream = s;
       const v = $('#cam');
       v.srcObject = s;
-      v.hidden = false;
-    } catch (e) {
-      $('#cam').hidden = true;
+      await v.play().catch(() => {});
+      $('#proctor-tile').hidden = false;
+      return { ok: true };
+    } catch (err) {
+      const denied = err && (err.name === 'NotAllowedError' || err.name === 'SecurityError');
+      return {
+        ok: false,
+        denied,
+        message: denied
+          ? 'Camera access is blocked. This interview is AI-proctored, so the camera is required. Click the 🔒 or camera icon in the address bar, allow the camera, then press Try again.'
+          : 'No working camera was found (' + ((err && (err.name || err.message)) || 'unknown') + '). This interview is AI-proctored, so a camera is required. Connect one, then press Try again.',
+      };
     }
   }
 
   function stopMedia() {
+    if (state.proctor) state.proctor.stop();
+    state.proctor = null;
+    state.watching = false;
     if (state.camStream) state.camStream.getTracks().forEach((t) => t.stop());
     state.camStream = null;
-    $('#cam').hidden = true;
+    $('#cam').srcObject = null;
+    $('#proctor-tile').hidden = true;
     if (state.recorder) state.recorder.discard();
     state.recorder = null;
     if (state.meter) state.meter.stop();
@@ -628,13 +647,16 @@
   }
 
   /** Wait for "Try again" (true) or "Continue anyway" (false). */
-  function waitForUser(message) {
+  /** opts.noSkip hides "Continue anyway" (for what the interview cannot go on without). */
+  function waitForUser(message, opts) {
     notice(message, true);
     announce(message);
+    $('#btn-continue-anyway').hidden = !!(opts && opts.noSkip);
     $('#btn-retry-mic').focus();
     return new Promise((resolve) => {
       state.userAction = (v) => {
         state.userAction = null;
+        $('#btn-continue-anyway').hidden = false;
         notice('');
         // Keep keyboard focus inside the call rather than dropping it to the page.
         if (!$('#screen-interview').hidden) $('#btn-cc').focus();
@@ -1046,7 +1068,12 @@
         // The microphone was unplugged or its Bluetooth link dropped: nothing more can be heard.
         // (This is the cause of any recogniser error it set off, so it is the one reported.)
         if (state.meter && !state.meter.running) fatal = { code: 'audio-capture', message: 'Your microphone was disconnected.', lost: true };
+        // The camera is required: a disconnected one pauses the answer until it is back.
+        if (!fatal && state.watching && !cameraLive()) fatal = { code: 'camera', message: 'Your camera was disconnected. This interview is AI-proctored, so it needs the camera.', lost: true, camera: true };
         if (fatal) return onFatal();
+        if (state.terminated) return finish({ command: 'end' });
+        // A proctoring warning is said straight away; listening carries on after it.
+        if (state.warnQueue && state.warnQueue.length) return interject(state.warnQueue.shift());
         const now = performance.now();
         const elapsed = now - t0;
         setTimer(1 - elapsed / maxMs);
@@ -1274,7 +1301,7 @@
         if (state.recorder) state.recorder.discard();
         // The browser's recogniser is unavailable (blocked, offline, Brave…): switch to offline Whisper.
         const micOk = !!(state.meter && state.meter.running);
-        if (state.engine === 'browser' && hasWhisper() && !state.whisperFailed && (micOk || (f.code !== 'not-allowed' && f.code !== 'audio-capture'))) {
+        if (!f.camera && state.engine === 'browser' && hasWhisper() && !state.whisperFailed && (micOk || (f.code !== 'not-allowed' && f.code !== 'audio-capture'))) {
           setButtons(false);
           state.engine = 'whisper';
           setUi('thinking', 'Switching to the offline speech engine…');
@@ -1293,20 +1320,28 @@
           }
           state.engine = 'browser';
         }
+        if (f.camera) appIncident('camera', 'minor');
         if (f.lost) {
           // Hands-free: say it, since the candidate may not be looking at the screen.
           setButtons(false);
-          await say([{ text: "I've lost your microphone. Please reconnect it, then press Try again.", voice: 'interviewer' }]);
+          await say([{ text: f.camera ? "I've lost your camera, and this interview needs it. Please reconnect it, then press Try again." : "I've lost your microphone. Please reconnect it, then press Try again.", voice: 'interviewer' }]);
           if (ctl.done) return;
         }
-        setUi('idle', 'Microphone problem');
-        let message = f.message + ' Press Try again when ready, or Continue anyway to skip this question.';
+        setUi('idle', f.camera ? 'Camera problem' : 'Microphone problem');
+        let message = f.message + (f.camera ? ' Reconnect it, then press Try again.' : ' Press Try again when ready, or Continue anyway to skip this question.');
         for (;;) {
-          const retry = await waitForUser(message);
+          const retry = await waitForUser(message, { noSkip: !!f.camera });
           if (ctl.done) return;
           if (!retry) {
             ctl.busy = false;
             return finish({ skipped: true });
+          }
+          if (f.camera) {
+            const cam = await ensureCamera();
+            if (ctl.done) return;
+            if (cam.ok) break;
+            message = cam.message;
+            continue;
           }
           if (state.meter && state.meter.running) break;
           // Reopens the microphone (a reconnected or different one) and its recorder.
@@ -1427,6 +1462,7 @@
       state.hiddenCount++;
       if (!state.running) return;
       state.integrity.tabSwitches++;
+      appIncident('tab', 'serious');
       // Browsers cut speech and recognition in background tabs: pause the call cleanly.
       Speech.cancel();
       if (state.ctl && !state.ctl.done && state.ctl.onHidden) state.ctl.onHidden();
@@ -1437,7 +1473,11 @@
 
   $('#btn-end').addEventListener('click', () => {
     if (!state.running) return;
-    if (!confirm('End the interview now? You will get a scoresheet for the questions answered so far.')) return;
+    // (A dialog can take focus from the window: that is not leaving the interview.)
+    state.dialogOpen = true;
+    const sure = confirm('End the interview now? You will get a scoresheet for the questions answered so far.');
+    state.dialogOpen = false;
+    if (!sure) return;
     state.endRequested = true;
     Speech.cancel();
     if (state.cancelBrief) state.cancelBrief();
@@ -1448,6 +1488,7 @@
 
   function abortInterview() {
     state.callGen++;
+    state.watching = false;
     state.endRequested = true;
     state.running = false;
     state.discard = true;
@@ -1459,6 +1500,265 @@
     clearInterval(state.elapsedTimer);
     if (state.callTimer) clearInterval(state.callTimer);
     stopMedia();
+  }
+
+  // ------------------------------------------------------------ AI proctoring (camera)
+  // Said for each serious incident: each is a warning, and the third ends the interview.
+  const WARN = {
+    noFace: "I can't see you. Please keep your face in front of the camera.",
+    dark: 'Your camera seems to be covered. Please uncover it.',
+    extra: "I can see someone else on camera. Please make sure you're alone for the interview.",
+    phone: 'I can see a phone. Please put it away.',
+    away: 'Please keep your eyes on the screen while we talk.',
+    tab: 'Please stay on this tab during the interview.',
+    focus: 'Please stay in the interview window.',
+  };
+  // Shown on the camera tile (not spoken) for shorter incidents.
+  const NUDGE = {
+    noFace: 'Stay in view of the camera', dark: 'Uncover your camera', extra: 'Only you should be on camera', phone: 'Put the phone away',
+    away: 'Look at the screen', glances: 'Keep your eyes on the screen', tab: 'Stay on this tab', focus: 'Stay in this window',
+    screens: 'Second screen connected', camera: 'Camera disconnected',
+  };
+  const APP_LABEL = { tab: 'Switched to another tab', focus: 'Left the interview window', screens: 'Second screen connected', camera: 'Camera disconnected' };
+  const CALIB_PROMPT = {
+    noFace: "I can't see your face yet. Please sit in front of the camera, in good light, and look at the screen.",
+    extra: "I can see more than one person. Please make sure you're alone, then look at the screen.",
+    dark: 'Your camera looks covered or too dark. Please uncover it or turn on a light, then look at the screen.',
+    turned: 'Please face the screen directly for a moment.',
+  };
+  const PROCTOR_RULES = 'This interview is proctored: please stay alone and in view of the camera, keep your eyes on the screen and your phone away, and stay on this window. If something looks wrong I will warn you, and after three warnings the interview ends. ';
+  const PHOTO_KINDS = new Set(['noFace', 'dark', 'extra', 'phone', 'away', 'glances']);
+  const GAZE_TEXT = { on: 'Eyes on screen', down: 'Looking down', side: 'Looking away', closed: 'Eyes closed' };
+
+  function resetProctoring() {
+    state.proctoring = { incidents: [], strikes: 0, terminated: false, secondScreen: false, enabled: false };
+    state.proctorIds = new Map(); // the proctor's episode id -> incident
+    state.evidence = [];
+    state.warnQueue = [];
+    state.terminated = false;
+    state.watching = false;
+    state.incidentSeq = 0;
+    state.lastStrikeAt = -Infinity;
+    state.lastStrikeByKind = {};
+    state.focusIncident = null;
+    state.currentQ = null;
+    renderStrikes();
+    $('#pt-alert').hidden = true;
+    $('#pt-name').textContent = settings.name || 'You';
+    $('#pt-gaze').textContent = '';
+    setProctorLabel('AI proctor');
+    $('#proctor-tile').dataset.state = 'ok';
+  }
+
+  function setProctorLabel(text) {
+    const el = $('#pt-label');
+    if (el.textContent !== text) el.textContent = text;
+  }
+
+  function renderStrikes() {
+    const n = state.proctoring ? state.proctoring.strikes : 0;
+    $$('#pt-strikes i').forEach((el, i) => el.classList.toggle('on', i < n));
+    $('#pt-strikes').setAttribute('aria-label', 'Warnings: ' + n + ' of 3');
+  }
+
+  let alertTimer = 0;
+  function flashAlert(text, severity) {
+    const el = $('#pt-alert');
+    el.textContent = text;
+    el.dataset.severity = severity;
+    el.hidden = false;
+    clearTimeout(alertTimer);
+    alertTimer = setTimeout(() => { el.hidden = true; }, severity === 'serious' ? 6000 : 3500);
+  }
+
+  function renderProctorStatus(s) {
+    const set = (sel, v) => {
+      const el = $(sel);
+      if (el && el.dataset.state !== v) el.dataset.state = v;
+    };
+    set('#pt-c-face', s.face);
+    set('#pt-c-eyes', s.eyes);
+    set('#pt-c-alone', s.alone);
+    set('#pt-c-phone', s.phone);
+    set('#pt-c-window', state.focusIncident ? 'bad' : 'ok');
+    const all = [s.face, s.eyes, s.alone, s.phone];
+    set('#proctor-tile', all.indexOf('bad') !== -1 ? 'bad' : all.indexOf('warn') !== -1 ? 'warn' : 'ok');
+    const text = !s.faces ? (s.dark ? 'Camera dark' : 'No face') : s.faces > 1 ? s.faces + ' faces' : GAZE_TEXT[s.gaze] || 'Face found';
+    const g = $('#pt-gaze');
+    if (g.textContent !== text) g.textContent = text;
+  }
+
+  /** Record an incident; the camera ones get a photo as evidence. */
+  function addIncident(kind, label, severity, extra) {
+    const inc = Object.assign({ id: ++state.incidentSeq, kind, label, severity, at: Math.max(0, Date.now() - state.startedAt), q: state.currentQ || null }, extra || {});
+    state.proctoring.incidents.push(inc);
+    if (state.proctor && PHOTO_KINDS.has(kind) && state.evidence.length < 30) {
+      state.evidence.push(state.proctor.snapshot(clock(inc.at) + ' · ' + label).then((blob) => (blob ? { id: inc.id, blob } : null)));
+    }
+    return inc;
+  }
+
+  /** A serious incident is a spoken warning (one at a time, not the same one twice in 20 s). The third ends the interview. */
+  function strike(inc) {
+    const now = performance.now();
+    if (now - state.lastStrikeAt < 6000 || now - (state.lastStrikeByKind[inc.kind] || -Infinity) < 20000) return;
+    state.lastStrikeAt = now;
+    state.lastStrikeByKind[inc.kind] = now;
+    const n = ++state.proctoring.strikes;
+    inc.strike = n;
+    renderStrikes();
+    flashAlert((NUDGE[inc.kind] || inc.label) + ' · warning ' + n + ' of 3', 'serious');
+    if (n >= 3) return terminate();
+    state.warnQueue.push((WARN[inc.kind] || 'Please stay focused on the interview.') + ' This is warning ' + (n === 1 ? 'one' : 'two') + ' of three.');
+  }
+
+  /** Third warning: stop where we are (the call loop says goodbye and builds the scoresheet). */
+  function terminate() {
+    if (state.terminated) return;
+    state.terminated = true;
+    state.proctoring.terminated = true;
+    state.endRequested = true;
+    state.warnQueue.length = 0;
+    Speech.cancel();
+    if (state.cancelBrief) state.cancelBrief();
+    if (state.cancelTap) state.cancelTap();
+    if (state.userAction) state.userAction(false);
+    if (state.ctl && !state.ctl.done && state.ctl.finish) state.ctl.finish({ command: 'end' });
+  }
+
+  function onProctorEvent(ev) {
+    if (!state.watching) return;
+    if (ev.type === 'resolved') {
+      const inc = state.proctorIds.get(ev.id);
+      if (inc) inc.durationMs = ev.durationMs;
+      return;
+    }
+    const began = Math.max(0, Date.now() - (performance.now() - ev.at) - state.startedAt);
+    let inc = state.proctorIds.get(ev.id);
+    if (ev.repeat) {
+      // Still going 20 s after a warning: a new entry, and another warning.
+      return strike(addIncident(ev.kind, ev.label, 'serious', { direction: ev.direction, ongoing: true }));
+    }
+    if (!inc) {
+      inc = addIncident(ev.kind, ev.label, ev.severity, ev.direction ? { direction: ev.direction, at: began } : { at: began });
+      state.proctorIds.set(ev.id, inc);
+    }
+    if (ev.severity === 'serious') {
+      inc.severity = 'serious';
+      strike(inc);
+    } else flashAlert(NUDGE[ev.kind] || ev.label, 'minor');
+  }
+
+  /** Incidents the page itself sees (tab, window, screens, camera); only while watching. */
+  function appIncident(kind, severity) {
+    if (!state.watching) return null;
+    const inc = addIncident(kind, APP_LABEL[kind], severity);
+    if (severity === 'serious') strike(inc);
+    else flashAlert(NUDGE[kind] || APP_LABEL[kind], 'minor');
+    return inc;
+  }
+
+  // Another app or window in front of the interview (a tab switch is counted separately).
+  let blurTimer = 0;
+  window.addEventListener('blur', () => {
+    if (!state.watching || document.hidden || state.dialogOpen) return;
+    clearTimeout(blurTimer);
+    const since = Date.now();
+    blurTimer = setTimeout(() => {
+      if (!state.watching || document.hidden || document.hasFocus() || state.dialogOpen) return;
+      state.focusIncident = appIncident('focus', 'serious');
+      if (state.focusIncident) state.focusIncident.at = Math.max(0, since - state.startedAt);
+    }, 2500);
+  });
+  window.addEventListener('focus', () => {
+    clearTimeout(blurTimer);
+    if (state.focusIncident) {
+      state.focusIncident.durationMs = Math.max(0, Date.now() - state.startedAt - state.focusIncident.at);
+      state.focusIncident = null;
+    }
+  });
+
+  /** Load the AI proctor on the camera. Resolves true when it runs, false if the call ended or it cannot start. */
+  async function startProctor(alive) {
+    if (!AII.Proctor || !AII.Proctor.supported()) return false;
+    const p = AII.Proctor.createProctor({
+      video: $('#cam'),
+      canvas: $('#proctor-overlay'),
+      onStatus: (s) => { if (state.proctor === p) renderProctorStatus(s); },
+      onEvent: (ev) => { if (state.proctor === p) onProctorEvent(ev); },
+      onCalibrate: (c) => { if (state.proctor === p) setProctorLabel(c.done ? 'AI proctor' : c.problem ? 'Calibrating…' : 'Calibrating ' + Math.round(c.progress * 100) + '%'); },
+    });
+    state.proctor = p;
+    setProctorLabel('Starting…');
+    for (;;) {
+      setUi('thinking', 'Starting the AI proctor…');
+      const ok = await p.start((f) => { if (alive() && state.proctor === p) setUi('thinking', 'Starting the AI proctor… ' + Math.round(f * 100) + '%'); })
+        .then(() => true, (e) => {
+          if (window.console) console.warn('[proctor] could not start:', e && e.message);
+          return false;
+        });
+      if (!alive() || state.proctor !== p) return false;
+      if (ok) {
+        setProctorLabel('AI proctor');
+        return true;
+      }
+      setUi('idle', 'AI proctor needed');
+      const retry = await waitForUser('The AI proctor could not start. Check your internet connection (it downloads about ' + AII.Proctor.MODEL_MB + ' MB once), then press Try again.', { noSkip: true });
+      if (!alive() || !retry || state.endRequested) return false;
+    }
+  }
+
+  /** Calibrate the proctor on the candidate: alone, in view, looking at the screen. */
+  async function faceCheck(alive) {
+    $('#room-q').textContent = 'Camera check';
+    let attempt = 0;
+    let prompt = 'This interview is AI-proctored, so your camera stays on. Please sit in front of the camera and look at the screen for a moment.';
+    while (alive() && !state.endRequested && state.proctor) {
+      await say([{ text: prompt, voice: 'interviewer' }]);
+      if (!alive() || state.endRequested || !state.proctor) return false;
+      setUi('listening', 'Look at the screen…');
+      const r = await state.proctor.calibrate(9000);
+      if (!alive() || state.endRequested) return false;
+      if (r.ok) return true;
+      attempt++;
+      prompt = CALIB_PROMPT[r.problem] || CALIB_PROMPT.noFace;
+      if (attempt >= 3) {
+        setUi('idle', 'Camera check');
+        const retry = await waitForUser(prompt + ' Press Try again when ready.', { noSkip: true });
+        if (!alive() || state.endRequested || !retry) return false;
+        attempt = 0;
+        prompt = "Let's try again. Please look at the screen for a moment.";
+      }
+    }
+    return false;
+  }
+
+  function startWatching() {
+    if (!state.proctor) return;
+    state.proctoring.enabled = true;
+    state.watching = true;
+    state.proctor.watch(true);
+    if (state.proctoring.secondScreen) appIncident('screens', 'minor');
+  }
+
+  /** Say any warnings waiting (between questions). */
+  async function deliverWarnings(alive) {
+    while (state.warnQueue.length && alive() && !state.endRequested) {
+      await say([{ text: state.warnQueue.shift(), voice: 'interviewer' }]);
+    }
+  }
+
+  /** What the scoresheet keeps of the proctoring (null when it never started watching). */
+  function proctoringSummary() {
+    const p = state.proctoring;
+    if (!p || !p.enabled) return null;
+    return {
+      incidents: p.incidents.map((i) => Object.assign({}, i)),
+      strikes: p.strikes,
+      terminated: !!p.terminated,
+      secondScreen: !!p.secondScreen,
+      stats: state.proctor ? state.proctor.stats() : null,
+    };
   }
 
   // ------------------------------------------------------------ mic check
@@ -1680,6 +1980,7 @@
       seed: (Math.random() * 2147483647) | 0,
     });
     state.integrity = { tabSwitches: 0, pastes: 0, repeats: 0 };
+    resetProctoring();
     state.endRequested = false;
     state.discard = false;
     state.running = true;
@@ -1726,7 +2027,20 @@
     }
     if (!alive()) return;
     if (!mic.ok) return endWithoutAnswers('The interview ended before any answers were recorded.');
-    if (settings.camera) startCamera(alive);
+    // The camera is required: the interview is AI-proctored.
+    let cam = await ensureCamera();
+    while (!cam.ok && alive() && !state.endRequested) {
+      setUi('idle', 'Camera needed');
+      const retry = await waitForUser(cam.message, { noSkip: true });
+      if (!alive()) return;
+      if (state.endRequested || !retry) break;
+      cam = await ensureCamera();
+    }
+    if (!alive()) return;
+    if (!cam.ok) return endWithoutAnswers(state.endRequested ? 'The interview ended before any answers were recorded.' : 'This interview is AI-proctored and needs your camera. Allow the camera and try again.');
+    const proctorOk = await startProctor(alive);
+    if (!alive()) return;
+    if (!proctorOk) return endWithoutAnswers(state.endRequested ? 'The interview ended before any answers were recorded.' : 'The AI proctor could not start, so the interview cannot go ahead. Check your internet connection and try again.');
     await pickVoices();
     if (!alive()) return;
     if (state.engine === 'whisper') {
@@ -1743,20 +2057,33 @@
     const first = String(settings.name).trim().split(/\s+/)[0];
     await say([{ text: 'Hi ' + first + "! I'm " + INTERVIEWER + ", and I'll be interviewing you today. You can just talk to me normally, no buttons needed.", voice: 'interviewer' }]);
     if (!alive()) return;
+    // AI proctoring: calibrate on the candidate, alone and looking at the screen.
+    const seen = await faceCheck(alive);
+    if (!alive()) return;
+    if (!seen) return endWithoutAnswers(state.endRequested ? 'The interview ended before any answers were recorded.' : 'The camera check could not see you clearly, so the proctored interview cannot start. Sit in front of the camera, in good light, and try again.');
+    state.proctoring.secondScreen = !!(window.screen && window.screen.isExtended);
+    await say([{ text: 'Thank you, I can see you clearly.', voice: 'interviewer' }]);
+    if (!alive()) return;
     const check = await micCheck(alive);
     if (!alive()) return;
     if (!state.endRequested) {
       const opener = check === 'heard'
         ? 'Perfect, I can hear you clearly. '
         : "Okay, let's carry on. If I can't hear you, I'll let you know. ";
-      await say([{ text: opener + session.briefing({ pauseEnds: pauseEnds() }), voice: 'interviewer' }]);
+      const screens = state.proctoring.secondScreen ? "I can also see a second screen connected. Please don't look at it during the interview. " : '';
+      await say([{ text: opener + PROCTOR_RULES + screens + session.briefing({ pauseEnds: pauseEnds() }), voice: 'interviewer' }]);
       if (!alive()) return;
       youPanel('aria');
+      startWatching();
     }
 
     let step = session.current();
     while (step && !state.endRequested) {
       renderDots(step);
+      state.currentQ = step.index + 1;
+      await deliverWarnings(alive);
+      if (!alive()) return;
+      if (state.endRequested) break;
       const q = stepQuestion(step);
       await say(step.speak, { hideText: step.hideText, hiddenText: q && q.text, display: step.prompt });
       if (!alive()) return;
@@ -1794,13 +2121,17 @@
     if (!alive()) return;
     if (state.endRequested && !session.finished) {
       session.endEarly();
+      const bye = state.terminated
+        ? "That's the third warning, so I have to end the interview here."
+        : "Alright, we'll stop here. Thank you for your time.";
       if (!session.results().length) {
-        await say([{ text: "Alright, we'll stop here. Thank you for your time.", voice: 'interviewer' }], { force: true });
+        await say([{ text: bye, voice: 'interviewer' }], { force: true });
         if (!alive()) return;
-        return endWithoutAnswers('The interview ended before any answers were recorded.');
+        return endWithoutAnswers(state.terminated ? 'The interview was ended after three integrity warnings, before any answers were recorded.' : 'The interview ended before any answers were recorded.');
       }
-      await say([{ text: "Alright, we'll stop here. Thank you for your time. I'm preparing your scoresheet now.", voice: 'interviewer' }], { force: true });
+      await say([{ text: bye + (state.terminated ? ' Your scoresheet will show what the proctor detected.' : " I'm preparing your scoresheet now."), voice: 'interviewer' }], { force: true });
     }
+    state.watching = false;
     if (!alive()) return;
     state.running = false;
     clearInterval(state.elapsedTimer);
@@ -1857,6 +2188,8 @@
     const clips = state.clips;
     const startedAt = state.startedAt;
     const integrity = state.integrity;
+    const proctoring = proctoringSummary(); // before stopMedia() stops the proctor
+    const evidence = state.evidence || [];
     const engine = state.engine;
     const cfg = Object.assign({}, settings);
     const ui = (fn) => { if (alive()) fn(); };
@@ -1917,6 +2250,7 @@
       startedAt,
       endedAt: Date.now(),
       integrity,
+      proctoring,
     });
 
     if (useLlm && alive() && !state.skipLlm && sheet.llmUsed) {
@@ -1933,12 +2267,16 @@
       $('#proc-skip').hidden = true;
       procSteps(steps, steps.length - 1);
     });
-    const saved = await saveSheet(sheet, clips);
+    // Evidence photos are saved with the recordings (this browser only).
+    const photos = (await Promise.all(evidence)).filter(Boolean)
+      .map((e) => ({ qid: '__proctor', kind: 'photo', index: e.id, blob: e.blob, mimeType: 'image/jpeg', durationMs: 0 }));
+    const allClips = clips.concat(photos);
+    const saved = await saveSheet(sheet, allClips);
     if (!alive()) {
       if (!$('#screen-home').hidden) renderHistory();
       return;
     }
-    showReport(sheet, { clips, speak: true, clipsNotSaved: !!(clips.length && saved && saved.where === 'memory') });
+    showReport(sheet, { clips: allClips, speak: true, clipsNotSaved: !!(allClips.length && saved && saved.where === 'memory') });
   }
   $('#proc-skip').addEventListener('click', () => {
     state.skipLlm = true;
@@ -1953,7 +2291,7 @@
     const map = new Map();
     const order = { main: 0, followup: 1, turn: 2 };
     const qs = (sheet && sheet.questions) || [];
-    (clips || []).slice().sort((a, b) => order[a.kind] - order[b.kind] || a.index - b.index).forEach((c) => {
+    (clips || []).filter((c) => c.kind !== 'photo').sort((a, b) => order[a.kind] - order[b.kind] || a.index - b.index).forEach((c) => {
       if (!c.blob) return;
       const url = URL.createObjectURL(c.blob);
       state.clipUrls.push(url);
@@ -1968,11 +2306,23 @@
     return map;
   }
 
+  /** Object URLs for the proctoring photos, by incident id (released with the recordings). */
+  function photoMap(clips) {
+    const map = new Map();
+    for (const c of clips || []) {
+      if (c.kind !== 'photo' || !c.blob) continue;
+      const url = URL.createObjectURL(c.blob);
+      state.clipUrls.push(url);
+      map.set(c.index, url);
+    }
+    return map;
+  }
+
   function showReport(sheet, opts) {
     const o = opts || {};
     state.sheet = sheet;
     stopFeedbackAudio();
-    Report.mount($('#report-root'), sheet, { clips: clipMap(o.clips, sheet) });
+    Report.mount($('#report-root'), sheet, { clips: clipMap(o.clips, sheet), photos: photoMap(o.clips) });
     $$('#report-root audio').forEach((a) => Recorder.ensureDuration(a));
     const banner = $('#sample-banner');
     banner.hidden = !o.sample && !o.clipsNotSaved;

@@ -212,6 +212,47 @@
       '<div class="qa-body">' + parts.join('') + '</div></details>';
   }
 
+  // ------------------------------------------------------------ AI proctoring
+  const at = (ms) => {
+    const s = Math.max(0, Math.round((ms || 0) / 1000));
+    return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+  };
+
+  /** Integrity rating, figures, and a timeline of what the camera checks flagged (with photos). */
+  function proctoringCard(sheet, photos) {
+    const p = sheet.proctoring;
+    if (!p || !p.rating) return '';
+    const r = p.rating;
+    const st = p.stats || {};
+    // The ending is already the banner at the top of the card.
+    const reasons = (r.reasons || []).filter((x) => !(p.terminated && /ended after three/i.test(x)));
+    const pct = (v) => (v != null ? v + '<span class="tile-unit">%</span>' : '—');
+    const tiles = [
+      tile('Integrity', esc(r.label), r.key === 'clean' ? 'nothing to review' : r.key === 'high' ? 'verdict capped' : 'check the flagged moments'),
+      tile('Face in view', pct(st.faceVisiblePct), 'of the interview'),
+      tile('Eyes on screen', pct(st.eyesOnPct), st.awaySec ? st.awaySec + ' s looking away' : 'of the interview'),
+      tile('Warnings', (p.strikes || 0) + '<span class="tile-unit">/3</span>', p.terminated ? 'interview ended' : p.strikes ? 'given during the call' : 'none needed'),
+    ].join('');
+    const items = (p.incidents || []).map((i) => {
+      const photo = photos && photos.get(i.id);
+      const where = i.direction === 'down' ? ' (down)' : i.direction === 'side' ? ' (to the side)' : '';
+      const what = i.severity === 'serious' ? (i.strike ? 'Warning ' + i.strike + ' of 3' : 'Serious') : 'Noted';
+      return '<li class="pi pi-' + (i.severity === 'serious' ? 'serious' : 'minor') + '">' +
+        '<span class="pi-time">' + at(i.at) + (i.q ? '<small>Q' + i.q + '</small>' : '') + '</span>' +
+        '<span class="pi-body"><strong>' + esc(i.label + where) + '</strong><span class="muted small">' + esc(what) +
+        (i.durationMs ? ' · ' + Math.max(1, Math.round(i.durationMs / 1000)) + ' s' : '') + '</span></span>' +
+        (photo ? '<a class="pi-photo" href="' + esc(photo) + '" target="_blank" rel="noopener" title="Open the photo"><img src="' + esc(photo) + '" alt="' + esc('Camera at ' + at(i.at) + ': ' + i.label) + '"></a>' : '') +
+        '</li>';
+    }).join('');
+    return '<section class="card proctor-card tone-' + esc(r.tone) + '" id="proctoring"><h2>AI proctoring</h2>' +
+      (p.terminated ? '<p class="proctor-ended">The interview was ended after three integrity warnings.</p>' : '') +
+      '<div class="tiles small-tiles">' + tiles + '</div>' +
+      (reasons.length ? '<ul class="proctor-reasons">' + reasons.map((x) => '<li>' + esc(x) + '</li>').join('') + '</ul>' : '') +
+      (items ? '<h3>Incident timeline</h3><ol class="proctor-timeline">' + items + '</ol>'
+        : '<p class="muted">No incidents: the candidate stayed in view, alone, and looking at the interview.</p>') +
+      '<p class="muted small">The camera checks run on the candidate’s device. Photos are taken only at flagged moments; the video itself is never recorded. Lighting and camera angle can mislead the checks, so treat flags as evidence for a person to review.</p></section>';
+  }
+
   function render(sheet, opts) {
     const o = opts || {};
     const clipsFor = (qid) => (o.clips && o.clips.get(qid)) || null;
@@ -271,8 +312,11 @@
       '<p class="muted">' + esc(sheet.role.label) + ' · ' + esc(sheet.plan.label) + ' · ' + (sheet.candidate.experience === 'experienced' ? 'Experienced' : 'Fresher') +
       '<br>' + esc(fmtDate(sheet.createdAt)) + ' · ' + esc(fmtDuration(sheet.durationSec)) + ' · ' + (sheet.config.mode === 'voice' ? 'Voice interview' : 'Typed interview') + '</p></div>' +
       '<div class="hero"><div class="hero-num" style="--score:' + Math.max(0, Math.min(100, Number(sheet.overall) || 0)) + '"><span class="hero-val">' + sheet.overall + '</span><span class="hero-den">/100</span></div>' + statusBadge(tone, sheet.verdict.label) +
-      (sheet.incomplete ? '<div class="muted small">Interview incomplete; treat with caution.</div>' : '') + '</div></header>' +
+      (sheet.proctoring && sheet.proctoring.rating ? statusBadge(sheet.proctoring.rating.tone, 'Integrity: ' + sheet.proctoring.rating.label) : '') +
+      (sheet.terminated ? '<div class="muted small">Ended after three integrity warnings.</div>'
+        : sheet.incomplete ? '<div class="muted small">Interview incomplete; treat with caution.</div>' : '') + '</div></header>' +
       '<div class="tiles">' + kpis + '</div>' +
+      proctoringCard(sheet, o.photos) +
       '<section class="card"><h2>Interviewer’s summary ' + (sheet.summarySource === 'llm' ? '<span class="tag">written by local AI</span>' : '') + '</h2><p class="summary">' + esc(sheet.summary) + '</p></section>' +
       roundsCard(sheet) +
       '<section class="card"><h2>Skill breakdown</h2><p class="muted small">Each score is on a recruiter’s scale (80+ strong, 66+ hire, 52+ borderline), with the evidence from this interview behind it.</p><div class="meters">' + dims.map((d) => meter(d.score, d.label, d.about, d.band, d.why)).join('') + '</div></section>' +

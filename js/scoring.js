@@ -49,6 +49,41 @@
     { key: 'no', min: 0, label: 'Not recommended yet', tone: 'critical' },
   ];
 
+  // AI proctoring (camera): a rating for the reviewer, and a cap on the verdict.
+  const INTEGRITY = {
+    clean: { key: 'clean', label: 'Clean', tone: 'good' },
+    review: { key: 'review', label: 'Needs review', tone: 'warning' },
+    high: { key: 'high', label: 'High risk', tone: 'critical' },
+  };
+
+  /**
+   * p: { incidents: [{ kind, severity, label }], strikes, terminated, secondScreen, stats: { eyesOnPct } }
+   * High risk: ended after three warnings, or a phone or another person was confirmed.
+   * Needs review: any warning, three or more smaller notes, eyes off the screen a lot, or a second screen.
+   */
+  function integrityRating(p) {
+    if (!p) return null;
+    const incidents = p.incidents || [];
+    const serious = incidents.filter((i) => i.severity === 'serious');
+    const minor = incidents.filter((i) => i.severity !== 'serious');
+    const reasons = [];
+    if (p.terminated) reasons.push('The interview was ended after three integrity warnings.');
+    for (const kind of ['phone', 'extra']) {
+      const hit = serious.find((i) => i.kind === kind);
+      if (hit) reasons.push(hit.label + ' (confirmed for more than a moment).');
+    }
+    if (reasons.length) return Object.assign({ reasons }, INTEGRITY.high);
+    if (serious.length) {
+      const labels = Array.from(new Set(serious.map((i) => i.label.toLowerCase())));
+      reasons.push(serious.length + (serious.length === 1 ? ' warning: ' : ' warnings: ') + labels.join(', ') + '.');
+    }
+    if (minor.length >= 3) reasons.push(minor.length + ' shorter incidents were noted.');
+    const eyes = p.stats && p.stats.eyesOnPct;
+    if (eyes != null && eyes < 70) reasons.push('Eyes on the screen only ' + eyes + '% of the time.');
+    if (p.secondScreen) reasons.push('A second screen was connected.');
+    return Object.assign({ reasons }, reasons.length ? INTEGRITY.review : INTEGRITY.clean);
+  }
+
   const CEFR = [
     { min: 90, code: 'C2', label: 'Proficient' },
     { min: 78, code: 'C1', label: 'Advanced' },
@@ -356,6 +391,9 @@
     const overall = overallFor(role, dims, flags);
     let verdict = VERDICTS.find((v) => overall >= v.min);
     if (flags.some((f) => f.severity === 'high') && (verdict.key === 'strong' || verdict.key === 'hire')) verdict = VERDICTS[2];
+    const proctoring = input.proctoring ? Object.assign({}, input.proctoring, { rating: integrityRating(input.proctoring) }) : null;
+    // A high cheating risk is never recommended, whatever the answers scored.
+    if (proctoring && proctoring.rating.key === 'high') verdict = VERDICTS[VERDICTS.length - 1];
     const answered = items.filter((it) => !it.analysis.skipped).length;
     const incomplete = items.length > 0 && answered / items.length < 0.6;
 
@@ -451,6 +489,8 @@
       }),
       llmUsed: items.some((it) => it.llm),
       summarySource: 'rules',
+      proctoring,
+      terminated: !!(proctoring && proctoring.terminated),
     };
     // Why each score is what it is, from this interview's evidence (see explain.js).
     const ex = Explain.explain(sheet, items);
@@ -458,6 +498,10 @@
     sheet.strengths = ex.strengths;
     sheet.improvements = ex.improvements;
     sheet.summary = ex.summary;
+    if (proctoring && proctoring.rating.key !== 'clean') {
+      sheet.summary += ' AI proctoring rated this interview “' + proctoring.rating.label + '”: ' + proctoring.rating.reasons.join(' ') +
+        (proctoring.rating.key === 'high' ? ' The verdict is therefore capped at “' + verdict.label + '”.' : ' A reviewer should look at the flagged moments.');
+    }
     sheet.focus = ex.focus;
     if (ex.rounds) {
       sheet.rounds = ex.rounds.map((r) => {
@@ -495,6 +539,9 @@
     const parts = [];
     parts.push((first ? 'Thank you, ' + first + '. ' : 'Thank you. ') + "Here's your feedback.");
     parts.push('You scored ' + sheet.overall + ' out of 100, which is ' + sheet.verdict.label.toLowerCase().replace(' — ', ', ') + '.');
+    const rating = sheet.proctoring && sheet.proctoring.rating;
+    if (rating && rating.key === 'high') parts.push('The AI proctor rated this interview high risk for cheating, so it cannot be recommended.');
+    else if (rating && rating.key === 'review') parts.push('The AI proctor flagged some moments for a reviewer to check.');
     if (best) parts.push('Your strongest area was ' + lower(best.short) + ', at ' + best.score + '.');
     if (worst && worst !== best && worst.score < 85) parts.push('The main area to work on is ' + lower(worst.short) + '.');
     if (sheet.focus) parts.push('What held you back: ' + speakable(sheet.focus.evidence) + ' My tip: ' + speakable(sheet.focus.tip));
@@ -506,7 +553,7 @@
     return parts.join(' ').replace(/\.\./g, '.');
   }
 
-  const api = { DIMENSIONS, ROLE_WEIGHTS, VERDICTS, CEFR, band, GATES, buildScoresheet, spokenFeedback, speakable };
+  const api = { DIMENSIONS, ROLE_WEIGHTS, VERDICTS, CEFR, band, GATES, INTEGRITY, integrityRating, buildScoresheet, spokenFeedback, speakable };
   if (isNode) module.exports = api;
   else (root.AII = root.AII || {}).Scoring = api;
 })(typeof window !== 'undefined' ? window : globalThis);
