@@ -14,6 +14,7 @@
   const Text = isNode ? require('./textUtils.js') : root.AII.Text;
   const Questions = isNode ? require('./questionBank.js') : root.AII.Questions;
   const Explain = isNode ? require('./explain.js') : root.AII.Explain;
+  const Coach = isNode ? require('./coach.js') : root.AII.Coach;
 
   const { curve, weightedMean, clamp } = Text;
 
@@ -473,6 +474,7 @@
         listening: a.listening,
         correction: a.correction,
         call: a.call ? a.call.items : null,
+        approach: Coach && !a.skipped ? Coach.approach(it.question, it.response.text) : null,
         stance: a.stance ? a.stance.stance : null,
         llm: it.llm || null,
         ignoreFlags: it.question.ignoreFlags || null,

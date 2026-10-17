@@ -72,7 +72,53 @@
     return { words, time, pace, fillers, tip };
   }
 
-  const api = { live, target, clock };
+  /*
+   * How interviewers want an engineering problem talked through, step by step. Each step is
+   * "heard" when the answer says it in one of these ways; the checklist shows live during
+   * the answer and on the scoresheet.
+   */
+  const APPROACH = {
+    problem: {
+      title: 'Think out loud',
+      steps: [
+        { id: 'clarify', short: 'Clarify', label: 'Clarified the problem or its constraints', terms: ['clarif*', 'assum*', 'constraint*', 'can i assume', 'is the input', 'is the array', 'input size', 'how large', 'how big', 'sorted', 'what if the', 'do we need', 'should i return', 'requirement*'] },
+        { id: 'simple', short: 'Simple approach', label: 'Started with a simple approach', terms: ['brute force', 'naive', 'simple approach', 'simplest', 'straightforward', 'first approach', 'two loops', 'nested loop*', 'every pair', 'check every', 'one way'] },
+        { id: 'improve', short: 'Improve', label: 'Improved on it', terms: ['better approach', 'better way', 'optimi*', 'more efficient', 'improve', 'instead', 'faster', 'reduce', 'hash map', 'hashmap', 'heap', 'two pointer*', 'sort*', 'binary search', 'dictionary', 'set'] },
+        { id: 'complexity', short: 'Complexity', label: 'Stated time and space complexity', terms: ['complexity', 'big o', 'o of n', 'o of 1', 'o of log n', 'o n', 'o 1', 'n log n', 'n squared', 'linear time', 'constant time', 'constant space', 'extra space', 'logarithmic', 'quadratic'] },
+        { id: 'edges', short: 'Edge cases', label: 'Covered edge cases', terms: ['edge case*', 'corner case*', 'empty', 'null', 'negative', 'duplicate*', 'overflow', 'single element', 'only one', 'no valid', 'invalid input', 'zero'] },
+        { id: 'test', short: 'Test it', label: 'Tested it on an example', terms: ['test*', 'dry run', 'walk through', 'example input', 'for example if', 'verify', 'check it with', 'trace through', 'let me try', 'unit test*'] },
+      ],
+    },
+    design: {
+      title: 'Talk it through',
+      steps: [
+        { id: 'reqs', short: 'Requirements', label: 'Started with requirements and scale', terms: ['requirement*', 'functional', 'non functional', 'clarif*', 'assum*', 'how many users', 'scale', 'read heavy', 'write heavy', 'traffic', 'per second', 'qps', 'users'] },
+        { id: 'api', short: 'API & data', label: 'Defined the API or the data model', terms: ['api', 'endpoint*', 'schema', 'data model', 'table*', 'request*', 'response*', 'post', 'get'] },
+        { id: 'components', short: 'Components', label: 'Laid out the main components', terms: ['service*', 'server*', 'database', 'queue', 'load balancer', 'gateway', 'worker*', 'component*', 'client', 'storage', 'pipeline'] },
+        { id: 'scale', short: 'Scaling', label: 'Explained how it scales', terms: ['shard*', 'partition*', 'replica*', 'replicat*', 'horizontal*', 'cache*', 'redis', 'cdn', 'scale out', 'autoscal*', 'stateless'] },
+        { id: 'tradeoffs', short: 'Trade-offs', label: 'Discussed trade-offs and bottlenecks', terms: ['trade off*', 'tradeoff*', 'bottleneck*', 'consisten*', 'availab*', 'latency', 'downside', 'instead of', 'rather than', 'however', 'the cost'] },
+        { id: 'failure', short: 'Failures', label: 'Covered failures and monitoring', terms: ['fail*', 'retry*', 'retries', 'monitor*', 'alert*', 'metric*', 'logging', 'logs', 'fallback', 'backup*', 'rollback', 'roll back', 'health check*'] },
+      ],
+    },
+  };
+
+  /** Which approach checklist fits a question: 'problem', 'design' or null. */
+  function approachKind(q) {
+    if (!q) return null;
+    if (q.slot === 'tdesign') return 'design';
+    if (q.type === 'problem' && /^dsa_/.test(q.id || '')) return 'problem';
+    return null;
+  }
+
+  /** The approach steps heard in an answer: [{ id, short, label, hit }] or null. */
+  function approach(q, text) {
+    const kind = approachKind(q);
+    if (!kind) return null;
+    const doc = Text.makeDoc(String(text || ''));
+    return APPROACH[kind].steps.map((s) => ({ id: s.id, short: s.short, label: s.label, hit: !!doc.str && Text.hasAny(doc, s.terms) }));
+  }
+
+  const api = { live, target, clock, APPROACH, approachKind, approach };
   if (isNode) module.exports = api;
   else (root.AII = root.AII || {}).Coach = api;
 })(typeof window !== 'undefined' ? window : globalThis);

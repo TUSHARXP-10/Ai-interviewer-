@@ -12,6 +12,7 @@
   'use strict';
   const isNode = typeof module === 'object' && module.exports;
 
+  const Coach = isNode ? require('./coach.js') : root.AII.Coach;
   const OPEN_TYPES = ['open', 'motivation', 'knowledge', 'situational', 'behavioral', 'self', 'extempore', 'salary'];
 
   function list(arr) {
@@ -301,6 +302,20 @@
     if (answered.length >= 3) {
       if (depth >= answered.length / 2) out.push(line('good', 'Went beyond definitions: trade-offs, complexity or edge cases in ' + depth + ' of ' + answered.length + ' answers.'));
       else if (depth === 0) out.push(line('bad', 'Answers stayed at definitions: no trade-offs, complexity or edge cases.'));
+    }
+    // How problems were talked through: the steps missing from every problem (or design) answer.
+    if (Coach) {
+      for (const kind of ['problem', 'design']) {
+        const its = answered.filter((it) => Coach.approachKind(it.question) === kind);
+        if (!its.length) continue;
+        const steps = Coach.APPROACH[kind].steps;
+        const checks = its.map((it) => Coach.approach(it.question, it.response.text));
+        const missed = steps.filter((s, i) => checks.every((c) => !c[i].hit)).map((s) => s.short.toLowerCase());
+        const name = kind === 'problem' ? 'problem-solving' : 'system design';
+        const flow = steps.map((s) => s.short.toLowerCase()).join(' → ');
+        if (!missed.length) out.push(line('good', 'Talked ' + name + ' through step by step: ' + flow + '.'));
+        else if (missed.length >= 2) out.push(line('bad', 'In ' + name + ', missing: ' + list(missed) + '. Interviewers listen for ' + flow + '.'));
+      }
     }
     const skipped = tech.length - answered.length;
     if (skipped) out.push(line('bad', 'Skipped ' + plural(skipped, 'technical question') + '.'));

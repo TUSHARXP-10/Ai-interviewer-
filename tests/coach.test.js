@@ -41,3 +41,24 @@ test('pace, fillers and time each get one clear tip', () => {
   assert.equal(long.time.tone, 'warn');
   assert.match(long.tip, /wrap up/);
 });
+
+test('engineering problems and designs get the approach checklist', () => {
+  const Demo = require('../js/demo.js');
+  assert.equal(Coach.approachKind(Q.byId.dsa_two_sum), 'problem');
+  assert.equal(Coach.approachKind(Q.byId.design_url_shortener), 'design');
+  assert.equal(Coach.approachKind(Q.byId.fs_rest), null);
+  assert.equal(Coach.approachKind(Q.byId.data_sql_window), null, 'SQL problems are not algorithm problems');
+  assert.equal(Coach.approach(Q.byId.fs_rest, 'anything'), null);
+
+  const model = Coach.approach(Q.byId.dsa_two_sum, Demo.modelAnswer('dsa_two_sum'));
+  assert.ok(model.every((s) => s.hit), 'the model answer walks through every step');
+  const brute = Coach.approach(Q.byId.dsa_two_sum, 'I will use two loops and return the pair.');
+  assert.deepEqual(brute.filter((s) => s.hit).map((s) => s.id), ['simple']);
+
+  // On the scoresheet: per question, and a line on what was missing.
+  const Scoring = require('../js/scoring.js');
+  const { sheet } = Demo.runScripted('engineer', { role: 'backend', experience: 'experienced', company: 'google', length: 'standard', seed: 5 });
+  const problems = sheet.questions.filter((x) => Coach.approachKind(Q.byId[x.id]) === 'problem');
+  assert.ok(problems.length && problems.every((x) => Array.isArray(x.approach)), 'problem questions carry their checklist');
+  assert.ok(Scoring.DIMENSIONS.some((d) => d.key === 'technical'));
+});

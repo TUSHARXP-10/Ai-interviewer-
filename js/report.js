@@ -197,6 +197,10 @@
     if (q.correction) {
       parts.push('<p class="correction"><span class="eyebrow">Expected</span>“' + esc(q.correction.correct) + '” — <strong>' + esc(q.correction.verdict) + '</strong></p>');
     }
+    if (q.approach) {
+      parts.push('<div class="approach-check"><span class="eyebrow">How you talked it through</span><ol class="approach-steps">' + q.approach.map((s) =>
+        '<li class="' + (s.hit ? 'ok' : 'miss') + '" title="' + esc(s.label) + '"><span aria-hidden="true">' + (s.hit ? '✓' : '·') + '</span> ' + esc(s.short) + '<span class="sr-only">: ' + (s.hit ? 'heard' : 'not heard') + '</span></li>').join('') + '</ol></div>');
+    }
     if (q.call) {
       parts.push('<ul class="checklist">' + q.call.map((it) =>
         '<li class="' + (it.hit ? 'ok' : 'miss') + '"><span aria-hidden="true">' + (it.hit ? '✓' : '✕') + '</span> ' + esc(it.label) + (it.hit && it.evidence ? ' <span class="muted">— “' + esc(it.evidence) + '”</span>' : '') + '</li>').join('') + '</ul>');

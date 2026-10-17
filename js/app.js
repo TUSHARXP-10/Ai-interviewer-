@@ -1223,6 +1223,38 @@
   function showPromptCaption(step) {
     if (step.hideText) captionPlain(step.prompt);
     else captionWords(step.prompt);
+    renderThinkCard(step.kind === 'roleplay' ? null : stepQuestion(step));
+  }
+
+  // Engineering problems and designs: the steps interviewers listen for, ticked live as they are heard.
+  let thinkQ = null;
+  function renderThinkCard(q) {
+    const box = $('#think-card');
+    const kind = AII.Coach ? AII.Coach.approachKind(q) : null;
+    // A follow-up on the same question keeps the steps already heard.
+    if (kind && thinkQ && q && thinkQ.id === q.id && !box.hidden) return;
+    thinkQ = kind ? q : null;
+    box.hidden = !kind;
+    if (!kind) return;
+    const f = AII.Coach.APPROACH[kind];
+    box.innerHTML = '<span class="tk-title"></span><ol class="tk-steps"></ol>';
+    box.querySelector('.tk-title').textContent = f.title + ':';
+    const ol = box.querySelector('ol');
+    for (const s of f.steps) {
+      const li = document.createElement('li');
+      li.dataset.step = s.id;
+      li.textContent = s.short;
+      li.title = s.label;
+      ol.appendChild(li);
+    }
+  }
+  function tickThinkCard(text) {
+    if (!thinkQ) return;
+    const steps = AII.Coach.approach(thinkQ, text) || [];
+    for (const s of steps) {
+      const li = $('#think-card [data-step="' + s.id + '"]');
+      if (li && s.hit) li.classList.add('hit'); // once heard, a step stays ticked
+    }
   }
 
   // One-word starts that are lead-ins to a longer answer, not an answer on their own.
@@ -1386,6 +1418,8 @@
         if (coachOn && live && firstWordAt && now - coachAt > 900 && AII.Coach) {
           coachAt = now;
           renderCoach(AII.Coach.live({ text, speakingMs: now - firstWordAt, question: q }));
+          // Follow-ups count too: the steps are about the whole answer.
+          tickThinkCard(text);
         }
         const spokeMs = state.meter ? state.meter.segmentVoicedMs() : null;
         // Engines without live words need less voice before an answer counts as started,
@@ -2332,6 +2366,7 @@
     $('#dots').innerHTML = '';
     $('#roleplay-banner').hidden = true;
     renderDrillCoach(drill);
+    renderThinkCard(null);
     renderRound({});
     captionWords('');
     renderYou('', '');

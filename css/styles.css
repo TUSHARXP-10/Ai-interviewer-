@@ -1220,6 +1220,21 @@ details.qa[open] .qa-q { white-space: normal; }
 .pg-cta strong { color: var(--ink); }
 .history-title { margin: 18px 0 0; font-size: 1rem; color: var(--ink-2); }
 
+/* ---------- Engineering approach: live card during the answer, checklist on the scoresheet */
+.think-card { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; max-width: 640px; padding: 10px 14px; border-radius: 18px; border: 1px solid rgba(143, 128, 255, 0.4); background: rgba(143, 128, 255, 0.08); }
+.think-card[hidden] { display: none; }
+.tk-title { font: 700 0.7rem/1.2 var(--f-mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--violet); }
+.tk-steps, .approach-steps { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; counter-reset: step; }
+.tk-steps li { counter-increment: step; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line-2); background: var(--glass); font: 600 0.76rem/1.3 var(--f-body); color: var(--muted); transition: color 0.3s, border-color 0.3s, background 0.3s; }
+.tk-steps li::before { content: counter(step) ". "; opacity: 0.7; }
+.tk-steps li.hit { color: var(--ink); border-color: rgba(52, 211, 153, 0.55); background: rgba(52, 211, 153, 0.12); }
+.tk-steps li.hit::before { content: "✓ "; opacity: 1; color: var(--good-text); }
+.approach-check { margin-top: 10px; padding: 12px 14px; border-radius: 14px; border: 1px solid rgba(143, 128, 255, 0.3); background: rgba(143, 128, 255, 0.05); }
+.approach-check .eyebrow { margin: 0 0 8px; }
+.approach-steps li { padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line-2); font: 600 0.78rem/1.3 var(--f-body); color: var(--muted); }
+.approach-steps li.ok { color: var(--ink); border-color: rgba(52, 211, 153, 0.5); background: rgba(52, 211, 153, 0.1); }
+.approach-steps li.ok span[aria-hidden] { color: var(--good-text); }
+
 /* ---------- motion & print ---------- */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
