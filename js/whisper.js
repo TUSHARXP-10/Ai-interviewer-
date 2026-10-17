@@ -247,6 +247,22 @@
   }
 
   /**
+   * Turn a quiet recording up (a soft voice, a phone held at arm's length): peak to 0.5,
+   * at most 20 times louder. Whisper hears a quiet clip much like noise.
+   */
+  function loudenQuiet(x) {
+    let peak = 0;
+    for (let i = 0; i < x.length; i++) {
+      const a = Math.abs(x[i]);
+      if (a > peak) peak = a;
+    }
+    if (!(peak > 0) || peak >= 0.5) return x;
+    const gain = Math.min(20, 0.5 / peak);
+    for (let i = 0; i < x.length; i++) x[i] *= gain;
+    return x;
+  }
+
+  /**
    * Whisper reads 30 s windows. Split longer answers at the quietest moment
    * between 18 and 28 s (the library's own chunking looped on long answers in tests).
    */
@@ -293,6 +309,7 @@
     const eng = await load();
     const audio = trim(await to16k(pcm, sampleRate), opts && opts.silenceDb);
     if (audio.length < SR * 0.4) return '';
+    loudenQuiet(audio);
     const parts = [];
     for (const piece of splitAtPauses(audio)) {
       // About 6 tokens per second of speech; the cap stops runaway decoder loops.
@@ -447,7 +464,7 @@
     };
   }
 
-  const api = { supported, isCached, preload, transcribe, createRecognizer, to16k, trim, splitAtPauses, collapseRepeats, JUNK, MODEL_MB, TJS_VERSION, config: CFG };
+  const api = { supported, isCached, preload, transcribe, createRecognizer, to16k, trim, loudenQuiet, splitAtPauses, collapseRepeats, JUNK, MODEL_MB, TJS_VERSION, config: CFG };
   if (typeof module === 'object' && module.exports) module.exports = api;
   (root.AII = root.AII || {}).Whisper = api;
 })(typeof window !== 'undefined' ? window : globalThis);

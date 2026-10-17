@@ -17,14 +17,16 @@
   'use strict';
   const isNode = typeof module === 'object' && module.exports;
 
+  const MOBILE = /Android|iPhone|iPad|iPod/i.test((root.navigator && root.navigator.userAgent) || '');
   const VERSION = '1.0.1'; // pinned: a release that has been out for a few weeks
   const CFG = Object.assign({
     libUrl: 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@' + VERSION + '/vision_bundle.mjs',
     wasmBase: 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@' + VERSION + '/wasm',
     faceModel: 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task',
     objectModel: 'https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/int8/1/efficientdet_lite0.tflite',
-    faceEveryMs: 120,
-    phoneEveryMs: 500,
+    // Phones: a little less often, to keep the phone cool and the call responsive.
+    faceEveryMs: MOBILE ? 180 : 120,
+    phoneEveryMs: MOBILE ? 800 : 500,
   }, (root.AII_CONFIG && root.AII_CONFIG.proctor) || {});
   const MODEL_MB = 21; // speech-free vision runtime (~11.5 MB) + face (3.8 MB) + objects (4.6 MB)
 

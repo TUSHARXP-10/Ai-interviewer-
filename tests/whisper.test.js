@@ -40,3 +40,15 @@ test('typical Whisper hallucinations on noise are dropped', () => {
   }
   assert.ok(!W.JUNK.test('Thank you for calling, how can I help you?'));
 });
+
+test('a quiet recording is turned up before transcribing, a normal one is left alone', () => {
+  const quiet = new Float32Array(SR).map((_, i) => Math.sin(i / 7) * 0.05);
+  W.loudenQuiet(quiet);
+  assert.ok(Math.abs(Math.max(...quiet) - 0.5) < 0.01, 'a soft voice is brought up to a clear level');
+  const whisper = new Float32Array(SR).map((_, i) => Math.sin(i / 7) * 0.001);
+  W.loudenQuiet(whisper);
+  assert.ok(Math.max(...whisper) <= 0.0201, 'at most 20 times louder, so near-silence stays quiet');
+  const normal = new Float32Array(SR).map((_, i) => Math.sin(i / 7) * 0.7);
+  W.loudenQuiet(normal);
+  assert.ok(Math.abs(Math.max(...normal) - 0.7) < 0.001);
+});

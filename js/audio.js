@@ -130,6 +130,18 @@
     };
   }
 
+  const MOBILE = /Android|iPhone|iPad|iPod/i.test((root.navigator && root.navigator.userAgent) || '');
+  /**
+   * How the microphone is opened. Gain control is always on: quiet laptop and phone mics must
+   * still reach the voice detector and the recogniser. Phones: the interview never listens while
+   * the interviewer speaks, so echo cancellation is not needed, and with it Android switches to
+   * "call mode" (a quieter microphone for the recogniser, a quieter speaker); noise suppression
+   * can also take a soft voice for noise. Desktop keeps both (laptop speakers next to the mic).
+   */
+  const AUDIO_CONSTRAINTS = MOBILE
+    ? { echoCancellation: false, noiseSuppression: false, autoGainControl: true }
+    : { echoCancellation: true, noiseSuppression: true, autoGainControl: true };
+
   // One shared AudioContext, created (or resumed) inside a click handler so that
   // browsers with strict autoplay rules (Safari/iOS) let it run.
   let sharedCtx = null;
@@ -189,11 +201,7 @@
 
     return {
       async start(existingStream) {
-        stream = existingStream || await navigator.mediaDevices.getUserMedia({
-          // Gain control on: quiet laptop and phone mics must still reach the voice detector
-          // and the recogniser (Chrome can apply it to the device for every listener).
-          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-        });
+        stream = existingStream || await navigator.mediaDevices.getUserMedia({ audio: AUDIO_CONSTRAINTS });
         ctx = prime();
         if (!ctx) throw new Error('Web Audio is not supported');
         if (ctx.state === 'suspended') await ctx.resume().catch(() => {});
@@ -288,5 +296,5 @@
     };
   }
 
-  (root.AII = root.AII || {}).Audio = { createMeter, detectPitch, summarize, prime, FRAME_MS };
+  (root.AII = root.AII || {}).Audio = { createMeter, detectPitch, summarize, prime, FRAME_MS, AUDIO_CONSTRAINTS, MOBILE };
 })(typeof window !== 'undefined' ? window : globalThis);

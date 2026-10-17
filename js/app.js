@@ -342,6 +342,7 @@
     // Must run inside the click: unlocks speech output and audio processing on strict browsers.
     Speech.unlock();
     Audio.prime();
+    keepAwake(true); // inside the tap: some browsers only grant it then
     startCall();
   });
 
@@ -411,7 +412,8 @@
    * selected microphone. A microphone that was disconnected is always reopened.
    */
   async function ensureMic(opts) {
-    const fresh = !!(opts && opts.fresh);
+    const given = opts && opts.stream; // already open (asked for together with the camera)
+    const fresh = !!(opts && opts.fresh) || !!given;
     if (!fresh && state.meter && state.meter.running) return { ok: true };
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       return { ok: false, message: 'This browser cannot use the microphone on this page. Open it in Chrome or Edge on https or http://localhost.' };
@@ -420,7 +422,7 @@
     const m = Audio.createMeter();
     state.meter = m;
     try {
-      await m.start();
+      await m.start(given || undefined);
       // The call was left while the microphone was opening: release it straight away.
       if (state.meter !== m) {
         m.stop();
@@ -447,17 +449,84 @@
     }
   }
 
+  const CAMERA_CONSTRAINTS = { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' };
+
+  /**
+   * Ask for the microphone and the camera in one request: phones otherwise show two prompts.
+   * Resolves the stream, or null (then each is asked for on its own, with a clear message).
+   */
+  async function openMedia(want) {
+    const w = Object.assign({ audio: true, video: true }, want);
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return null;
+    try {
+      return await navigator.mediaDevices.getUserMedia({ audio: w.audio ? Audio.AUDIO_CONSTRAINTS : false, video: w.video ? CAMERA_CONSTRAINTS : false });
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // Keep the screen on during the call. Phones turn it off after about 30 s without a touch
+  // (and this call is hands-free), which stops the camera and the microphone.
+  let wakeLock = null;
+  let wakeHeld = false; // granted for this call (browsers drop it while the page is hidden)
+  async function keepAwake(on) {
+    try {
+      if (!on) {
+        wakeHeld = false;
+        const w = wakeLock;
+        wakeLock = null;
+        if (w) await w.release();
+        return;
+      }
+      if (wakeLock || !navigator.wakeLock || document.visibilityState !== 'visible') return;
+      const w = await navigator.wakeLock.request('screen');
+      if (!state.running || wakeLock) {
+        w.release(); // the call ended meanwhile, or another request was granted first
+        return;
+      }
+      wakeLock = w;
+      wakeHeld = true;
+      w.addEventListener('release', () => { if (wakeLock === w) wakeLock = null; });
+    } catch (e) {
+      /* not supported, or refused (battery saver): the screen may still turn off */
+    }
+  }
+
+  /**
+   * Back from a locked screen or another app: phones may have stopped the microphone or the
+   * camera. Reopen whichever stopped, in one request. Resolves true if anything was reopened.
+   */
+  let reviving = null;
+  function reviveMedia() {
+    if (reviving) return reviving;
+    reviving = (async () => {
+      const micDead = !!state.meter && !state.meter.running;
+      const camDead = !!state.camStream && !cameraLive();
+      if (!state.running || (!micDead && !camDead)) return false;
+      const s = await openMedia({ audio: micDead, video: camDead });
+      if (!s || !state.running) {
+        if (s) s.getTracks().forEach((tr) => tr.stop());
+        return false; // the lost microphone / camera prompts take over
+      }
+      if (micDead) await ensureMic({ stream: new MediaStream(s.getAudioTracks()) });
+      if (camDead) await ensureCamera({ stream: new MediaStream(s.getVideoTracks()) });
+      return true;
+    })().finally(() => { reviving = null; });
+    return reviving;
+  }
+
   const cameraLive = () => !!(state.camStream && state.camStream.getVideoTracks().some((t) => t.readyState === 'live'));
 
   /** Open the camera. It is required: the interview is AI-proctored. */
-  async function ensureCamera() {
-    if (cameraLive()) return { ok: true };
+  async function ensureCamera(opts) {
+    const given = opts && opts.stream; // already open (asked for together with the microphone)
+    if (!given && cameraLive()) return { ok: true };
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       return { ok: false, message: 'This browser cannot use the camera on this page. Open it in Chrome or Edge on https or http://localhost.' };
     }
     const gen = state.callGen;
     try {
-      const s = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' } });
+      const s = given || await navigator.mediaDevices.getUserMedia({ video: CAMERA_CONSTRAINTS });
       // The camera opened after the call ended (slow permission prompt): turn it straight off.
       if (gen !== state.callGen || !state.running) {
         s.getTracks().forEach((tr) => tr.stop());
@@ -483,6 +552,7 @@
   }
 
   function stopMedia() {
+    keepAwake(false);
     if (state.proctor) state.proctor.stop();
     state.proctor = null;
     state.watching = false;
@@ -1266,7 +1336,15 @@
         // busy: a welcome-back is already being spoken (a second quick tab switch).
         if (!hiddenAt || ctl.done || ctl.busy) return;
         ctl.busy = true;
-        const spokeSoFar = !!rec && (rec.live === false
+        // A phone may have stopped the microphone or the camera meanwhile: reopen them, then
+        // start the answer again (what was said so far was heard on the old microphone).
+        const revived = await reviveMedia();
+        if (ctl.done) return;
+        if (revived && rec) {
+          rec.abort();
+          rec = null;
+        }
+        const spokeSoFar = !revived && !!rec && (rec.live === false
           ? !!(state.meter && state.meter.segmentVoicedMs() >= 1200)
           : Voice.wordCount(rec.text()) > 2);
         const lines = spokeSoFar
@@ -1287,6 +1365,7 @@
         showPromptCaption(step);
         t0 += performance.now() - hiddenAt;
         hiddenAt = 0;
+        if (revived) return begin();
         resumeListening();
       };
 
@@ -1462,12 +1541,15 @@
       state.hiddenCount++;
       if (!state.running) return;
       state.integrity.tabSwitches++;
-      appIncident('tab', 'serious');
+      // A phone that cannot be kept awake turns its screen off by itself: noted, not a warning.
+      appIncident('tab', IS_MOBILE && !wakeHeld ? 'minor' : 'serious');
       // Browsers cut speech and recognition in background tabs: pause the call cleanly.
       Speech.cancel();
       if (state.ctl && !state.ctl.done && state.ctl.onHidden) state.ctl.onHidden();
-    } else if (state.running && state.ctl && !state.ctl.done && state.ctl.onVisible) {
-      state.ctl.onVisible();
+    } else if (state.running) {
+      keepAwake(true);
+      reviveMedia();
+      if (state.ctl && !state.ctl.done && state.ctl.onVisible) state.ctl.onVisible();
     }
   });
 
@@ -2016,7 +2098,13 @@
     startElapsed();
 
     // Microphone first: without it there is no interview.
-    let mic = await ensureMic();
+    // Ask once for both: phones otherwise show two prompts. Each is then checked on its own.
+    const both = await openMedia();
+    if (!alive()) {
+      if (both) both.getTracks().forEach((tr) => tr.stop());
+      return;
+    }
+    let mic = await ensureMic(both && both.getAudioTracks().length ? { stream: new MediaStream(both.getAudioTracks()) } : undefined);
     while (!mic.ok && alive() && !state.endRequested) {
       setUi('idle', 'Microphone needed');
       const retry = await waitForUser(mic.message);
@@ -2028,7 +2116,7 @@
     if (!alive()) return;
     if (!mic.ok) return endWithoutAnswers('The interview ended before any answers were recorded.');
     // The camera is required: the interview is AI-proctored.
-    let cam = await ensureCamera();
+    let cam = await ensureCamera(both && both.getVideoTracks().length ? { stream: new MediaStream(both.getVideoTracks()) } : undefined);
     while (!cam.ok && alive() && !state.endRequested) {
       setUi('idle', 'Camera needed');
       const retry = await waitForUser(cam.message, { noSkip: true });
@@ -2038,6 +2126,7 @@
     }
     if (!alive()) return;
     if (!cam.ok) return endWithoutAnswers(state.endRequested ? 'The interview ended before any answers were recorded.' : 'This interview is AI-proctored and needs your camera. Allow the camera and try again.');
+    keepAwake(true);
     const proctorOk = await startProctor(alive);
     if (!alive()) return;
     if (!proctorOk) return endWithoutAnswers(state.endRequested ? 'The interview ended before any answers were recorded.' : 'The AI proctor could not start, so the interview cannot go ahead. Check your internet connection and try again.');
