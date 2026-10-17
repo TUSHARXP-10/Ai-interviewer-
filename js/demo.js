@@ -302,7 +302,13 @@
   }
 
   const PROFILES = { strong, weak, average, engineer };
-  const api = { PROFILES, runScripted };
+
+  /** A strong example answer for a question, when one is written (not for calls or the topic talk). */
+  function modelAnswer(qid) {
+    return strong.answers[qid] || engineer.answers[qid] || null;
+  }
+
+  const api = { PROFILES, runScripted, modelAnswer };
   if (isNode) module.exports = api;
   else (root.AII = root.AII || {}).Demo = api;
 })(typeof window !== 'undefined' ? window : globalThis);

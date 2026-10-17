@@ -855,6 +855,8 @@
     const rand = opts.random || Math.random;
     const used = new Set();
     const out = [];
+    // A practice drill: exactly these questions, in this order.
+    if (opts.only) return opts.only.map((id) => byId[id]).filter(Boolean).map((q) => fill(q, opts.role, opts.company));
     if (trackOf(opts.role) === 'tech') {
       // Engineering: each question carries its round (1: communication & thought, 2: technical).
       const plan = planInfo(opts.length, opts.role, opts.company, opts.experience);

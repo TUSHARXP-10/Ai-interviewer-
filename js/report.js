@@ -168,8 +168,26 @@
       '<span class="chip"><span class="chip-k">' + esc(d.short) + '</span> ' + scores[d.key] + '</span>').join('') + '</div>';
   }
 
-  function questionDetail(q, i) {
+  /** A strong example answer, with a button to hear it (the app speaks it). */
+  function modelBlock(q) {
+    const text = AII.Demo && AII.Demo.modelAnswer ? AII.Demo.modelAnswer(q.id) : null;
+    if (!text || q.type === 'roleplay') return '';
+    return '<div class="model"><div class="model-head"><span class="eyebrow">A strong answer could sound like this</span>' +
+      '<button class="btn btn-small btn-glass no-print" type="button" data-say-model="' + esc(q.id) + '" aria-pressed="false">▶ Listen</button></div>' +
+      '<p>' + esc(text) + '</p></div>';
+  }
+
+  function bestOf(attempts) {
+    return attempts && attempts.length ? Math.max.apply(null, attempts.map((a) => a.quality || 0)) : null;
+  }
+
+  function drillButton(q, label) {
+    return '<button class="btn btn-small btn-drill no-print" type="button" data-drill="' + esc(q.id) + '">🎯 ' + esc(label || 'Practise again') + '</button>';
+  }
+
+  function questionDetail(q, i, o) {
     const parts = [];
+    const attempts = (o && o.drills && o.drills[q.id]) || null;
     // The words themselves (and the recordings) are in the transcript.
     parts.push('<p class="small"><a href="#tr-q' + (i + 1) + '">' + (q.skipped ? 'See this question in the transcript' : 'Read your answer in the transcript') + '</a></p>');
     if (q.listening) {
@@ -203,13 +221,41 @@
       parts.push('<div class="ai-note"><span class="eyebrow">Local AI reviewer · ' + esc(q.llm.model || '') + '</span><p>' + esc(q.llm.feedback || '') + (q.llm.better ? ' <strong>Try:</strong> ' + esc(q.llm.better) : '') + '</p></div>');
     }
     if (q.tip) parts.push('<div class="tip"><span class="eyebrow">What a strong answer includes</span><p>' + esc(q.tip) + '</p></div>');
+    parts.push(modelBlock(q));
+    const best = bestOf(attempts);
+    if (o && o.canDrill) {
+      parts.push('<div class="drill-row">' + drillButton(q, q.skipped ? 'Answer it now' : 'Practise this question again') +
+        (best != null ? '<span class="muted small">Practised ' + attempts.length + '× · best ' + best + '</span>' : '<span class="muted small">Answer it again out loud and see your score change.</span>') + '</div>');
+    }
 
     const score = q.skipped ? 'Skipped' : q.quality;
+    const practised = best != null ? '<span class="qa-best" title="Best practice score">↗ ' + best + '</span>' : '';
     return '<details class="qa"' + (i === 0 ? ' open' : '') + '><summary>' +
       '<span class="qa-num">Q' + (i + 1) + '</span>' +
       '<span class="qa-title"><span class="qa-stage">' + esc(q.stage) + '</span><span class="qa-q">' + esc(q.display || q.text) + '</span></span>' +
-      '<span class="qa-score" aria-label="Score">' + score + '</span></summary>' +
+      practised + '<span class="qa-score" aria-label="Score">' + score + '</span></summary>' +
       '<div class="qa-body">' + parts.join('') + '</div></details>';
+  }
+
+  /** The three weakest answers, each one tap away from a practice drill. */
+  function practiceCard(sheet, o) {
+    if (!o.canDrill || !sheet.questions.length) return '';
+    const drills = o.drills || {};
+    const ranked = sheet.questions.map((q, i) => ({ q, i, v: q.skipped ? -1 : q.quality }))
+      .sort((a, b) => a.v - b.v).slice(0, 3);
+    const allGood = ranked.every((r) => r.v >= 80);
+    return '<section class="card practice no-print" id="rep-practice"><div class="practice-head"><h2>Your practice plan</h2><p class="muted small">' +
+      (allGood ? 'Every answer scored 80 or more. Polish the lowest ones, or practise any question further down.'
+        : 'Answer your weakest questions again, out loud. Each drill takes about two minutes and shows your score before and after.') +
+      '</p></div><ol class="practice-list">' + ranked.map((r) => {
+        const best = bestOf(drills[r.q.id]);
+        const now = r.q.skipped ? 'Skipped' : r.q.quality;
+        const tone = r.q.skipped || r.q.quality < 52 ? ' low' : r.q.quality < 66 ? ' mid' : '';
+        return '<li><span class="pl-score' + tone + '">' + now + '</span>' +
+          '<span class="pl-q"><span class="qa-stage">Q' + (r.i + 1) + ' · ' + esc(r.q.stage) + '</span><span class="pl-text">' + esc(r.q.display || r.q.text) + '</span>' +
+          (best != null ? '<span class="pl-best">Best practice score: ' + best + (best > (r.q.skipped ? 0 : r.q.quality) ? ' ↗' : '') + '</span>' : '') + '</span>' +
+          drillButton(r.q, best != null ? 'Again' : 'Practise') + '</li>';
+      }).join('') + '</ol></section>';
   }
 
   // ------------------------------------------------------------ AI proctoring
@@ -288,7 +334,7 @@
       : '<p class="muted">No common grammar slips detected.</p>';
 
     const chipsOf = (arr) => (arr.length ? arr.map((t) => '<span class="chip">“' + esc(t.term) + '” ×' + t.count + '</span>').join('') : '<span class="muted">none</span>');
-    const speech = '<section class="card"><h2>Speech & language analytics</h2>' +
+    const speech = '<section class="card" id="rep-speech"><h2>Speech & language analytics</h2>' +
       '<div class="tiles small-tiles">' +
       tile('Words spoken', String(s.words), s.speakingSec ? fmtDuration(s.speakingSec) + ' of speech' : '') +
       tile('Hedging', s.hedgePer100 + '<span class="tile-unit">/100 words</span>', s.hedgePer100 <= 1.5 ? 'direct' : 'often unsure') +
@@ -316,10 +362,14 @@
       (sheet.terminated ? '<div class="muted small">Ended after three integrity warnings.</div>'
         : sheet.incomplete ? '<div class="muted small">Interview incomplete; treat with caution.</div>' : '') + '</div></header>' +
       '<div class="tiles">' + kpis + '</div>' +
+      '<nav class="rep-nav no-print" aria-label="Scoresheet sections">' +
+      [['rep-summary', 'Summary'], o.canDrill ? ['rep-practice', 'Practice plan'] : null, ['rep-skills', 'Skills'], ['transcript', 'Transcript'], ['rep-questions', 'Every question'], ['rep-speech', 'Speech & grammar']]
+        .filter(Boolean).map((l) => '<a href="#' + l[0] + '">' + l[1] + '</a>').join('') + '</nav>' +
       proctoringCard(sheet, o.photos) +
-      '<section class="card"><h2>Interviewer’s summary ' + (sheet.summarySource === 'llm' ? '<span class="tag">written by local AI</span>' : '') + '</h2><p class="summary">' + esc(sheet.summary) + '</p></section>' +
+      '<section class="card" id="rep-summary"><h2>Interviewer’s summary ' + (sheet.summarySource === 'llm' ? '<span class="tag">written by local AI</span>' : '') + '</h2><p class="summary">' + esc(sheet.summary) + '</p></section>' +
       roundsCard(sheet) +
-      '<section class="card"><h2>Skill breakdown</h2><p class="muted small">Each score is on a recruiter’s scale (80+ strong, 66+ hire, 52+ borderline), with the evidence from this interview behind it.</p><div class="meters">' + dims.map((d) => meter(d.score, d.label, d.about, d.band, d.why)).join('') + '</div></section>' +
+      practiceCard(sheet, o) +
+      '<section class="card" id="rep-skills"><h2>Skill breakdown</h2><p class="muted small">Each score is on a recruiter’s scale (80+ strong, 66+ hire, 52+ borderline), with the evidence from this interview behind it.</p><div class="meters">' + dims.map((d) => meter(d.score, d.label, d.about, d.band, d.why)).join('') + '</div></section>' +
       '<div class="grid-2">' +
       '<section class="card"><h2>Strengths</h2><ul class="list-good">' + sheet.strengths.map((x) => '<li>' + labelled(x) + '</li>').join('') + '</ul></section>' +
       '<section class="card"><h2>How to improve</h2><ul class="list-improve">' + sheet.improvements.map((x) => '<li>' + labelled(x) + '</li>').join('') + '</ul></section>' +
@@ -327,7 +377,7 @@
       '<div class="grid-2">' + roleFit + (call || integ) + '</div>' +
       speech +
       '<section class="card"><h2>Score per question</h2>' + questionChart(sheet) + '</section>' +
-      '<section class="card"><h2>Question-by-question breakdown</h2>' + sheet.questions.map((q, i) => questionDetail(q, i)).join('') + '</section>' +
+      '<section class="card" id="rep-questions"><h2>Question-by-question breakdown</h2>' + sheet.questions.map((q, i) => questionDetail(q, i, o)).join('') + '</section>' +
       (call ? integ : '') +
       '<p class="disclaimer muted small">Automated assessment by a transparent, rule-based model' + (sheet.llmUsed ? ' with a local AI second opinion' : '') +
       '. Speech-to-text can mishear words, especially with strong accents or background noise. Use this scoresheet as one input alongside human judgement, not as the sole basis for a hiring decision.</p>' +
@@ -365,5 +415,5 @@
     wireChart(container);
   }
 
-  AII.Report = { render, mount, highlighted };
+  AII.Report = { render, mount, highlighted, modelBlock };
 })(typeof window !== 'undefined' ? window : globalThis);

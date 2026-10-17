@@ -132,7 +132,7 @@
   });
 
   // ------------------------------------------------------------ screens
-  const SCREENS = ['home', 'interview', 'processing', 'report'];
+  const SCREENS = ['home', 'interview', 'processing', 'report', 'drill'];
   function show(name) {
     for (const s of SCREENS) $('#screen-' + s).hidden = s !== name;
     document.body.classList.toggle('in-call', name === 'interview');
@@ -726,7 +726,7 @@
   function setPersona(who) {
     const live = state.call && !$('#caller-card').hidden;
     $('#avatar').classList.toggle('customer', who === 'customer');
-    $('#who-label').textContent = who === 'customer' ? (live ? state.call.customerName + ' · Live call' : 'Customer · mock call') : INTERVIEWER + ' · ' + (state.company ? (state.company.id === 'generic' ? 'Tech interview' : (state.company.display || state.company.name) + ' interview') : 'Interviewer');
+    $('#who-label').textContent = who === 'customer' ? (live ? state.call.customerName + ' · Live call' : 'Customer · mock call') : INTERVIEWER + ' · ' + (state.drill ? 'Practice drill' : state.company ? (state.company.id === 'generic' ? 'Tech interview' : (state.company.display || state.company.name) + ' interview') : 'Interviewer');
     $('#cap-who').textContent = who === 'customer' ? (live ? state.call.customerName : 'Customer') : INTERVIEWER;
   }
 
@@ -1703,6 +1703,7 @@
   });
 
   function abortInterview() {
+    state.drill = null;
     state.callGen++;
     state.watching = false;
     state.endRequested = true;
@@ -2183,18 +2184,23 @@
   }
 
   // ------------------------------------------------------------ the call
-  async function startCall() {
+  async function startCall(drill) {
     const gen = ++state.callGen;
     const alive = () => gen === state.callGen && !state.discard;
-    const co = settings.track === 'tech' ? Questions.COMPANIES[settings.company] || Questions.COMPANIES.generic : null;
-    state.company = co ? Object.assign({ id: settings.company }, co) : null;
+    // A practice drill re-asks one question from a scoresheet, for the same role and company.
+    state.drill = drill || null;
+    const src = drill ? drill.sheet : null;
+    const companyId = src ? src.company && src.company.id : settings.track === 'tech' ? settings.company : null;
+    const co = companyId ? Questions.COMPANIES[companyId] || Questions.COMPANIES.generic : null;
+    state.company = co ? Object.assign({ id: companyId }, co) : null;
     state.session = Engine.createSession({
-      length: settings.length,
-      role: settings.role,
-      experience: settings.experience,
-      company: co ? settings.company : undefined,
+      length: src ? src.config.length : settings.length,
+      role: src ? src.candidate.role : settings.role,
+      experience: src ? src.candidate.experience : settings.experience,
+      company: co ? companyId : undefined,
+      only: drill ? [drill.qid] : undefined,
       mode: 'voice',
-      name: settings.name,
+      name: settings.name || (src && !drill.sample ? src.candidate.name : ''),
       interviewerName: INTERVIEWER,
       seed: (Math.random() * 2147483647) | 0,
     });
@@ -2225,6 +2231,7 @@
     $('#room-q').textContent = 'Connecting…';
     $('#dots').innerHTML = '';
     $('#roleplay-banner').hidden = true;
+    renderDrillCoach(drill);
     renderRound({});
     captionWords('');
     renderYou('', '');
@@ -2236,7 +2243,7 @@
 
     // Microphone first: without it there is no interview.
     // Ask once for both: phones otherwise show two prompts. Each is then checked on its own.
-    const both = await openMedia();
+    const both = await openMedia(drill ? { video: false } : undefined);
     if (!alive()) {
       if (both) both.getTracks().forEach((tr) => tr.stop());
       return;
@@ -2252,6 +2259,7 @@
     }
     if (!alive()) return;
     if (!mic.ok) return endWithoutAnswers('The interview ended before any answers were recorded.');
+    if (drill) return runDrill(gen, alive);
     // The camera is required: the interview is AI-proctored.
     let cam = await ensureCamera(both && both.getVideoTracks().length ? { stream: new MediaStream(both.getVideoTracks()) } : undefined);
     while (!cam.ok && alive() && !state.endRequested) {
@@ -2295,6 +2303,7 @@
     if (!alive()) return;
     const check = await micCheck(alive);
     if (!alive()) return;
+    if (check === 'heard') state.micHeard = true;
     if (!state.endRequested) {
       const opener = check === 'heard'
         ? 'Perfect, I can hear you clearly. '
@@ -2368,6 +2377,309 @@
     await finishInterview(gen);
   }
 
+  // ------------------------------------------------------------ practice drills
+  // Answer one question again: the same voice call without the camera (it is practice, not an
+  // interview), then the score before and after. Attempts are kept per scoresheet, on this device.
+  const DRILL_KEY = 'aii-drills';
+  function drillsFor(sheetId) {
+    return (store.get(DRILL_KEY, {}) || {})[sheetId] || {};
+  }
+  function saveDrill(sheetId, qid, attempt) {
+    const all = store.get(DRILL_KEY, {}) || {};
+    const forSheet = all[sheetId] || (all[sheetId] = {});
+    forSheet[qid] = (forSheet[qid] || []).concat([attempt]).slice(-5);
+    // Only for scoresheets still in the history (and the one on screen).
+    const keep = new Set(store.get(HISTORY_KEY, []).map((h) => h.id).concat([sheetId]));
+    for (const id of Object.keys(all)) if (!keep.has(id)) delete all[id];
+    store.set(DRILL_KEY, all);
+  }
+
+  function startDrill(qid) {
+    const sheet = state.sheet;
+    if (!sheet || state.running) return;
+    const prev = sheet.questions.find((q) => q.id === qid);
+    if (!prev) return;
+    if (!resolveEngine(settings.engine)) return alert('This browser cannot recognise speech. Please open this page in Chrome or Edge.');
+    stopFeedbackAudio();
+    stopModelAudio();
+    $$('#report-root audio, #drill-root audio').forEach((a) => a.pause());
+    Speech.unlock();
+    Audio.prime();
+    keepAwake(true);
+    startCall({ sheet, qid, prev, sample: !!(state.reportOpts && state.reportOpts.sample) });
+  }
+
+  // One concrete aim per skill, for the weakest skill of the last answer.
+  const SKILL_AIM = {
+    technical: 'Go one level deeper: name a trade-off, the complexity, or an edge case.',
+    thought: 'Give it a shape: first, then, finally, and say why each step matters.',
+    relevance: 'Answer the exact question in your first sentence, then add one concrete detail.',
+    communication: 'Slow down a little and replace "um" with a short pause.',
+    confidence: 'Start within a few seconds, and say "I would" or "I did" instead of "I think maybe".',
+    customer: 'Show empathy first, then give a clear fix with a timeline.',
+    attitude: 'Sound genuinely interested: say what you would bring and what excites you.',
+    language: 'Use short, complete sentences and check your verb tenses.',
+  };
+  /** What to aim for this time: the gaps the scoresheet found, and the weakest skill. */
+  function drillAims(prev) {
+    if (prev.skipped) return ['Give it a go: even a short, honest answer beats a skip.'];
+    const aims = ((prev.feedback && prev.feedback.improve) || []).slice(0, 2);
+    const s = prev.scores || {};
+    const weakest = Object.keys(s).filter((k) => SKILL_AIM[k] && s[k] != null).sort((a, b) => s[a] - s[b])[0];
+    if (weakest && s[weakest] < 85) aims.push(SKILL_AIM[weakest]);
+    return aims.length ? aims : ['Keep it up: add one real example, and say why it matters.'];
+  }
+
+  function renderDrillCoach(drill) {
+    const box = $('#drill-coach');
+    box.hidden = !drill;
+    if (!drill) return;
+    box.innerHTML = '';
+    const head = document.createElement('div');
+    head.className = 'dc-head';
+    head.innerHTML = '<span class="dc-tag">🎯 Practice drill</span><span class="dc-last"></span>';
+    head.querySelector('.dc-last').textContent = drill.prev.skipped ? 'Skipped last time' : 'Last time: ' + drill.prev.quality + '/100';
+    const ul = document.createElement('ul');
+    for (const aim of drillAims(drill.prev)) {
+      const li = document.createElement('li');
+      li.textContent = aim;
+      ul.appendChild(li);
+    }
+    const lead = document.createElement('span');
+    lead.className = 'dc-lead';
+    lead.textContent = 'This time, aim to:';
+    box.append(head, lead, ul);
+  }
+
+  async function runDrill(gen, alive) {
+    const drill = state.drill;
+    keepAwake(true);
+    await pickVoices();
+    if (!alive()) return;
+    if (state.engine === 'whisper') {
+      const ok = await prepareWhisper(alive);
+      if (!alive()) return;
+      if (ok === false) {
+        if (!Speech.sttSupported) return endWithoutAnswers('The offline speech model could not be downloaded. Check your internet connection and try again.');
+        state.engine = 'browser';
+      }
+      setCallHint();
+    }
+    const first = String(settings.name || '').trim().split(/\s+/)[0];
+    const last = drill.prev.skipped ? 'Last time you skipped it.' : 'Last time it scored ' + drill.prev.quality + '.';
+    await say([{ text: "Let's practise this one again" + (first ? ', ' + first : '') + '. ' + last + ' Take a breath, and take your time.', voice: 'interviewer' }]);
+    if (!alive()) return;
+    // One mic check per visit, so a muted microphone is caught before the answer.
+    if (!state.micHeard && !state.endRequested) {
+      const check = await micCheck(alive);
+      if (!alive()) return;
+      if (check === 'heard') state.micHeard = true;
+    }
+    youPanel('aria');
+    const session = state.session;
+    let step = session.current();
+    $('#room-q').textContent = 'Practice drill · ' + (step ? step.stageLabel : '');
+    while (step && !state.endRequested) {
+      renderDots(step);
+      const q = stepQuestion(step);
+      await say(step.speak, { hideText: step.hideText, hiddenText: q && q.text, display: step.prompt });
+      if (!alive()) return;
+      if (state.endRequested) break;
+      earcon();
+      await sleep(GUARD_MS);
+      if (!alive() || state.endRequested) break;
+      showPromptCaption(step);
+      setPersona(step.kind === 'roleplay' ? 'customer' : 'interviewer');
+      if (step.call) startCallClock();
+      const answer = await listenTurn(step);
+      if (!alive()) return;
+      if (state.endRequested && answer.events.skipped) break;
+      if (answer.clip) {
+        state.clips.push({ qid: step.questionId, kind: step.kind === 'followup' ? 'followup' : step.kind === 'roleplay' ? 'turn' : 'main', index: step.kind === 'roleplay' ? step.turn : 0, blob: answer.clip.blob, mimeType: answer.clip.mimeType, durationMs: answer.clip.durationMs });
+      }
+      const res = session.submit(answer);
+      if (res.done) {
+        await say(res.speak, { force: true });
+        break;
+      }
+      step = res.step;
+    }
+    if (!alive()) return;
+    if (state.endRequested && !session.finished) session.endEarly();
+    state.running = false;
+    clearInterval(state.elapsedTimer);
+    if (state.callTimer) clearInterval(state.callTimer);
+    if (!session.results().length || session.results().every((it) => it.analysis.skipped)) {
+      return endDrill('No answer was recorded this time, so there is nothing to compare yet.');
+    }
+    finishDrill(gen);
+  }
+
+  function finishDrill(gen) {
+    const drill = state.drill;
+    const items = state.session.results();
+    const clips = state.clips;
+    stopMedia();
+    const sheet = Scoring.buildScoresheet({
+      candidate: Object.assign({}, drill.sheet.candidate),
+      config: { length: drill.sheet.config.length, mode: 'voice', engine: state.engine },
+      items,
+      startedAt: state.startedAt,
+      endedAt: Date.now(),
+      integrity: state.integrity,
+      proctoring: null,
+      company: drill.sheet.company || null,
+    });
+    const now = sheet.questions.find((q) => q.id === drill.qid) || sheet.questions[0];
+    saveDrill(drill.sheet.id, drill.qid, { at: new Date().toISOString(), quality: now.skipped ? 0 : now.quality, scores: now.scores, answer: now.answer || '' });
+    if (gen !== state.callGen) return;
+    renderDrillResult(drill, now, clips);
+    show('drill');
+    document.title = 'Practice drill · Tushar AI Interviewer';
+  }
+
+  function renderDrillResult(drill, now, clips) {
+    const root = $('#drill-root');
+    const before = drill.prev.skipped ? 0 : drill.prev.quality;
+    const after = now.skipped ? 0 : now.quality;
+    const delta = after - before;
+    const attempts = drillsFor(drill.sheet.id)[drill.qid] || [];
+    const best = Math.max.apply(null, attempts.map((a) => a.quality || 0));
+    const verdict = delta >= 15 ? 'Big improvement. That is how it should sound.'
+      : delta >= 5 ? 'Better than last time. Keep going.'
+        : delta > -5 ? 'About the same. Look at the gaps below and try once more.'
+          : 'Lower this time. Read the tips below, then try again.';
+    const D = Scoring.DIMENSIONS.filter((d) => now.scores[d.key] != null && drill.prev.scores && drill.prev.scores[d.key] != null);
+    const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const chip = (d) => {
+      const a = drill.prev.scores[d.key];
+      const b = now.scores[d.key];
+      const cls = b - a >= 5 ? 'up' : b - a <= -5 ? 'down' : '';
+      return '<span class="dr-chip ' + cls + '"><span class="chip-k">' + esc(d.short) + '</span> ' + a + ' → <strong>' + b + '</strong></span>';
+    };
+    const fb = now.feedback || { good: [], improve: [] };
+    const clip = (clips || []).find((c) => c.qid === drill.qid && c.kind === 'main' && c.blob);
+    let clipUrl = '';
+    if (clip) {
+      clipUrl = URL.createObjectURL(clip.blob);
+      state.clipUrls.push(clipUrl);
+    }
+    root.innerHTML = '<article class="drill-card card">' +
+      '<div class="eyebrow">Practice drill · ' + esc(now.stage) + '</div>' +
+      '<h1 class="drill-q">' + esc(now.display || now.text) + '</h1>' +
+      '<div class="drill-scores" role="img" aria-label="Score before ' + before + ', now ' + after + '">' +
+      '<div class="ds ds-before"><span>Before</span><strong>' + (drill.prev.skipped ? '—' : before) + '</strong></div>' +
+      '<div class="ds-arrow" aria-hidden="true">→</div>' +
+      '<div class="ds ds-after"><span>Now</span><strong>' + after + '</strong></div>' +
+      '<div class="ds-delta ' + (delta > 0 ? 'up' : delta < 0 ? 'down' : '') + '">' + (delta > 0 ? '+' : '') + delta + '</div></div>' +
+      '<p class="drill-verdict">' + esc(verdict) + (attempts.length > 1 ? ' <span class="muted">Best so far: ' + best + ' in ' + attempts.length + ' tries.</span>' : '') + '</p>' +
+      (D.length ? '<div class="dr-chips">' + D.map(chip).join('') + '</div>' : '') +
+      '<div class="grid-2 drill-grid"><section><h2>Your answer this time</h2>' +
+      (now.answer ? '<blockquote class="drill-answer"></blockquote>' : '<p class="muted">No answer was heard.</p>') +
+      (clipUrl ? '<audio controls preload="metadata" src="' + clipUrl + '"></audio>' : '') +
+      '</section><section><h2>What the interviewer noticed</h2>' +
+      (fb.good.length ? '<ul class="fb-good">' + fb.good.map((g) => '<li>' + esc(g) + '</li>').join('') + '</ul>' : '') +
+      (fb.improve.length ? '<ul class="fb-improve">' + fb.improve.map((g) => '<li>' + esc(g) + '</li>').join('') + '</ul>' : '<p class="muted small">Nothing important missing.</p>') +
+      '</section></div>' +
+      (now.tip ? '<div class="tip"><span class="eyebrow">What a strong answer includes</span><p>' + esc(now.tip) + '</p></div>' : '') +
+      Report.modelBlock(now) +
+      '<div class="drill-actions"><button class="btn btn-primary" type="button" data-drill-again>🎯 Try again</button>' +
+      '<button class="btn btn-glass" type="button" data-drill-next>Next weakest question</button>' +
+      '<button class="btn btn-glass" type="button" data-drill-back>← Back to scoresheet</button></div>' +
+      '</article>';
+    const bq = root.querySelector('.drill-answer');
+    if (bq) bq.textContent = now.answer;
+    const a = root.querySelector('audio');
+    if (a) Recorder.ensureDuration(a);
+    state.drillResult = drill;
+  }
+
+  /** The next question to practise: the weakest one not yet practised to 80. */
+  function nextDrillQid(sheet, after) {
+    const done = drillsFor(sheet.id);
+    const bestOf = (id) => Math.max.apply(null, [0].concat((done[id] || []).map((a) => a.quality || 0)));
+    const ranked = sheet.questions.map((q) => ({ id: q.id, v: Math.max(q.skipped ? 0 : q.quality, bestOf(q.id)) }))
+      .filter((r) => r.id !== after && r.v < 80).sort((a, b) => a.v - b.v);
+    return ranked.length ? ranked[0].id : null;
+  }
+
+  async function backToReport(message) {
+    const drill = state.drill || state.drillResult;
+    state.drill = null;
+    state.drillResult = null;
+    if (!drill) return goHome();
+    const sheet = drill.sheet;
+    const clips = drill.sample ? [] : await Recorder.loadClips(sheet.id).catch(() => []);
+    showReport(sheet, { clips, sample: drill.sample ? state.reportOpts && state.reportOpts.sample : null });
+    if (message) {
+      const banner = $('#sample-banner');
+      banner.hidden = false;
+      banner.textContent = message;
+    }
+    const card = document.querySelector('[data-drill="' + drill.qid + '"]');
+    const qa = card && card.closest('details');
+    if (qa) {
+      qa.open = true;
+      qa.scrollIntoView({ block: 'center' });
+    }
+  }
+
+  /** A drill that ended without an answer. */
+  function endDrill(message) {
+    if (state.cancelTap) state.cancelTap();
+    state.running = false;
+    clearInterval(state.elapsedTimer);
+    if (state.callTimer) clearInterval(state.callTimer);
+    stopMedia();
+    Speech.cancel();
+    backToReport(message);
+  }
+
+  $('#drill-root').addEventListener('click', (e) => {
+    const t = e.target.closest('button');
+    if (!t || !state.drillResult) return;
+    const drill = state.drillResult;
+    if (t.hasAttribute('data-say-model')) return sayModel(t);
+    stopModelAudio();
+    if (t.hasAttribute('data-drill-back')) return backToReport();
+    state.sheet = drill.sheet;
+    if (t.hasAttribute('data-drill-again')) return startDrill(drill.qid);
+    if (t.hasAttribute('data-drill-next')) {
+      const next = nextDrillQid(drill.sheet, drill.qid);
+      if (next) return startDrill(next);
+      backToReport('Every answer on this scoresheet is now at 80 or more. Well done!');
+    }
+  });
+
+  // Model answers: read aloud on request (one at a time; recordings pause).
+  let modelSeq = 0;
+  function stopModelAudio() {
+    if ($$('[data-say-model][aria-pressed="true"]').length) Speech.cancel();
+    modelSeq++;
+    $$('[data-say-model][aria-pressed="true"]').forEach((b) => {
+      b.setAttribute('aria-pressed', 'false');
+      b.textContent = '▶ Listen';
+    });
+  }
+  async function sayModel(btn) {
+    const text = Demo.modelAnswer(btn.getAttribute('data-say-model'));
+    const playing = btn.getAttribute('aria-pressed') === 'true';
+    stopFeedbackAudio();
+    stopModelAudio();
+    if (playing || !text || !Speech.ttsSupported) return;
+    const my = modelSeq;
+    btn.setAttribute('aria-pressed', 'true');
+    btn.textContent = '■ Stop';
+    $$('#report-root audio, #drill-root audio').forEach((a) => a.pause());
+    await pickVoices();
+    if (my !== modelSeq) return;
+    await Speech.speak(text, { voice: state.voices.interviewer, rate: settings.rate });
+    if (my === modelSeq) {
+      btn.setAttribute('aria-pressed', 'false');
+      btn.textContent = '▶ Listen';
+    }
+  }
+
   /** A pause ends answers unless the candidate chose "until I say that's all" with live words. */
   function pauseEnds() {
     return settings.silenceSec > 0 || state.engine === 'whisper';
@@ -2382,6 +2694,7 @@
   }
 
   function endWithoutAnswers(message) {
+    if (state.drill) return endDrill(message);
     if (state.cancelTap) state.cancelTap();
     state.running = false;
     clearInterval(state.elapsedTimer);
@@ -2551,8 +2864,15 @@
   function showReport(sheet, opts) {
     const o = opts || {};
     state.sheet = sheet;
+    state.reportOpts = { sample: o.sample || null };
     stopFeedbackAudio();
-    Report.mount($('#report-root'), sheet, { clips: clipMap(o.clips, sheet), photos: photoMap(o.clips) });
+    stopModelAudio();
+    Report.mount($('#report-root'), sheet, {
+      clips: clipMap(o.clips, sheet),
+      photos: photoMap(o.clips),
+      canDrill: !!resolveEngine(settings.engine),
+      drills: drillsFor(sheet.id),
+    });
     $$('#report-root audio').forEach((a) => Recorder.ensureDuration(a));
     const banner = $('#sample-banner');
     banner.hidden = !o.sample && !o.clipsNotSaved;
@@ -2597,10 +2917,20 @@
       btn.setAttribute('aria-pressed', 'false');
     }
   }
-  $('#rep-listen').addEventListener('click', () => playFeedback());
+  $('#rep-listen').addEventListener('click', () => {
+    stopModelAudio();
+    playFeedback();
+  });
+  $('#report-root').addEventListener('click', (e) => {
+    const t = e.target.closest('button');
+    if (!t) return;
+    if (t.hasAttribute('data-say-model')) sayModel(t);
+    else if (t.hasAttribute('data-drill')) startDrill(t.getAttribute('data-drill'));
+  });
 
   $('#rep-home').addEventListener('click', () => {
     stopFeedbackAudio();
+    stopModelAudio();
     goHome();
   });
   $('#rep-again').addEventListener('click', () => {

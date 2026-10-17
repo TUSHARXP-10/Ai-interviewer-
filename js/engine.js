@@ -84,8 +84,10 @@
   function createSession(opts) {
     const o = Object.assign({ length: 'standard', role: 'general', experience: 'fresher', mode: 'voice', interviewerName: 'Tushar AI' }, opts);
     const rand = Text.rng(o.seed != null ? o.seed : Date.now());
-    const planDef = Questions.planInfo ? Questions.planInfo(o.length, o.role, o.company, o.experience) : Questions.PLANS[o.length] || Questions.PLANS.standard;
-    const plan = Questions.buildPlan({ length: o.length, role: o.role, experience: o.experience, company: o.company, random: rand });
+    // o.only: a practice drill of just these questions (one follow-up at most, no rounds).
+    const planDef = o.only ? { label: 'Practice drill', minutes: '2', maxFollowUps: 1 }
+      : Questions.planInfo ? Questions.planInfo(o.length, o.role, o.company, o.experience) : Questions.PLANS[o.length] || Questions.PLANS.standard;
+    const plan = Questions.buildPlan({ length: o.length, role: o.role, experience: o.experience, company: o.company, only: o.only, random: rand });
     const company = (Questions.COMPANIES && Questions.COMPANIES[o.company]) || null;
     const items = plan.map((q, i) => {
       const item = { question: q, parts: [], followUps: [], turns: [], pendingCustomer: null, sim: null, round: null };
@@ -265,7 +267,7 @@
         const name = firstName();
         return {
           done: true,
-          speak: [{ text: (lead ? lead + ' ' : '') + 'That brings us to the end of the interview. Thank you' + (name ? ', ' + name + ',' : '') + " for your time. I'm now preparing your scoresheet.", voice: 'interviewer' }],
+          speak: o.only ? [{ text: (lead ? lead + ' ' : '') + "That's it for this one. Let's see how it compares with last time.", voice: 'interviewer' }] : [{ text: (lead ? lead + ' ' : '') + 'That brings us to the end of the interview. Thank you' + (name ? ', ' + name + ',' : '') + " for your time. I'm now preparing your scoresheet.", voice: 'interviewer' }],
         };
       }
       step = questionStep(items[idx], lead);

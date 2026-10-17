@@ -339,6 +339,7 @@
             <span class="mood-track" id="mood-meter" role="meter" aria-label="Customer anger" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50"><span class="mood-fill"></span></span>
           </span>
         </div>
+        <div class="drill-coach" id="drill-coach" hidden></div>
         <div class="roleplay-banner" id="roleplay-banner" hidden><span class="tally" aria-hidden="true"></span><strong>Mock call:</strong> you are the support agent. Talk to the customer as you would on a real call.</div>
 
         <div class="captions" id="captions" hidden aria-live="off">
@@ -408,6 +409,11 @@
         <ul class="steps" id="proc-steps"></ul>
         <div><button class="btn btn-glass" type="button" id="proc-skip" hidden>Skip AI review</button></div>
       </div>
+    </section>
+
+    <!-- ======================================================= PRACTICE DRILL RESULT -->
+    <section id="screen-drill" class="screen" hidden aria-label="Practice drill result">
+      <div id="drill-root"></div>
     </section>
 
     <!-- ======================================================= REPORT -->
