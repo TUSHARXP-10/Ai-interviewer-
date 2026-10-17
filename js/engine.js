@@ -158,6 +158,12 @@
           '. It takes about ' + p.minutes.replace(/\s*[–-]\s*/, ' to ') + ' minutes. If you want to hear a question again, just say repeat. ' +
           ending + " There's no code to type: in the technical round, think out loud, because I'm listening for your reasoning as much as the answer. Let's begin.";
       }
+      if (p.englishOnly) {
+        return 'This is an English practice round, in the style of the automated spoken-English tests many BPOs use. ' +
+          'First, repeat a few sentences exactly as you hear them: you hear each one once, so listen to the whole sentence. ' +
+          'Then a short listening test, two sentence corrections, and a short talk on a topic. It takes about ' + p.minutes.replace(/s*[–-]s*/, ' to ') + ' minutes. ' +
+          ending + " Let's begin.";
+      }
       if (p.rounds) {
         return 'This assessment is for the ' + role.short + ' position. It has ' + (NUMBER_WORDS[items.length] || items.length) + ' rounds: ' +
           'you introduce yourself, tell me why you want to work in a BPO, talk for up to three minutes on a random word, ' +
@@ -254,7 +260,7 @@
           ? "That's a great question. The HR team will share those details with you in the next round."
           : 'Alright.';
       }
-      if (q.type === 'listening' || q.type === 'correction') return pick('mid');
+      if (q.type === 'listening' || q.type === 'correction' || q.type === 'repeat') return pick('mid');
       const quality = analysis.quality;
       return quality >= 75 ? pick('high') : quality >= 50 ? pick('mid') : pick('low');
     }

@@ -194,6 +194,10 @@
       parts.push('<ul class="checklist">' + q.listening.items.map((it) =>
         '<li class="' + (it.hit ? 'ok' : 'miss') + '"><span aria-hidden="true">' + (it.hit ? '✓' : '✕') + '</span> ' + esc(it.label) + (it.hit ? '' : ' <span class="muted">(missed)</span>') + '</li>').join('') + '</ul>');
     }
+    if (q.repeat) {
+      parts.push('<p class="correction"><span class="eyebrow">The sentence</span>“' + esc(q.repeat.target) + '” — <strong>' + esc(q.repeat.verdict) + ' (' + q.repeat.score + '%)</strong>' +
+        (q.repeat.missed.length ? '<span class="muted"> · missed: ' + esc(q.repeat.missed.slice(0, 8).join(', ')) + '</span>' : '') + '</p>');
+    }
     if (q.correction) {
       parts.push('<p class="correction"><span class="eyebrow">Expected</span>“' + esc(q.correction.correct) + '” — <strong>' + esc(q.correction.verdict) + '</strong></p>');
     }

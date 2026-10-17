@@ -50,6 +50,7 @@
     roleplay: 'Mock Call',
     listening: 'English & Listening',
     correction: 'English & Listening',
+    repeat: 'English & Listening',
     extempore: 'Speaking Exercise',
     topic: 'Topic Talk',
     livecall: 'Live Call',
@@ -90,8 +91,15 @@
       label: 'Full assessment',
       minutes: '30–35',
       slots: ['intro', 'background', 'background2', 'motivation', 'why_hire', 'knowledge', 'knowledge2',
-        'situational', 'situational2', 'behavioral', 'behavioral', 'roleplay', 'listening', 'correction',
+        'situational', 'situational2', 'behavioral', 'behavioral', 'roleplay', 'listening', 'repeat', 'correction',
         'correction', 'extempore', 'shifts', 'self', 'future', 'salary', 'closing'],
+    },
+    // English only, in the style of automated spoken-English tests (Versant and similar) used by BPOs.
+    english: {
+      label: 'English & Versant practice',
+      minutes: '6–8',
+      slots: ['repeat', 'repeat', 'repeat', 'listening', 'correction', 'correction', 'extempore'],
+      englishOnly: true,
     },
   };
 
@@ -105,6 +113,7 @@
     roleplay: { communication: 1.2, confidence: 1, thought: 0.6, relevance: 1, customer: 3, attitude: 0.3 },
     listening: { language: 2, relevance: 0.5 },
     correction: { language: 2 },
+    repeat: { language: 2, communication: 0.5 },
     extempore: { communication: 2, confidence: 1.2, thought: 0.6, relevance: 0.5 },
     flexibility: { attitude: 2, confidence: 0.5, relevance: 0.3 },
     self: { communication: 0.8, confidence: 1, thought: 1, relevance: 1, attitude: 1 },
@@ -635,6 +644,56 @@
       ],
       minWords: 3, ideal: [6, 40], maxSeconds: 45,
       tip: 'Separate old details from new ones: the question asked for the NEW date. Read details back to confirm.',
+    },
+
+    // ---------------- Repeat after me (Versant-style sentence repetition)
+    {
+      id: 'repeat_hold', slot: 'repeat', type: 'repeat', hideText: true,
+      text: "Repeat after me, exactly as you hear it. Please hold the line while I check your account details.",
+      display: 'Repeat after me: listen to the sentence, then say it back exactly.',
+      target: "Please hold the line while I check your account details.",
+      minWords: 3, ideal: [6, 20], maxSeconds: 30,
+      tip: 'Listen to the whole sentence first, then repeat it at a natural pace, keeping the small words (the, of, for). Versant-style tests score both accuracy and fluency.',
+    },
+    {
+      id: 'repeat_refund', slot: 'repeat', type: 'repeat', hideText: true,
+      text: "Repeat after me, exactly as you hear it. Your refund will be credited within five to seven working days.",
+      display: 'Repeat after me: listen to the sentence, then say it back exactly.',
+      target: "Your refund will be credited within five to seven working days.",
+      minWords: 3, ideal: [6, 20], maxSeconds: 30,
+      tip: 'Listen to the whole sentence first, then repeat it at a natural pace, keeping the small words (the, of, for). Versant-style tests score both accuracy and fluency.',
+    },
+    {
+      id: 'repeat_concern', slot: 'repeat', type: 'repeat', hideText: true,
+      text: "Repeat after me, exactly as you hear it. I understand your concern, and I will fix this for you today.",
+      display: 'Repeat after me: listen to the sentence, then say it back exactly.',
+      target: "I understand your concern, and I will fix this for you today.",
+      minWords: 3, ideal: [6, 20], maxSeconds: 30,
+      tip: 'Listen to the whole sentence first, then repeat it at a natural pace, keeping the small words (the, of, for). Versant-style tests score both accuracy and fluency.',
+    },
+    {
+      id: 'repeat_plan', slot: 'repeat', type: 'repeat', hideText: true,
+      text: "Repeat after me, exactly as you hear it. The new plan includes unlimited calls and two gigabytes of data every day.",
+      display: 'Repeat after me: listen to the sentence, then say it back exactly.',
+      target: "The new plan includes unlimited calls and two gigabytes of data every day.",
+      minWords: 3, ideal: [6, 20], maxSeconds: 30,
+      tip: 'Listen to the whole sentence first, then repeat it at a natural pace, keeping the small words (the, of, for). Versant-style tests score both accuracy and fluency.',
+    },
+    {
+      id: 'repeat_verify', slot: 'repeat', type: 'repeat', hideText: true,
+      text: "Repeat after me, exactly as you hear it. Could you please confirm your registered mobile number for verification?",
+      display: 'Repeat after me: listen to the sentence, then say it back exactly.',
+      target: "Could you please confirm your registered mobile number for verification?",
+      minWords: 3, ideal: [6, 20], maxSeconds: 30,
+      tip: 'Listen to the whole sentence first, then repeat it at a natural pace, keeping the small words (the, of, for). Versant-style tests score both accuracy and fluency.',
+    },
+    {
+      id: 'repeat_visit', slot: 'repeat', type: 'repeat', hideText: true,
+      text: "Repeat after me, exactly as you hear it. Our technician will visit your address tomorrow between ten and twelve.",
+      display: 'Repeat after me: listen to the sentence, then say it back exactly.',
+      target: "Our technician will visit your address tomorrow between ten and twelve.",
+      minWords: 3, ideal: [6, 20], maxSeconds: 30,
+      tip: 'Listen to the whole sentence first, then repeat it at a natural pace, keeping the small words (the, of, for). Versant-style tests score both accuracy and fluency.',
     },
 
     // ---------------- Sentence correction

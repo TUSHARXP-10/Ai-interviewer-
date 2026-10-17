@@ -245,6 +245,13 @@ input[type="range"] { width: 100%; accent-color: var(--ember); }
 .length-cards { display: grid; grid-template-columns: 1fr; gap: 12px; }
 @media (min-width: 640px) { .length-cards { grid-template-columns: repeat(2, 1fr); } }
 @media (min-width: 1100px) { .length-cards { grid-template-columns: repeat(4, 1fr); } }
+/* Five options (BPO): 2 + 2 + 1 wide on tablets, 3 + 2 on wide screens. */
+@media (min-width: 640px) and (max-width: 1099px) { .length-cards > label:last-child:nth-child(odd) { grid-column: 1 / -1; } }
+@media (min-width: 1100px) {
+  .length-cards:has(> label:nth-child(5)) { grid-template-columns: repeat(6, 1fr); }
+  .length-cards:has(> label:nth-child(5)) > label { grid-column: span 2; }
+  .length-cards:has(> label:nth-child(5)) > label:nth-child(n+4) { grid-column: span 3; }
+}
 .length-cards label.lc-rounds .lc { border-color: rgba(255, 106, 43, 0.45); background: linear-gradient(150deg, rgba(255, 106, 43, 0.14), rgba(143, 128, 255, 0.08) 60%, rgba(255, 255, 255, 0.03)); }
 .lc-badge { display: inline-block; margin-left: 8px; padding: 3px 8px; border-radius: 999px; background: var(--ember); color: #170a03; font: 700 0.58rem/1 var(--f-mono); font-style: normal; letter-spacing: 0.12em; text-transform: uppercase; vertical-align: 0.3em; box-shadow: 0 0 14px var(--ember-glow); }
 .length-cards label { position: relative; display: block; margin: 0 !important; font: inherit !important; letter-spacing: 0 !important; text-transform: none !important; }

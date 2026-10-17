@@ -210,6 +210,39 @@
     return { accepted, rejected, score, verdict, correct: question.correct };
   }
 
+  // Spoken numbers and digits are the same word ("five" = "5").
+  const NUM = { zero: '0', one: '1', two: '2', three: '3', four: '4', five: '5', six: '6', seven: '7', eight: '8', nine: '9', ten: '10', eleven: '11', twelve: '12' };
+  const normWords = (words) => words.map((w) => NUM[w] || w);
+
+  /**
+   * Repeat after me: how much of the sentence came back, in order (longest common
+   * subsequence of words). -> { score, accuracy, verdict, missed: [words], target }
+   */
+  function repeatCheck(doc, question) {
+    const target = normWords(makeDoc(question.target || '').words);
+    const said = normWords(doc.words);
+    const n = target.length;
+    const m = said.length;
+    const dp = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0));
+    for (let i = n - 1; i >= 0; i--) {
+      for (let j = m - 1; j >= 0; j--) dp[i][j] = target[i] === said[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
+    }
+    const missed = [];
+    let i = 0;
+    let j = 0;
+    while (i < n) {
+      if (j < m && target[i] === said[j]) { i++; j++; }
+      else if (j < m && dp[i][j + 1] >= dp[i + 1][j]) j++;
+      else { missed.push(target[i]); i++; }
+    }
+    const accuracy = n ? dp[0][0] / n : 0;
+    // Extra words (a restart, "um", an added phrase) cost a little; most engines drop "um" anyway.
+    const extra = Math.max(0, m - dp[0][0]);
+    const score = m ? Math.round(Math.max(0, accuracy * 100 - Math.max(0, extra - 1) * 4)) : 0;
+    const verdict = !m ? 'no answer' : score >= 95 ? 'word-perfect' : score >= 80 ? 'nearly word-perfect' : score >= 50 ? 'partly repeated' : 'missed most of it';
+    return { score, accuracy: Math.round(accuracy * 100), verdict, missed, target: question.target };
+  }
+
   function stanceCheck(doc, question) {
     const s = question.stance;
     const all = s.yes.concat(s.no, s.conditional, ['will not be a problem', 'would not be a problem', 'will not be an issue', 'not an issue', 'no issue', 'no issues']);
@@ -361,6 +394,7 @@
     let askedQuestion = null;
     if (question.type === 'listening') listening = listeningCheck(doc, question);
     if (question.type === 'correction') correction = correctionCheck(doc, question);
+    const repeat = question.type === 'repeat' ? repeatCheck(doc, question) : null;
     if (question.type === 'flexibility' && question.stance) {
       stance = stanceCheck(doc, question);
       if (stance.stance === 'negative' && !redFlags.some((f) => f.id === 'shift_refusal')) {
@@ -435,7 +469,7 @@
     const needsStory = question.type === 'behavioral' && !skipped && story === 0;
 
     // Thought process
-    if (!skipped && ['listening', 'correction', 'closing', 'flexibility'].indexOf(question.type) === -1) {
+    if (!skipped && ['listening', 'correction', 'repeat', 'closing', 'flexibility'].indexOf(question.type) === -1) {
       const s = structure;
       const structScore = curve(Math.min(s.sequencing, 1) + 1.2 * Math.min(s.reasoning, 1) + Math.min(s.example, 1) + 0.5 * Math.min(s.contrast, 1) + 0.6 * Math.min(s.summary, 1) + 0.3 * Math.max(0, s.reasoning - 1), [[0, 25], [1, 50], [2, 72], [3, 88], [4, 100]]);
       if (question.type === 'roleplay') {
@@ -458,6 +492,7 @@
     if (skipped) add('relevance', 'skipped', 'Question skipped', 0, 1);
     else if (listening) add('relevance', 'recall', 'Details recalled', listening.recall * 100, 1);
     else if (correction) add('relevance', 'correction', 'Correct sentence', correction.score, 1);
+    else if (repeat) add('relevance', 'repeat', 'Sentence repeated', repeat.score, 1);
     else if (call) {
       add('relevance', 'checklist', 'Call-handling checklist', curve(call.pct / 100 / (question.coverageTarget || 0.75), [[0, 15], [0.34, 48], [0.67, 75], [1, 100]]), 0.8);
       add('relevance', 'completeness', 'Completeness', completeness, 0.2);
@@ -555,6 +590,7 @@
     if (dims.language) {
       if (listening) add('language', 'listening', 'Listening accuracy', Math.max(0, listening.recall * 100 - (events.repeats || 0) * 15), 1);
       else if (correction) add('language', 'correction', 'Sentence correction', correction.score, 1);
+      else if (repeat) add('language', 'repeat', 'Repeated the sentence accurately', Math.max(0, repeat.score - (events.repeats || 0) * 15), 1);
     }
 
     const scores = {};
@@ -598,6 +634,7 @@
       metrics,
       listening,
       correction,
+      repeat,
       stance,
       call,
       askedQuestion,
@@ -652,6 +689,11 @@
       if (miss.length) improve.push('Missed: ' + list(miss) + '. ' + q.tip);
       if (a.events.repeats) improve.push('Asked for the details to be repeated — on live calls, note details down the first time.');
     }
+    if (a.repeat) {
+      if (a.repeat.score >= 95) good.push('Repeated it word for word: “' + q.target + '”');
+      else improve.push('The sentence was: “' + q.target + '”' + (a.repeat.missed.length ? ' (missed: ' + a.repeat.missed.slice(0, 5).join(', ') + ')' : '') + '. ' + q.tip);
+      if (a.events.repeats) improve.push('Asked for the sentence again: in the real test you hear it only once.');
+    }
     if (a.correction) {
       if (a.correction.verdict === 'correct') good.push('Correct: “' + q.correct + '”');
       else improve.push('Expected: “' + q.correct + '” (' + a.correction.verdict + '). ' + q.tip);
@@ -685,7 +727,7 @@
     if (m.dontKnow) improve.push('Avoid a flat "I don\'t know". Think out loud and give your best approach.');
 
     // Length.
-    const simpleTypes = ['listening', 'correction', 'closing', 'flexibility'];
+    const simpleTypes = ['listening', 'correction', 'repeat', 'closing', 'flexibility'];
     if (simpleTypes.indexOf(q.type) === -1) {
       if (m.wordCount < (q.minWords || 20)) improve.push('Answer was brief (' + m.wordCount + ' words). Aim for roughly ' + lo + '–' + hi + ' words with an example.');
       else if (m.wordCount > hi * 1.8) improve.push('Answer ran long (' + m.wordCount + ' words). Get to the point faster and keep one strong example.');

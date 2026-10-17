@@ -173,7 +173,7 @@
           wpmSum += m.wpm * m.wordCount;
           wpmW += m.wordCount;
         }
-        if (m.latencySec != null && ['listening', 'correction', 'closing'].indexOf(a.type) === -1) lat.push(m.latencySec);
+        if (m.latencySec != null && ['listening', 'correction', 'repeat', 'closing'].indexOf(a.type) === -1) lat.push(m.latencySec);
         if (m.audio) {
           pauses += m.audio.longPauses || 0;
           if (m.audio.pitchSdSemitones != null) {
@@ -203,7 +203,7 @@
     const seen = new Map();
     for (const it of items) {
       // A correction answer that repeats the error is scored as the task, not counted twice.
-      if (it.analysis.type === 'correction' || it.analysis.type === 'listening') continue;
+      if (it.analysis.type === 'correction' || it.analysis.type === 'listening' || it.analysis.type === 'repeat') continue;
       for (const g of it.analysis.metrics.grammar) {
         const key = g.wrong;
         if (!seen.has(key)) seen.set(key, Object.assign({ count: 0 }, g));
@@ -248,7 +248,7 @@
     let errors = 0;
     for (const it of items) {
       const a = it.analysis;
-      if (a.skipped || !a.metrics.english || a.type === 'correction' || a.type === 'listening') continue;
+      if (a.skipped || !a.metrics.english || a.type === 'correction' || a.type === 'listening' || a.type === 'repeat') continue;
       words += a.metrics.english.words;
       articles += a.metrics.english.articles;
       errors += a.metrics.english.errors;
@@ -473,6 +473,7 @@
         latencySec: a.metrics.latencySec != null ? Math.round(a.metrics.latencySec * 10) / 10 : null,
         listening: a.listening,
         correction: a.correction,
+        repeat: a.repeat || null,
         call: a.call ? a.call.items : null,
         approach: Coach && !a.skipped ? Coach.approach(it.question, it.response.text) : null,
         stance: a.stance ? a.stance.stance : null,

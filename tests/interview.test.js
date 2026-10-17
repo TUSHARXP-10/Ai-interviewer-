@@ -17,6 +17,11 @@ test('plans pick role- and experience-appropriate questions', () => {
         assert.equal(new Set(plan.map((q) => q.id)).size, plan.length, 'no duplicates');
         for (const q of plan) assert.ok(Q.eligible(q, role, experience), q.id);
         const rp = plan.find((q) => q.type === 'roleplay');
+        if (Q.PLANS[length].englishOnly) {
+          // English & Versant practice: spoken-English tasks only, no mock call.
+          assert.ok(!rp && plan.every((q) => ['repeat', 'listening', 'correction', 'extempore'].indexOf(q.type) !== -1), length);
+          continue;
+        }
         assert.ok(rp, 'every plan has a mock call');
         // (The 4-round assessment always ends with the same live customer call.)
         if (length === 'assessment') assert.equal(rp.id, 'live_call');
@@ -210,4 +215,19 @@ test('skipping the last question does not say "let\'s move on" before the goodby
   }
   assert.doesNotMatch(res.speak[0].text, /move on|next one/i, res.speak[0].text);
   assert.match(res.speak[0].text, /end of the interview/);
+});
+
+test('repeat after me is scored word for word, digits and spoken numbers alike', () => {
+  const Analyzer = require('../js/analyzer.js');
+  const q = Q.byId.repeat_refund;
+  const check = (t) => Analyzer.analyzeAnswer(q, { text: t, mode: 'voice', events: {} }).repeat;
+  assert.equal(check(q.target).score, 100);
+  assert.equal(check('your refund will be credited within 5 to 7 working days').verdict, 'word-perfect');
+  const partial = check('refund will be credited within five to seven days');
+  assert.ok(partial.score >= 75 && partial.score < 95, 'dropped small words: ' + partial.score);
+  assert.deepEqual(partial.missed, ['your', 'working']);
+  assert.ok(check('your refund will come in some days').score < 40, 'a paraphrase is not a repetition');
+  // Scripted candidates rank the way a recruiter would on the English plan.
+  const overall = (p) => runInterview(p, { role: 'voice', length: 'english', seed: 4 }).sheet.overall;
+  assert.ok(overall('strong') > overall('average') && overall('average') > overall('weak'));
 });

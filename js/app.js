@@ -252,6 +252,13 @@
       label.querySelector('.lc > span').textContent = p.rounds
         ? p.rounds.map((r) => r.title).join(' · ') + ' · ' + aboutMin(p.minutes)
         : p.slots.length + ' questions · ' + aboutMin(p.minutes);
+      if (p.englishOnly) {
+        const badge = document.createElement('em');
+        badge.className = 'lc-badge lc-badge-eng';
+        badge.textContent = 'Versant';
+        label.querySelector('strong').appendChild(badge);
+        label.querySelector('.lc > span').textContent = 'Repeat after me · listening · corrections · ' + aboutMin(p.minutes);
+      }
       if (p.rounds) {
         label.classList.add('lc-rounds');
         const badge = document.createElement('em');
@@ -1395,7 +1402,7 @@
       const idealWords = q && q.ideal ? q.ideal[0] : null;
       const roleplay = step.kind === 'roleplay';
       // Where the candidate may say their own name (not the mock call, a listening test or a correction).
-      const namesOk = !roleplay && !(q && (q.type === 'correction' || q.type === 'listening'));
+      const namesOk = !roleplay && !(q && (q.type === 'correction' || q.type === 'listening' || q.type === 'repeat'));
       const listeningText = roleplay ? 'Your turn: talk to the customer' : 'Listening… go ahead';
       let t0 = performance.now();
       let rec = null;
@@ -1407,7 +1414,7 @@
       let hiddenAt = 0;
       let resumedAt = performance.now(); // silence is only counted from when listening (re)started
       // Live coaching: not for the listening test or a sentence correction (short, exact answers).
-      const coachOn = settings.liveCoach !== false && !(q && (q.type === 'listening' || q.type === 'correction'));
+      const coachOn = settings.liveCoach !== false && !(q && (q.type === 'listening' || q.type === 'correction' || q.type === 'repeat'));
       let firstWordAt = 0;
       let coachAt = 0;
       const pauses = [];                 // [from, to] while listening was paused, excluded from speaking time
@@ -1849,7 +1856,7 @@
         // (only if a voice was there the moment listening began: see Voice.stripEcho).
         // Not where repeating the prompt IS the answer: grammar corrections, listening
         // details and the mock call (where the agent often echoes the customer).
-        const echoes = !roleplay && !(q && (q.type === 'correction' || q.type === 'listening'));
+        const echoes = !roleplay && !(q && (q.type === 'correction' || q.type === 'listening' || q.type === 'repeat'));
         if (echoes) text = Voice.stripEcho(text, state.lastSpoken || step.prompt, { onsetMs: onset });
         if (namesOk) text = fixNames(text); // "I am tishar chadne" → "I am Tushar Chandane"
         // Commands that only show up in the final transcript (e.g. the offline engine).
@@ -3021,7 +3028,7 @@
       state.skipLlm = false;
       $('#proc-skip').hidden = false;
       procSteps(steps, 3);
-      const reviewable = items.filter((it) => !it.analysis.skipped && ['listening', 'correction'].indexOf(it.question.type) === -1);
+      const reviewable = items.filter((it) => !it.analysis.skipped && ['listening', 'correction', 'repeat'].indexOf(it.question.type) === -1);
       let i = 0;
       for (const it of reviewable) {
         if (state.skipLlm || !alive()) break;

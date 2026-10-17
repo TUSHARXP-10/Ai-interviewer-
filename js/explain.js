@@ -263,6 +263,12 @@
       const miss = items.filter((i) => !i.hit).map((i) => i.label.toLowerCase());
       out.push(line(miss.length ? 'bad' : 'good', 'Listening test: recalled ' + hits + ' of ' + items.length + ' details' + (miss.length ? ' (missed ' + list(miss) + ')' : '') + '.'));
     }
+    const reps = ctx.items.filter((x) => x.analysis.repeat && !x.analysis.skipped);
+    if (reps.length) {
+      const avg = Math.round(reps.reduce((s, x) => s + x.analysis.repeat.score, 0) / reps.length);
+      const perfect = reps.filter((x) => x.analysis.repeat.score >= 95).length;
+      out.push(line(avg >= 85 ? 'good' : 'bad', 'Repeat after me: ' + perfect + ' of ' + reps.length + ' sentences word for word (' + avg + '% accuracy).'));
+    }
     for (const it of ctx.items.filter((x) => x.analysis.correction)) {
       const c = it.analysis.correction;
       if (c.verdict === 'correct') out.push(line('good', 'Corrected the sentence: ' + quote(it.response.text, 12) + '.'));

@@ -132,12 +132,16 @@ The company styles follow each company's publicly described interview format. Th
 | Situational | "How would you handle an angry customer?" | Empathy, steps, ownership, escalation |
 | Past experience | "A time you worked under pressure…" | STAR storytelling (Situation, Task, Action, Result) |
 | **Mock call** | An upset customer charged twice, an internet outage (tech support), or an outbound sales pitch | Greeting, empathy, ownership, probing, resolution, closing |
-| English & listening | Remember a customer's name, order number and city; correct a sentence | Listening accuracy, grammar |
+| English & listening | Remember a customer's name, order number and city; repeat a sentence after the interviewer; correct a sentence | Listening accuracy, grammar, word-for-word repetition |
 | Flexibility | Night and rotational shifts, weekends | Willingness, clarity |
 | Self-awareness | Strengths and weaknesses, five-year plan | Honesty, growth mindset |
 | Closing | "Any questions for me?" | Curiosity, engagement |
 
-Three lengths are available: **Quick** (7 questions, about 10 min), **Standard** (14, about 20 min) and **Full** (21, about 30 min). Questions adapt to the role (voice support, tech support, sales, chat/email, general) and to fresher or experienced candidates. The question set is randomised, so practising again gives different questions.
+Lengths: **Quick** (7 questions, about 10 min), **Standard** (14, about 20 min), **Full** (22, about 30 min), the **4-round assessment**, and **English & Versant practice** (below). Questions adapt to the role (voice support, tech support, sales, chat/email, general) and to fresher or experienced candidates. The question set is randomised, so practising again gives different questions.
+
+### English & Versant practice
+
+Many BPOs screen voice candidates with an automated spoken-English test (Versant and similar), where fluency and sentence repetition carry a lot of the score. **English & Versant practice** (6–8 minutes) drills exactly that: **repeat after me** (the interviewer says a customer-service sentence once and you say it back; it is scored word for word, with spoken numbers and digits treated alike, and the scoresheet shows the words you missed), a listening test, two sentence corrections and a short talk on a topic. The Full assessment includes one repeat-after-me sentence too.
 
 ### Tailor it to a real job
 
