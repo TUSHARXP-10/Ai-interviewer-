@@ -353,6 +353,7 @@ details.advanced[open] > summary { margin-bottom: 18px; }
   .cell-talk { grid-column: span 3; grid-row: span 2; }
   .cell-star, .cell-vu { grid-column: span 3; }
   .cell-call, .cell-english, .cell-sheet { grid-column: span 2; }
+  .cell-eng, .cell-practice { grid-column: span 3; }
 }
 .cell {
   position: relative; min-width: 0; overflow: hidden; padding: 26px;
@@ -1265,6 +1266,20 @@ details.qa[open] .qa-q { white-space: normal; }
 .gb-sum span { font-size: 0.76rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .golive-bar .btn { flex: none; min-height: 46px; }
 @media (prefers-reduced-motion: reduce) { .golive-bar { transition: opacity 0.2s; } }
+
+/* ---------- Home: engineering and practice cards */
+.cell-eng { background: radial-gradient(90% 120% at 100% 0%, rgba(143, 128, 255, 0.16), transparent 60%), linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.015)); }
+.cell-practice { background: radial-gradient(90% 120% at 100% 0%, rgba(62, 230, 208, 0.13), transparent 60%), linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.015)); }
+.mini-steps { display: flex; flex-wrap: wrap; gap: 6px; margin: 14px 0 0; padding: 0; list-style: none; counter-reset: step; }
+.mini-steps li { counter-increment: step; padding: 5px 11px; border-radius: 999px; border: 1px solid var(--line-2); font: 600 0.76rem/1.3 var(--f-body); color: var(--muted); }
+.mini-steps li::before { content: counter(step) ". "; opacity: 0.7; }
+.mini-steps li.on { color: var(--ink); border-color: rgba(52, 211, 153, 0.5); background: rgba(52, 211, 153, 0.1); }
+.mini-steps li.on::before { content: "✓ "; color: var(--good-text); opacity: 1; }
+.mini-delta { display: flex; align-items: center; gap: 12px; margin-top: 14px; }
+.mini-delta span { font: 800 2rem/1 var(--f-display); font-variant-numeric: tabular-nums; }
+.mini-delta .md-b { color: var(--muted); }
+.mini-delta .md-arrow { font-size: 1.3rem; color: var(--muted); }
+.mini-delta .md-d { padding: 6px 12px; border-radius: 999px; border: 1px solid rgba(52, 211, 153, 0.5); background: rgba(52, 211, 153, 0.12); color: var(--good-text); font: 800 1rem/1 var(--f-mono); }
 
 /* ---------- motion & print ---------- */
 @media (prefers-reduced-motion: reduce) {
