@@ -400,9 +400,39 @@
       settings.jobText = e.target.value.slice(0, 8000);
       store.set(SETTINGS_KEY, settings);
       renderJobFound();
+      renderGoBar();
       if (settings.track === 'tech') renderCompanyBrief();
     }, 250);
   });
+
+  // ---- the floating "Go live" bar: a one-line summary of the choices, and the button
+  function renderGoBar() {
+    const tech = settings.track === 'tech';
+    const role = Questions.ROLES[settings.role] || {};
+    const plan = tech ? Questions.TECH_PLANS[settings.length] : Questions.PLANS[settings.length];
+    const co = tech ? Questions.COMPANIES[settings.company] : null;
+    $('#golive-bar').classList.toggle('is-tech', tech);
+    $('#gb-what').textContent = (tech ? '⌨️ ' : '🎧 ') + (role.short || 'Interview');
+    $('#gb-detail').textContent = [
+      co ? (settings.company === 'generic' ? 'any company' : co.name) + ' style' : null,
+      settings.experience === 'experienced' ? 'experienced' : 'fresher',
+      plan ? plan.label.toLowerCase() + (plan.minutes ? ', ' + plan.minutes + ' min' : '') : null,
+      currentJob() ? 'tailored to the job' : null,
+    ].filter(Boolean).join(' · ');
+  }
+  $('#gb-go').addEventListener('click', () => $('#btn-continue').click());
+  if ('IntersectionObserver' in window) {
+    const seen = { setup: false, button: false };
+    const update = () => {
+      const on = seen.setup && !seen.button && !$('#screen-home').hidden;
+      const bar = $('#golive-bar');
+      bar.classList.toggle('show', on);
+      bar.setAttribute('aria-hidden', on ? 'false' : 'true');
+      $('#gb-go').tabIndex = on ? 0 : -1;
+    };
+    new IntersectionObserver((es) => { for (const e of es) seen.setup = e.isIntersecting; update(); }, { rootMargin: '-35% 0px -35% 0px' }).observe($('#setup-form'));
+    new IntersectionObserver((es) => { for (const e of es) seen.button = e.isIntersecting; update(); }).observe($('#btn-continue'));
+  }
 
   function applyTrack() {
     const tech = settings.track === 'tech';
@@ -418,6 +448,7 @@
     check('company', settings.company);
     renderLengths(settings.track);
     renderJobFound();
+    renderGoBar();
     if (tech) renderCompanyBrief();
     const go = $('#btn-continue');
     const label = tech ? 'Go live: start the engineering interview' : 'Go live: start the interview';
@@ -484,6 +515,7 @@
     });
     store.set(SETTINGS_KEY, settings);
     $('#engine-status').innerHTML = engineStatusText();
+    renderGoBar();
   }
 
   function toggleLlmFields() {

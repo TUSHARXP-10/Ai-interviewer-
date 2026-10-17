@@ -153,7 +153,7 @@ Open **Tailor it to a real job** on the setup page and paste the job description
 
 ## Practise, then practise again
 
-Research on interview practice tools is clear that the learning happens on the second try, so the scoresheet leads straight into it:
+Most of the learning happens on the second try, so the scoresheet leads straight into it:
 
 - **Your practice plan:** the three weakest answers, each one tap away from a **practice drill**. Every question on the scoresheet also has *Practise this question again*.
 - **Practice drills:** the same voice call with just that question (microphone only: it's practice, not a proctored interview). A coach card says what to aim for this time: the gaps from last time and your weakest skill on that answer. Afterwards you see the score **before and after**, each skill's change, your new answer and recording, and what was still missing, with buttons to try again or move to the next weakest question.
