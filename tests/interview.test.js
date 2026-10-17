@@ -10,7 +10,7 @@ const text = (t) => ({ text: t, mode: 'text', events: {} });
 
 test('plans pick role- and experience-appropriate questions', () => {
   for (const length of Object.keys(Q.PLANS)) {
-    for (const role of Object.keys(Q.ROLES)) {
+    for (const role of Object.keys(Q.ROLES).filter((r) => Q.trackOf(r) === 'bpo')) {
       for (const experience of ['fresher', 'experienced']) {
         const plan = Q.buildPlan({ length, role, experience, random: () => 0.5 });
         assert.ok(plan.length >= Q.PLANS[length].slots.length - 1, length + role + experience);

@@ -309,7 +309,7 @@
     return '<article class="report" id="report">' +
       '<header class="report-head card">' +
       '<div class="report-id"><div class="eyebrow">Interview scoresheet</div><h1>' + esc(sheet.candidate.name || 'Candidate') + '</h1>' +
-      '<p class="muted">' + esc(sheet.role.label) + ' · ' + esc(sheet.plan.label) + ' · ' + (sheet.candidate.experience === 'experienced' ? 'Experienced' : 'Fresher') +
+      '<p class="muted">' + esc(sheet.role.label) + (sheet.company ? ' · ' + esc(sheet.company.display || sheet.company.name) + ' style' : '') + ' · ' + esc(sheet.plan.label) + ' · ' + (sheet.candidate.experience === 'experienced' ? 'Experienced' : 'Fresher') +
       '<br>' + esc(fmtDate(sheet.createdAt)) + ' · ' + esc(fmtDuration(sheet.durationSec)) + ' · ' + (sheet.config.mode === 'voice' ? 'Voice interview' : 'Typed interview') + '</p></div>' +
       '<div class="hero"><div class="hero-num" style="--score:' + Math.max(0, Math.min(100, Number(sheet.overall) || 0)) + '"><span class="hero-val">' + sheet.overall + '</span><span class="hero-den">/100</span></div>' + statusBadge(tone, sheet.verdict.label) +
       (sheet.proctoring && sheet.proctoring.rating ? statusBadge(sheet.proctoring.rating.tone, 'Integrity: ' + sheet.proctoring.rating.label) : '') +

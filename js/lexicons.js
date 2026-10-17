@@ -356,7 +356,26 @@
     'thank thanks please sir madam hello hi'
   ).split(/\s+/));
 
+  // Depth in a technical answer: trade-offs, complexity, edge cases, scale, real evidence.
+  const TECH_DEPTH = [
+    'trade off', 'tradeoff', 'trade offs', 'complexity', 'big o', 'o of n', 'o of 1', 'o of log n', 'o n', 'o 1',
+    'constant time', 'linear time', 'logarithmic', 'n log n', 'edge case*', 'corner case*', 'scal*', 'latency',
+    'throughput', 'bottleneck', 'consisten*', 'availab*', 'depends on', 'it depends', 'downside', 'disadvantage*',
+    'whereas', 'compared to', 'versus', 'in production', 'in my project', 'benchmark*', 'profil*', 'measure*',
+    // Trade-offs as engineers actually say them.
+    'however', 'on the other hand', 'flip side', 'instead of', 'rather than', 'unless', 'overhead', 'expensive',
+    'cheaper', 'slows down', 'slow down', 'can hurt', 'the cost', 'costs', 'drawback*', 'limitation*', 'pros and cons',
+    'pitfall*', 'go wrong', 'goes wrong', 'fail open', 'race condition*', 'idempotent', 'stale', 'in practice',
+    'at scale', 'n squared', 'quadratic', 'linear', 'worst case', 'best case', 'amortized',
+  ];
+  // Explaining why in technical answers ("so lookup is constant", "otherwise we lose data").
+  const TECH_WHY = [
+    'otherwise', 'in other words', 'which avoids', 'to avoid', 'to prevent', 'the idea is', 'the point is',
+    're:so (?:the|a|an|that|lookup|lookups|threads|you|there|nobody|everyone|users|duplicates|going|our|my)',
+  ];
+
   const api = {
+    TECH_DEPTH, TECH_WHY,
     FILLERS, HEDGES, CONFIDENT, NEGATIVE_SELF, DONT_KNOW, STRUCTURE, STAR, EMPATHY, POLITE,
     POSITIVE, NEGATIVE, RED_FLAGS, GRAMMAR, VOCAB, OVERUSED, SPECIFICITY, CALL_CHECKLIST, COMMON_WORDS, CLICHES,
   };

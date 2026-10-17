@@ -17,6 +17,7 @@
 (function (root) {
   'use strict';
   const isNode = typeof module === 'object' && module.exports;
+  const Tech = isNode ? require('./techBank.js') : root.AII.TechBank;
 
   const ROLES = {
     voice: { label: 'Customer Support (Voice)', short: 'Customer Support', checklist: 'support' },
@@ -25,6 +26,14 @@
     nonvoice: { label: 'Chat & Email Support (Non-voice)', short: 'Chat Support', checklist: 'support' },
     general: { label: 'General BPO / Fresher Hiring', short: 'BPO Associate', checklist: 'support' },
   };
+  for (const k of Object.keys(ROLES)) ROLES[k].track = 'bpo';
+  // The engineering track (js/techBank.js): developers, ML engineers, analysts, DevOps.
+  Object.assign(ROLES, Tech.ROLES);
+  const TRACKS = {
+    bpo: { label: 'Customer service & BPO', short: 'BPO' },
+    tech: { label: 'Engineering & tech', short: 'Engineering' },
+  };
+  const trackOf = (role) => (ROLES[role] && ROLES[role].track) || 'bpo';
 
   const STAGES = {
     intro: 'Introduction',
@@ -49,6 +58,7 @@
     salary: 'Expectations',
     closing: 'Closing',
   };
+  Object.assign(STAGES, Tech.STAGES);
 
   const PLANS = {
     quick: {
@@ -100,6 +110,7 @@
     salary: { communication: 0.5, confidence: 0.8, relevance: 0.6, attitude: 0.8 },
     closing: { communication: 0.4, confidence: 0.4, thought: 0.4, attitude: 1 },
   };
+  Object.assign(TYPE_DIMS, Tech.TYPE_DIMS);
 
   // Reusable concept vocabularies.
   const T = {
@@ -790,6 +801,8 @@
     },
   ];
 
+  for (const q of Tech.QUESTIONS) QUESTIONS.push(q);
+
   const byId = {};
   for (const q of QUESTIONS) {
     q.dims = Object.assign({}, TYPE_DIMS[q.type], q.dims || {});
@@ -797,10 +810,41 @@
     byId[q.id] = q;
   }
 
-  function eligible(q, role, exp) {
+  /** company: a key of COMPANIES (tech interviews), for company- or kind-specific questions. */
+  function eligible(q, role, exp, company) {
     if (q.roles && q.roles.indexOf(role) === -1) return false;
     if (q.exp && q.exp !== exp) return false;
+    if (q.track === 'tech' && trackOf(role) !== 'tech') return false;
+    const c = Tech.COMPANIES[company];
+    if (q.companies && (!c || q.companies.indexOf(company) === -1)) return false;
+    if (q.kinds && (!c || q.kinds.indexOf(c.kind) === -1)) return false;
     return true;
+  }
+
+  /** Fill {company} and {role} in a question's text (a copy: the bank stays unchanged). */
+  function fill(q, role, company) {
+    if (!/[{]/.test(q.text)) return q;
+    const c = Tech.COMPANIES[company] || Tech.COMPANIES.generic;
+    const r = ROLES[role] || {};
+    return Object.assign({}, q, { text: q.text.replace(/\{company\}/g, c.name).replace(/\{role\}/g, r.short || 'engineer') });
+  }
+
+  /**
+   * What an interview of this length is, for a role: { label, minutes, rounds?, maxFollowUps?, slots }.
+   * Engineering interviews have two rounds; their questions depend on the company and experience.
+   */
+  function planInfo(length, role, company, experience) {
+    if (trackOf(role) === 'tech') {
+      const len = Tech.PLAN_LABELS[length] ? length : 'standard';
+      const c = Tech.COMPANIES[company] || Tech.COMPANIES.generic;
+      return Object.assign({}, Tech.PLAN_LABELS[len], {
+        rounds: Tech.ROUNDS,
+        maxFollowUps: { quick: 2, standard: 4, full: 5 }[len],
+        tech: true,
+        slots: Tech.slotsFor(c.kind, experience, len),
+      });
+    }
+    return PLANS[length] || PLANS.standard;
   }
 
   /**
@@ -808,10 +852,25 @@
    * opts: { length: 'quick'|'standard'|'full', role, experience, random: () => [0,1) }
    */
   function buildPlan(opts) {
-    const plan = PLANS[opts.length] || PLANS.standard;
     const rand = opts.random || Math.random;
     const used = new Set();
     const out = [];
+    if (trackOf(opts.role) === 'tech') {
+      // Engineering: each question carries its round (1: communication & thought, 2: technical).
+      const plan = planInfo(opts.length, opts.role, opts.company, opts.experience);
+      for (const { slot, round } of plan.slots) {
+        for (const s of slot.split('|')) {
+          const pool = QUESTIONS.filter((q) => q.slot === s && !used.has(q.id) && eligible(q, opts.role, opts.experience, opts.company));
+          if (!pool.length) continue;
+          const q = pool[Math.floor(rand() * pool.length)];
+          used.add(q.id);
+          out.push(Object.assign({}, fill(q, opts.role, opts.company), { round }));
+          break;
+        }
+      }
+      return out;
+    }
+    const plan = PLANS[opts.length] || PLANS.standard;
     for (const slot of plan.slots) {
       const pool = slot.charAt(0) === '='
         ? QUESTIONS.filter((q) => q.id === slot.slice(1))
@@ -824,7 +883,7 @@
     return out;
   }
 
-  const api = { ROLES, STAGES, PLANS, TYPE_DIMS, QUESTIONS, byId, buildPlan, eligible };
+  const api = { ROLES, TRACKS, COMPANIES: Tech.COMPANIES, KINDS: Tech.KINDS, STAGES, PLANS, TECH_PLANS: Tech.PLAN_LABELS, TYPE_DIMS, QUESTIONS, byId, buildPlan, planInfo, eligible, trackOf };
   if (isNode) module.exports = api;
   else (root.AII = root.AII || {}).Questions = api;
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -38,6 +38,16 @@
     'Self-awareness': 'A couple of questions about you.',
     Expectations: 'Just a couple more.',
     Closing: "We're almost done.",
+    // Engineering
+    Projects: "Let's talk about your work.",
+    'Thought Process': "Now I'd like to understand how you think.",
+    'Values & Fit': '',
+    'CS Fundamentals': "Let's cover some computer science fundamentals.",
+    'Technical Fundamentals': '',
+    'Problem Solving': "Now a problem-solving question. Think out loud, and tell me the complexity of your approach.",
+    'Object-Oriented Design': "Let's do some object-oriented design.",
+    'System Design': "Let's move on to system design. Start with the requirements, then the main components.",
+    'Practical Engineering': "Now a practical, real-world scenario.",
   };
 
   const MAX_FOLLOWUPS = { quick: 2, standard: 4, full: 6 };
@@ -74,8 +84,9 @@
   function createSession(opts) {
     const o = Object.assign({ length: 'standard', role: 'general', experience: 'fresher', mode: 'voice', interviewerName: 'Tushar AI' }, opts);
     const rand = Text.rng(o.seed != null ? o.seed : Date.now());
-    const planDef = Questions.PLANS[o.length] || Questions.PLANS.standard;
-    const plan = Questions.buildPlan({ length: o.length, role: o.role, experience: o.experience, random: rand });
+    const planDef = Questions.planInfo ? Questions.planInfo(o.length, o.role, o.company, o.experience) : Questions.PLANS[o.length] || Questions.PLANS.standard;
+    const plan = Questions.buildPlan({ length: o.length, role: o.role, experience: o.experience, company: o.company, random: rand });
+    const company = (Questions.COMPANIES && Questions.COMPANIES[o.company]) || null;
     const items = plan.map((q, i) => {
       const item = { question: q, parts: [], followUps: [], turns: [], pendingCustomer: null, sim: null, round: null };
       if (q.slot === 'topic') item.question = topicQuestion(q, pickTopic());
@@ -83,7 +94,14 @@
         item.sim = CallSim.createCall({ random: rand, gender: o.customerGender, scenarioId: o.scenarioId, personaId: o.personaId });
         item.question = liveQuestion(q, item.sim);
       }
-      if (planDef.rounds && planDef.rounds[i]) item.round = Object.assign({ n: i + 1, of: plan.length }, planDef.rounds[i]);
+      if (q.round && planDef.rounds) {
+        // Engineering: two rounds of several questions; the round is announced at its first question.
+        item.round = Object.assign({ n: q.round, of: planDef.rounds.length, multi: true, titles: planDef.rounds.map((r) => r.title) }, planDef.rounds[q.round - 1]);
+        item.roundStart = i === 0 || plan[i - 1].round !== q.round;
+      } else if (planDef.rounds && planDef.rounds[i]) {
+        item.round = Object.assign({ n: i + 1, of: plan.length }, planDef.rounds[i]);
+        item.roundStart = true;
+      }
       return item;
     });
     const maxFollowUps = o.maxFollowUps != null ? o.maxFollowUps : planDef.maxFollowUps != null ? planDef.maxFollowUps : MAX_FOLLOWUPS[o.length] || 4;
@@ -113,7 +131,7 @@
 
     function opening() {
       const role = Questions.ROLES[o.role] || Questions.ROLES.general;
-      const p = Questions.PLANS[o.length] || Questions.PLANS.standard;
+      const p = planDef;
       const how = o.mode === 'voice'
         ? 'Take a moment to think before you answer, speak naturally, and press Done when you finish each answer.'
         : 'Take a moment to think, type your answer, and press Submit when you are done.';
@@ -127,10 +145,17 @@
     function briefing(opts) {
       const b = Object.assign({ pauseEnds: true }, opts);
       const role = Questions.ROLES[o.role] || Questions.ROLES.general;
-      const p = Questions.PLANS[o.length] || Questions.PLANS.standard;
+      const p = planDef;
       const ending = b.pauseEnds
         ? "When you finish an answer, simply pause, or say that's all."
         : "When you finish an answer, say that's all, or press I'm done.";
+      if (p.tech) {
+        const at = company ? ' at ' + company.name : '';
+        return 'This interview is for the ' + role.short + ' role' + at + '. It has two rounds: first, a conversation about you, your projects and how you think; ' +
+          'then a technical round' + (company && company.kind !== 'startup' && company.name.indexOf('a ') !== 0 ? ', the way ' + company.name + ' interviews run' : '') +
+          '. It takes about ' + p.minutes.replace(/\s*[–-]\s*/, ' to ') + ' minutes. If you want to hear a question again, just say repeat. ' +
+          ending + " There's no code to type: in the technical round, think out loud, because I'm listening for your reasoning as much as the answer. Let's begin.";
+      }
       if (p.rounds) {
         return 'This assessment is for the ' + role.short + ' position. It has ' + (NUMBER_WORDS[items.length] || items.length) + ' rounds: ' +
           'you introduce yourself, tell me why you want to work in a BPO, talk for up to three minutes on a random word, ' +
@@ -146,7 +171,7 @@
       const q = item.question;
       const speak = [];
       if (lead) speak.push({ text: lead, voice: 'interviewer' });
-      if (item.round) speak.push({ text: 'Round ' + (NUMBER_WORDS[item.round.n] || item.round.n) + ': ' + item.round.title.toLowerCase() + '.', voice: 'interviewer' });
+      if (item.round && item.roundStart) speak.push({ text: 'Round ' + (NUMBER_WORDS[item.round.n] || item.round.n) + ': ' + item.round.title.toLowerCase().replace(/ & /g, ' and ') + '.', voice: 'interviewer' });
       else if (q.stageLabel !== lastStage && lastStage !== null && TRANSITIONS[q.stageLabel]) speak.push({ text: TRANSITIONS[q.stageLabel], voice: 'interviewer' });
       lastStage = q.stageLabel;
       if (q.live) {
@@ -420,6 +445,8 @@
     return {
       options: o,
       plan,
+      company,
+      rounds: planDef.rounds || null,
       opening,
       briefing,
       current,

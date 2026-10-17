@@ -31,7 +31,7 @@
     <section id="screen-home" class="screen">
       <div class="hero-home">
         <div class="hero-copy">
-          <span class="eyebrow eyebrow-live"><span class="tally" aria-hidden="true"></span>On air · Voice interview practice for BPO &amp; customer service</span>
+          <span class="eyebrow eyebrow-live"><span class="tally" aria-hidden="true"></span>On air · Voice interview practice for BPO, customer service &amp; engineering</span>
           <h1 class="display">Your <em>voice</em> is the interview.</h1>
           <p class="lead">Tushar AI asks every question out loud, listens to your answers, pushes back with follow-ups, and plays an upset customer on a mock call. Then it scores you the way a recruiter would, with recordings of every answer.</p>
           <div class="hero-actions">
@@ -43,10 +43,15 @@
             <span class="promo-steps"><i><b>1</b>Introduction</i><i><b>2</b>Why BPO</i><i><b>3</b>Random word · 3 min</i><i><b>4</b>Live customer call · 3 min</i></span>
             <span class="promo-note">Every call is different: an angry, confused, impatient or worried customer with a new problem each time.</span>
           </a>
+          <a class="promo-eng" href="#setup" data-pick-track="tech">
+            <span class="promo-head"><em class="lc-badge lc-badge-eng">New</em><strong>For my engineers <span class="heart" aria-hidden="true">💛</span> this one's for you</strong><span class="promo-time">2 rounds</span></span>
+            <span class="eng-roles" aria-hidden="true"><i>🧩 Full-stack</i><i>🎨 Frontend</i><i>☕ Java</i><i>🐍 Python</i><i>🧠 AI / ML</i><i>📊 Data</i><i>☁️ DevOps</i></span>
+            <span class="promo-note">Pick Google, Amazon, Microsoft, Flipkart, TCS or a startup. Tushar AI calls “from” there and runs their kind of interview: how you think first, then the technical round.</span>
+          </a>
           <dl class="stats">
-            <div><dt>Questions</dt><dd>42</dd></div>
-            <div><dt>Skills scored</dt><dd>7</dd></div>
-            <div><dt>Roles</dt><dd>5</dd></div>
+            <div><dt>Questions</dt><dd>140+</dd></div>
+            <div><dt>Roles</dt><dd>12</dd></div>
+            <div><dt>Company styles</dt><dd>15</dd></div>
             <div><dt>API keys</dt><dd>0</dd></div>
           </dl>
         </div>
@@ -67,8 +72,8 @@
 
       <div class="ticker" aria-hidden="true">
         <div class="ticker-track">
-          <span>Tell me about yourself</span><span>Why do you want to work in a BPO?</span><span>A customer is shouting about a double charge</span><span>Are you comfortable with night shifts?</span><span>Repeat these details back to me</span><span>Correct this sentence</span><span>Where do you see yourself in two years?</span><span>Do you have any questions for me?</span>
-          <span>Tell me about yourself</span><span>Why do you want to work in a BPO?</span><span>A customer is shouting about a double charge</span><span>Are you comfortable with night shifts?</span><span>Repeat these details back to me</span><span>Correct this sentence</span><span>Where do you see yourself in two years?</span><span>Do you have any questions for me?</span>
+          <span>Tell me about yourself</span><span>Why do you want to work in a BPO?</span><span>A customer is shouting about a double charge</span><span>Are you comfortable with night shifts?</span><span>Repeat these details back to me</span><span>Correct this sentence</span><span>Where do you see yourself in two years?</span><span>Do you have any questions for me?</span><span>Explain the JavaScript event loop</span><span>Design a URL shortener</span><span>When is accuracy a bad metric?</span>
+          <span>Tell me about yourself</span><span>Why do you want to work in a BPO?</span><span>A customer is shouting about a double charge</span><span>Are you comfortable with night shifts?</span><span>Repeat these details back to me</span><span>Correct this sentence</span><span>Where do you see yourself in two years?</span><span>Do you have any questions for me?</span><span>Explain the JavaScript event loop</span><span>Design a URL shortener</span><span>When is accuracy a bad metric?</span>
         </div>
       </div>
 
@@ -113,7 +118,7 @@
         <article class="cell cell-sheet">
           <span class="cell-k">06 · Scoresheet</span>
           <h3>A recruiter-grade verdict</h3>
-          <p>Seven skill scores, role fit, red flags, a word-for-word transcript and every recording.</p>
+          <p>Skill scores for your role, role fit, red flags, a word-for-word transcript and every recording.</p>
           <div class="mini-dial" aria-hidden="true" style="--v:78"><span>78</span><small>Recommended</small></div>
         </article>
       </section>
@@ -125,11 +130,38 @@
           <p class="muted">Tell Tushar AI who you are and what you’re applying for. Use Chrome or Edge with headphones in a quiet room for the best results.</p>
         </div>
         <form id="setup-form" class="form-grid" autocomplete="off">
+          <div class="field full">
+            <span class="label" id="l-track">What kind of interview?</span>
+            <div class="track-switch" role="radiogroup" aria-labelledby="l-track">
+              <label class="track-card"><input type="radio" name="track" value="bpo"><span class="tc-body"><span class="tc-icon" aria-hidden="true">🎧</span><span class="tc-text"><strong>Customer service &amp; BPO</strong><small>Voice, chat, sales and support roles, with live customer calls</small></span></span></label>
+              <label class="track-card track-eng"><input type="radio" name="track" value="tech"><span class="tc-body"><span class="tc-icon" aria-hidden="true">⌨️</span><span class="tc-text"><strong>Engineering <em class="lc-badge lc-badge-eng">New</em></strong><small>Developers, AI / ML, data and DevOps, in your dream company's style</small></span></span></label>
+            </div>
+          </div>
+
+          <div class="field full eng-panel" id="eng-panel" hidden>
+            <div class="eng-hello">
+              <span class="eng-wave" aria-hidden="true">👋</span>
+              <div>
+                <h3>Hey engineers, this corner is all yours</h3>
+                <p>Built with love for my engineers <span aria-hidden="true">💛</span> Pick your role and your dream company: Tushar AI calls from there and runs their kind of interview.</p>
+              </div>
+              <span class="eng-glyphs" aria-hidden="true"><i>&lt;/&gt;</i><i>{ }</i><i>O(n)</i></span>
+            </div>
+            <p class="eng-cmd" aria-hidden="true"><span class="eng-prompt">$</span> <span id="eng-cmd-text">tushar-ai interview</span><span class="eng-caret"></span></p>
+            <span class="label" id="l-trole">Your role</span>
+            <div class="trole-grid" role="radiogroup" aria-labelledby="l-trole" id="trole-grid"></div>
+            <span class="label" id="l-company">Company style</span>
+            <div class="company-picker" id="company-picker" role="radiogroup" aria-labelledby="l-company"></div>
+            <div class="company-brief" id="company-brief"></div>
+            <button class="eng-sample" type="button" data-sample="engineer"><span aria-hidden="true">📄</span> See a sample engineering scoresheet <span aria-hidden="true">→</span></button>
+            <p class="eng-note">Practice simulations of each company's publicly described interview format. Not affiliated with or endorsed by these companies.</p>
+          </div>
+
           <div class="field">
             <label for="f-name">Your name</label>
             <input type="text" id="f-name" name="name" maxlength="60" placeholder="e.g. Priya Sharma">
           </div>
-          <div class="field">
+          <div class="field" id="bpo-role-field">
             <label for="f-role">Role you're applying for</label>
             <select id="f-role" name="role"></select>
           </div>
@@ -243,7 +275,7 @@
         <div class="how-grid">
           <div><h3>What you said</h3><p>Does the answer cover what a strong answer includes? Is it structured, specific and positive?</p></div>
           <div><h3>How you said it</h3><p>Fillers, hedging, pace, pauses, start delay, voice strength and tone.</p></div>
-          <div><h3>Seven skill scores</h3><p>Weighted for the role you chose. Speech recognition is done by your browser; all analysis runs on your device.</p></div>
+          <div><h3>Skill scores for your role</h3><p>Weighted for the role you chose: technical depth for engineers, customer handling for BPO. Speech recognition is done by your browser; all analysis runs on your device.</p></div>
         </div>
       </section>
     </section>
@@ -397,6 +429,7 @@
 
   <script src="js/textUtils.js"></script>
   <script src="js/lexicons.js"></script>
+  <script src="js/techBank.js"></script>
   <script src="js/questionBank.js"></script>
   <script src="js/analyzer.js"></script>
   <script src="js/explain.js"></script>

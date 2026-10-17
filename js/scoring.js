@@ -26,6 +26,8 @@
       about: 'Logical structure, reasoning, examples, STAR storytelling and specific detail.' },
     { key: 'relevance', label: 'Answer Quality & Relevance', short: 'Answer quality',
       about: 'How well answers address the question and cover what a strong answer includes.' },
+    { key: 'technical', label: 'Technical Knowledge & Problem Solving', short: 'Technical knowledge',
+      about: 'Correct concepts, depth (trade-offs, complexity, edge cases) and how problems are approached.' },
     { key: 'customer', label: 'Customer Handling & Empathy', short: 'Customer handling',
       about: 'Empathy, ownership, probing, resolution and call etiquette (incl. the mock call).' },
     { key: 'attitude', label: 'Attitude & Motivation', short: 'Attitude',
@@ -39,6 +41,14 @@
     tech: { communication: 0.17, confidence: 0.12, thought: 0.2, relevance: 0.15, customer: 0.16, attitude: 0.1, language: 0.1 },
     sales: { communication: 0.2, confidence: 0.22, thought: 0.1, relevance: 0.12, customer: 0.14, attitude: 0.12, language: 0.1 },
     nonvoice: { communication: 0.16, confidence: 0.08, thought: 0.17, relevance: 0.17, customer: 0.15, attitude: 0.1, language: 0.17 },
+    // Engineering: mostly technical knowledge and how the candidate thinks; no customer handling.
+    fullstack: { technical: 0.36, thought: 0.2, communication: 0.13, relevance: 0.09, confidence: 0.08, attitude: 0.08, language: 0.06 },
+    frontend: { technical: 0.36, thought: 0.2, communication: 0.13, relevance: 0.09, confidence: 0.08, attitude: 0.08, language: 0.06 },
+    backend: { technical: 0.37, thought: 0.21, communication: 0.12, relevance: 0.09, confidence: 0.08, attitude: 0.07, language: 0.06 },
+    python: { technical: 0.37, thought: 0.21, communication: 0.12, relevance: 0.09, confidence: 0.08, attitude: 0.07, language: 0.06 },
+    aiml: { technical: 0.38, thought: 0.22, communication: 0.12, relevance: 0.08, confidence: 0.07, attitude: 0.07, language: 0.06 },
+    data: { technical: 0.32, thought: 0.22, communication: 0.16, relevance: 0.1, confidence: 0.07, attitude: 0.07, language: 0.06 },
+    devops: { technical: 0.38, thought: 0.21, communication: 0.12, relevance: 0.08, confidence: 0.08, attitude: 0.07, language: 0.06 },
     general: { communication: 0.2, confidence: 0.15, thought: 0.14, relevance: 0.14, customer: 0.14, attitude: 0.12, language: 0.11 },
   };
 
@@ -293,6 +303,13 @@
     tech: { communication: 50, customer: 45, attitude: 50, thought: 45 },
     sales: { communication: 55, confidence: 50, attitude: 50 },
     nonvoice: { language: 55, attitude: 50 },
+    fullstack: { technical: 45, communication: 45 },
+    frontend: { technical: 45, communication: 45 },
+    backend: { technical: 45, communication: 45 },
+    python: { technical: 45, communication: 45 },
+    aiml: { technical: 45, communication: 45 },
+    data: { technical: 45, communication: 50 },
+    devops: { technical: 45, communication: 45 },
     general: { communication: 50, attitude: 50 },
   };
   /*
@@ -405,7 +422,10 @@
     ]);
     const englishLevel = engBase == null ? null : Object.assign({ score: Math.round(engBase) }, CEFR.find((c) => engBase >= c.min));
 
-    const roleFit = Object.keys(Questions.ROLES).filter((k) => k !== 'general').map((k) => {
+    // Fit for the other roles of the same track (a developer is not rated for a BPO desk).
+    const track = Questions.trackOf ? Questions.trackOf(role) : 'bpo';
+    const sameTrack = (k) => !Questions.trackOf || Questions.trackOf(k) === track;
+    const roleFit = Object.keys(Questions.ROLES).filter((k) => k !== 'general' && sameTrack(k)).map((k) => {
       let fit = overallFor(k, dims, flags);
       const notes = [];
       if ((k === 'voice' || k === 'tech' || k === 'sales') && dims.communication != null && dims.communication < 55) {
@@ -421,6 +441,8 @@
         notes.push('needs more accurate written English');
       }
       if (flags.some((f) => f.id === 'shift_refusal')) notes.push('day-shift / domestic processes only');
+      if (track === 'tech' && dims.technical != null && dims.technical < 55) notes.push('needs stronger technical fundamentals');
+      if (k === 'data' && dims.communication != null && dims.communication < 55) notes.push('needs clearer explanations for stakeholders');
       return { key: k, label: Questions.ROLES[k].label, fit: clamp(Math.round(fit), 0, 100), notes };
     }).sort((a, b) => b.fit - a.fit);
 
@@ -464,14 +486,22 @@
       createdAt: new Date(input.endedAt || Date.now()).toISOString(),
       candidate: input.candidate,
       role: { key: role, label: (Questions.ROLES[role] || Questions.ROLES.general).label },
-      plan: { key: (input.config && input.config.length) || 'standard', label: (Questions.PLANS[(input.config && input.config.length) || 'standard'] || Questions.PLANS.standard).label },
+      plan: (() => {
+        const len = (input.config && input.config.length) || 'standard';
+        const info = Questions.planInfo ? Questions.planInfo(len, role) : Questions.PLANS[len] || Questions.PLANS.standard;
+        return { key: len, label: info.label };
+      })(),
       config: input.config || {},
       durationSec: Math.round(((input.endedAt || 0) - (input.startedAt || 0)) / 1000) || 0,
       overall,
       verdict: { key: verdict.key, label: verdict.label, tone: verdict.tone },
       incomplete,
       englishLevel,
-      dimensions: DIMENSIONS.map((d) => ({ key: d.key, label: d.label, short: d.short, about: d.about, score: dims[d.key], band: band(dims[d.key]) })),
+      // Only the skills this role is judged on (engineers: no customer handling; BPO: no technical).
+      dimensions: DIMENSIONS.filter((d) => (ROLE_WEIGHTS[role] || ROLE_WEIGHTS.general)[d.key] != null)
+        .map((d) => ({ key: d.key, label: d.label, short: d.short, about: d.about, score: dims[d.key], band: band(dims[d.key]) })),
+      track,
+      company: input.company ? Object.assign({}, input.company) : null,
       roleFit,
       strengths: [],
       improvements: [],
@@ -505,8 +535,9 @@
     sheet.focus = ex.focus;
     if (ex.rounds) {
       sheet.rounds = ex.rounds.map((r) => {
-        const q = sheet.questions.find((x) => x.id === r.qid);
-        return Object.assign(r, { score: q ? (q.skipped ? null : q.quality) : null });
+        // A round may hold several questions (engineering): its score is their average.
+        const qs = (r.qids || [r.qid]).map((id) => sheet.questions.find((x) => x.id === id)).filter((q) => q && !q.skipped);
+        return Object.assign(r, { score: qs.length ? Math.round(qs.reduce((s, q) => s + q.quality, 0) / qs.length) : null });
       });
     }
     return sheet;

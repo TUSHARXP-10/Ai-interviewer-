@@ -125,10 +125,12 @@
     let got = 0;
     const matched = [];
     const missing = [];
+    const said = new Set(); // distinct rubric terms used, across all concepts
     for (const c of concepts) {
       const w = c.weight || 1;
       total += w;
       const hits = findTerms(doc, c.terms).filter((h) => !(c.negatable && negatedAt(doc, h.w0, 4)));
+      for (const h of hits) said.add(h.term);
       if (hits.length) {
         got += w;
         matched.push(c);
@@ -137,7 +139,7 @@
     const ratio = total ? got / total : null;
     const target = question.coverageTarget || 0.6;
     const score = ratio == null ? null : curve(ratio / target, [[0, 10], [0.34, 40], [0.67, 68], [1, 95], [1.2, 100]]);
-    return { ratio, score, matched: matched.map((c) => c.id), missing: missing.map((c) => c.id), matchedLabels: matched.map((c) => c.label), missingLabels: missing.map((c) => c.label) };
+    return { ratio, score, detail: said.size, matched: matched.map((c) => c.id), missing: missing.map((c) => c.id), matchedLabels: matched.map((c) => c.label), missingLabels: missing.map((c) => c.label) };
   }
 
   /** Writing mechanics for typed answers (matters most for chat/email roles). */
@@ -236,6 +238,11 @@
     situational: { structure: 0.45, specificity: 0.1, coverage: 0.45 },
     knowledge: { structure: 0.25, specificity: 0.15, coverage: 0.6 },
     open: { structure: 0.25, specificity: 0.3, coverage: 0.45 },
+    tech: { structure: 0.35, specificity: 0.15, coverage: 0.5 },
+    problem: { structure: 0.45, specificity: 0.15, coverage: 0.4 },
+    design: { structure: 0.4, specificity: 0.2, coverage: 0.4 },
+    project: { structure: 0.3, star: 0.2, specificity: 0.25, coverage: 0.25 },
+    thinking: { structure: 0.45, specificity: 0.1, coverage: 0.45 },
     extempore: { structure: 0.4, specificity: 0.3, coverage: 0.3 },
     default: { structure: 0.4, specificity: 0.2, coverage: 0.4 },
   };
@@ -369,7 +376,7 @@
     }
 
     // ---------------- dimension scores
-    const comps = { communication: [], confidence: [], thought: [], relevance: [], customer: [], attitude: [], language: [] };
+    const comps = { communication: [], confidence: [], thought: [], relevance: [], technical: [], customer: [], attitude: [], language: [] };
     const add = (dim, key, label, value, weight) => {
       if (value == null || Number.isNaN(value)) return;
       comps[dim].push({ key, label, value: clamp(value, 0, 100), weight });
@@ -468,6 +475,22 @@
       add('relevance', 'substance', 'Substance (examples & specifics)', dontKnow ? 10 : curve(substance, [[0, 35], [1, 65], [2, 85], [3, 100]]) * onTopic, 0.3);
     }
 
+    // Technical knowledge: the concepts of a correct answer, its depth (trade-offs, complexity,
+    // edge cases, real evidence) and the reasons given. Keywords alone do not make it.
+    if (dims.technical) {
+      if (skipped) add('technical', 'skipped', 'Question skipped', 0, 1);
+      else {
+        if (covScore != null) add('technical', 'concepts', 'Correct concepts covered', dontKnow ? Math.min(covScore, 15) : covScore, 0.6);
+        // Depth: trade-offs, complexity and edge cases, real evidence, and correct specifics
+        // beyond the minimum (every three extra rubric terms, up to two points).
+        const extra = cov && cov.detail ? Math.min(2, Math.floor(Math.max(0, cov.detail - cov.matched.length) / 3)) : 0;
+        const depth = findTerms(doc, L.TECH_DEPTH).length + Math.min(specificity, 1) + extra;
+        add('technical', 'depth', 'Depth (trade-offs, complexity, edge cases)', dontKnow ? 10 : curve(depth, [[0, 30], [1, 58], [2, 80], [3, 92], [4, 100]]), 0.25);
+        const why = Math.min(structure.reasoning + findTerms(doc, L.TECH_WHY).length, 3) + Math.min(structure.example, 1);
+        add('technical', 'reasoning', 'Explains why, with examples', curve(why, [[0, 35], [1, 62], [2, 84], [3, 100]]), 0.15);
+      }
+    }
+
     // The live call: how the customer's mood moved, and how the call ended.
     const live = question.type === 'roleplay' && resp.call ? resp.call : null;
     // The topic talk: how long the candidate kept talking (target: most of three minutes).
@@ -547,7 +570,7 @@
       if (dim === 'confidence' && !skipped) {
         v += Math.min(9, confHits.length * 3) - Math.min(36, negSelfHits.length * 12) - Math.min(9, (events.repeats || 0) * 3);
       }
-      if (dim === 'thought' && dontKnow) v = Math.min(v, 20);
+      if ((dim === 'thought' || dim === 'technical') && dontKnow) v = Math.min(v, 20);
       // A short answer cannot show much reasoning, however well chosen its words.
       if (dim === 'thought' && question.type !== 'roleplay' && !skipped) {
         v *= 0.7 + 0.3 * Math.min(1, lenWords / minW);
@@ -598,7 +621,10 @@
     if ((a.type === 'flexibility' || a.type === 'closing') && s.attitude != null) return s.attitude;
     const keys = ['relevance', 'thought', 'communication', 'customer', 'language'].filter((k) => s[k] != null);
     if (!keys.length) return s.attitude != null ? s.attitude : 50;
-    return Math.round(keys.reduce((t, k) => t + s[k], 0) / keys.length);
+    const rest = keys.reduce((t, k) => t + s[k], 0) / keys.length;
+    // Engineering answers are judged mostly on being technically right.
+    if (s.technical != null) return Math.round(0.5 * s.technical + 0.5 * rest);
+    return Math.round(rest);
   }
 
   // ------------------------------------------------------------ feedback text

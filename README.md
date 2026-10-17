@@ -1,12 +1,13 @@
 # AI Interviewer
 
-A free **voice** interviewer for **BPO and customer-service jobs**. It works like a real phone interview: Tushar AI, the AI interviewer, asks every question out loud, listens to your spoken answers, asks follow-up questions, and plays an upset customer in a **mock call**. At the end you hear how you did, and you get a recruiter-style **scoresheet** with recordings of your answers.
+A free **voice** interviewer for **BPO and customer-service jobs**, and now for **engineers** too. It works like a real phone interview: Tushar AI, the AI interviewer, asks every question out loud, listens to your spoken answers, asks follow-up questions, and plays an upset customer in a **mock call**. At the end you hear how you did, and you get a recruiter-style **scoresheet** with recordings of your answers.
 
 - **100% audio, hands-free.** No typing and no chat. Tushar AI knows when you've finished speaking, and you can say *"repeat"*, *"skip"* or *"that's all"* instead of pressing buttons.
 - **No API keys, no payment, no sign-up.** It runs entirely in your browser.
 - **Works in any modern browser.** Chrome and Edge use their built-in speech recognition; other browsers (Firefox, Brave…) use a free **offline Whisper model** that runs on your device.
 - **Hear yourself back.** Every answer is recorded (on your device only) so you can replay it next to its feedback.
 - **AI-proctored, camera on.** Like a video call, your camera stays on and an AI on your device checks that you stay in view, alone and looking at the screen, with no phone, and on this window. Three warnings end the interview, and the scoresheet gets an integrity rating with photos of the flagged moments.
+- **Engineering interviews in a company's style.** Full-stack, frontend, Java, Python, AI/ML, data and DevOps roles, in the style of Google, Microsoft, Amazon, Uber, Flipkart, Swiggy, TCS, Infosys, Wipro, Tech Mahindra, Accenture, Cognizant or a startup: a communication round, then a technical round.
 - **Transparent scoring model.** Every score traces back to concrete signals in your answers.
 - **Optional free local AI.** If you have [Ollama](https://ollama.com) installed, a local model can review each answer as a second opinion.
 
@@ -106,6 +107,17 @@ A focused 10–12 minute test, picked on the setup page (or from the home page):
 4. **Live customer call** — about **three minutes** with a customer who is **different every time**: one of 10 problems (double charge, internet down, unknown card payment, cancelled flight, missing food, rejected claim, wrong bill, recharge not active, wrong product, missing hotel booking) and one of 6 moods (angry, impatient, confused elderly, anxious, polite, sarcastic). The customer reacts to what you actually say: empathy, asking for details, a concrete fix and a timeline calm them down; vague promises, stalling or rudeness make them angrier, and they may hang up. A late complication tests you once things are going well. On screen you see the caller's name, problem, a live mood meter and the call clock.
 
 The scoresheet adds a **round-by-round** card (score and key evidence per round, e.g. *"Mood 85 → 17 · resolved"*). Content lives in `js/callContent.js`, the customer's behaviour in `js/callsim.js`.
+
+## Engineering interviews (new)
+
+Pick **Engineering** at the top of the setup page. Choose your role, a company style, fresher or experienced, and a length (Quick screen, Standard loop or Full loop). Tushar AI calls "from" that company ("Hi Ravi! I'm Tushar AI, calling from Amazon's hiring team about the Backend Developer role…") and runs two rounds:
+
+1. **Communication & thought process**: about you and your work, a project walkthrough or your toughest bug, how you think (unclear requirements, prioritising, explaining an API to a non-engineer), and a values question in the company's style (Amazon's Leadership Principles, Google's ambiguity and helping others, Microsoft's growth mindset, deadlines at product companies, learning and teamwork at IT services, ownership at startups). IT services also ask about relocation and shifts.
+2. **Technical interview**: role fundamentals (React state, the event loop, HashMap internals, Python's GIL, overfitting, RAG, SQL window functions, Kubernetes…), problem solving said out loud (two-sum, top-k words, LRU cache, merging intervals), object-oriented design (parking lot, library), system design for experienced candidates (URL shortener, rate limiter, recommendations, CI/CD), and practical scenarios (a slow page, a broken deploy at night, a one-week MVP). The mix follows the company: big tech leans on problem solving, IT services on CS fundamentals (OOP, DBMS, OS, networks), startups on practical engineering.
+
+There's no code editor: you think out loud, the way a phone screen works. A new **Technical knowledge** skill scores the correct concepts, the depth (trade-offs, complexity, edge cases, measurable evidence) and the reasons you give; a confident answer that misses the concepts scores low. The scoresheet shows each round and the company style, and gives an engineering-specific verdict. A sample engineering scoresheet is one click away on the setup page.
+
+The company styles follow each company's publicly described interview format. This is a practice simulation; it isn't affiliated with or endorsed by any of these companies. The questions live in `js/techBank.js`.
 
 ## What the interview covers
 
@@ -253,6 +265,7 @@ css/styles.css        Styles (light and dark themes, print layout)
 js/textUtils.js       Tokenising, contraction handling, pattern matching, numbers
 js/lexicons.js        Word lists: fillers, hedges, STAR, empathy, red flags, grammar
 js/questionBank.js    Questions, rubrics, follow-ups, interview plans
+js/techBank.js        Engineering roles, company styles, two-round plans and 100+ technical questions
 js/analyzer.js        Per-answer signals and 0–100 scores
 js/scoring.js         Interview-level scoresheet, recruiter scale, gates, verdict
 js/explain.js         Evidence behind every score: reasons, strengths, tips, summary
@@ -281,6 +294,7 @@ tests/                node:test suite (npm test), incl. 30 recruiter-rated inter
 
 - Speech-to-text can mishear words, especially with strong accents or background noise, and both engines often drop "um"/"uh". Pause analysis from the microphone partly compensates.
 - The conversation is half-duplex, like a polite phone call: Tushar AI doesn't listen while speaking, so you can't interrupt mid-sentence.
+- Engineering answers are judged on the concepts and reasoning you say out loud; there is no code to run, so it cannot check that code you describe would actually work.
 - The built-in model judges *signals* (structure, coverage, delivery), not deep meaning. A well-structured answer with the right ideas scores well even if a human would phrase it differently. The optional local AI adds a semantic check.
 - The AI proctoring flags what a webcam can see; it can be misled by lighting or angle and cannot see what is out of frame (see **AI proctoring**).
 - Treat the scoresheet as practice feedback and one input to a hiring decision, never the only one.

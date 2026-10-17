@@ -275,7 +275,39 @@
     return out;
   }
 
-  const BUILDERS = { communication, confidence, thought, relevance, customer, attitude, language };
+  /** Technical knowledge: which concepts were right or missing, and the depth shown. */
+  function technical(ctx) {
+    const out = [];
+    const tech = ctx.items.filter((it) => it.question.dims && it.question.dims.technical >= 1.5);
+    const answered = tech.filter((it) => !it.analysis.skipped);
+    if (!tech.length) return out;
+    const strong = [];
+    const weak = [];
+    for (const it of answered) {
+      const cov = it.analysis.metrics.coverage;
+      const t = it.analysis.scores.technical;
+      if (t == null) continue;
+      if (t >= 75) strong.push(it);
+      else if (t < 55) weak.push(it);
+    }
+    if (strong.length) out.push(line('good', 'Solid on ' + list(strong.slice(0, 3).map((it) => shortQ(it.question))) + '.'));
+    for (const it of weak.slice(0, 2)) {
+      const miss = (it.analysis.metrics.coverage.missingLabels || []).slice(0, 2);
+      out.push(line('bad', 'On ' + shortQ(it.question) + (miss.length ? ', missed ' + list(miss.map((m) => m.charAt(0).toLowerCase() + m.slice(1))) : ', the core idea did not come through') + '.'));
+    }
+    const dk = answered.filter((it) => it.analysis.metrics.dontKnow).length;
+    if (dk) out.push(line('bad', 'Could not attempt ' + plural(dk, 'technical question') + '; reasoning out loud scores better than stopping.'));
+    const depth = answered.filter((it) => (it.analysis.components.technical || []).some((c) => c.key === 'depth' && c.value >= 78)).length;
+    if (answered.length >= 3) {
+      if (depth >= answered.length / 2) out.push(line('good', 'Went beyond definitions: trade-offs, complexity or edge cases in ' + depth + ' of ' + answered.length + ' answers.'));
+      else if (depth === 0) out.push(line('bad', 'Answers stayed at definitions: no trade-offs, complexity or edge cases.'));
+    }
+    const skipped = tech.length - answered.length;
+    if (skipped) out.push(line('bad', 'Skipped ' + plural(skipped, 'technical question') + '.'));
+    return out;
+  }
+
+  const BUILDERS = { communication, confidence, thought, relevance, technical, customer, attitude, language };
 
   // What to practise, per skill, when it is the weak spot.
   const TIPS = {
@@ -283,6 +315,7 @@
     confidence: 'Start with a bridge sentence (“That’s a good question. In my experience…”) and finish every answer with a clear statement.',
     thought: 'Use STAR for experience questions: the situation, what you did, and how it ended, with one real detail.',
     relevance: 'Answer exactly what was asked in your first sentence, then add one example.',
+    technical: 'Answer technical questions in layers: the core idea in one line, how it works, one trade-off or the complexity, then an example from your own work.',
     customer: 'Follow the call flow: apologise, verify the details, give a concrete fix with a timeline, then close politely.',
     attitude: 'Show why you want this job and that you will stay: talk about learning, growth and helping customers.',
     language: 'Repeat details back while listening (name, number, date), and practise the common sentence patterns.',
@@ -340,12 +373,13 @@
     return { why, strengths, improvements, focus, rounds: rounds(items), summary: summary(sheet, why, byHigh, byLow) };
   }
 
-  const GATE_LABEL = { communication: 'spoken communication', customer: 'customer handling', attitude: 'attitude', confidence: 'confidence', thought: 'problem solving', language: 'written English' };
+  const GATE_LABEL = { technical: 'technical knowledge', communication: 'spoken communication', customer: 'customer handling', attitude: 'attitude', confidence: 'confidence', thought: 'problem solving', language: 'written English' };
 
   function summary(sheet, why, byHigh, byLow) {
     const name = String((sheet.candidate && sheet.candidate.name) || '').trim() || 'The candidate';
     const parts = [];
-    parts.push(name + ' scored ' + sheet.overall + '/100 (' + sheet.verdict.label.toLowerCase() + ') in the ' + sheet.plan.label.toLowerCase() + ' for ' + sheet.role.label + '.');
+    parts.push(name + ' scored ' + sheet.overall + '/100 (' + sheet.verdict.label.toLowerCase() + ') in the ' + sheet.plan.label.toLowerCase() + ' for ' + sheet.role.label +
+      (sheet.company ? ' (' + (sheet.company.display || sheet.company.name) + ' style)' : '') + '.');
     const gates = sheet.gates || [];
     if (gates.length) {
       parts.push('For this role, ' + list(gates.map((g) => GATE_LABEL[g.key] + ' (' + g.score + ')')) + (gates.length > 1 ? ' are' : ' is') + ' below the hiring bar of ' + list(gates.map((g) => String(g.bar))) + ', which holds the overall score down.');
@@ -366,7 +400,7 @@
       strong: 'Recommended for the next round.',
       hire: 'Recommended, with coaching on ' + (low ? lower(low.short) : 'the weaker areas') + '.',
       borderline: 'Borderline: could be considered with training in ' + (low ? lower(low.short) : 'the weaker areas') + '; a re-interview after practice is suggested.',
-      no: 'Not ready for a customer-facing role yet; focused practice on ' + (low ? lower(low.short) : 'the basics') + ' and a re-attempt in a few weeks is recommended.',
+      no: (sheet.track === 'tech' ? 'Not ready for this engineering role yet' : 'Not ready for a customer-facing role yet') + '; focused practice on ' + (low ? lower(low.short) : 'the basics') + ' and a re-attempt in a few weeks is recommended.',
     }[sheet.verdict.key];
     if (close) parts.push(close);
     return parts.join(' ');
@@ -376,6 +410,22 @@
   function rounds(items) {
     const rs = items.filter((it) => it.round);
     if (!rs.length) return null;
+    // Engineering interviews: two rounds of several questions each, summarised per round.
+    if (rs.some((it) => it.round.multi)) {
+      const byRound = new Map();
+      for (const it of rs) {
+        if (!byRound.has(it.round.n)) byRound.set(it.round.n, []);
+        byRound.get(it.round.n).push(it);
+      }
+      return Array.from(byRound.entries()).map(([n, its]) => {
+        const done = its.filter((it) => !it.analysis.skipped);
+        const sorted = done.slice().sort((a, b) => b.analysis.quality - a.analysis.quality);
+        const notes = [plural(its.length, 'question') + (done.length < its.length ? ' · ' + (its.length - done.length) + ' skipped' : '')];
+        if (sorted.length) notes.push('Best: ' + shortQ(sorted[0].question));
+        if (sorted.length > 1 && sorted[sorted.length - 1].analysis.quality < 66) notes.push('Weakest: ' + shortQ(sorted[sorted.length - 1].question));
+        return { n, title: its[0].round.title, focus: its[0].round.focus, qids: its.map((it) => it.question.id), notes };
+      });
+    }
     return rs.map((it) => {
       const a = it.analysis;
       const m = a.metrics;

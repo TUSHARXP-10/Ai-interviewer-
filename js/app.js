@@ -69,10 +69,17 @@
 
   const DEFAULTS = {
     name: '', role: 'voice', experience: 'fresher', length: 'standard', accent: guessAccent(),
+    track: 'bpo', bpoRole: 'voice', techRole: 'fullstack', company: 'generic',
     silenceSec: 3, interviewerVoice: '', customerVoice: '', rate: 1, record: true,
     showCaptions: true, engine: 'auto', llmEnabled: false, llmUrl: LLM.DEFAULT_URL, llmModel: '',
   };
   let settings = Object.assign({}, DEFAULTS, store.get(SETTINGS_KEY, {}));
+  // Older settings had one role (BPO): keep it as the BPO choice.
+  if (!store.get(SETTINGS_KEY, {}).bpoRole && Questions.trackOf(settings.role) === 'bpo') settings.bpoRole = settings.role;
+  if (!Questions.ROLES[settings.techRole] || Questions.trackOf(settings.techRole) !== 'tech') settings.techRole = 'fullstack';
+  if (!Questions.COMPANIES[settings.company]) settings.company = 'generic';
+  if (settings.track !== 'tech') settings.track = 'bpo';
+  settings.role = settings.track === 'tech' ? settings.techRole : settings.bpoRole;
   // Older saves stored the browser's "en-US" without anyone choosing it: use the better guess.
   if (!settings.accentChosen && settings.accent === 'en-US') settings.accent = DEFAULTS.accent;
   if ([0, 2, 3, 5].indexOf(Number(settings.silenceSec)) === -1) settings.silenceSec = 3;
@@ -200,16 +207,50 @@
   function fillSetup() {
     const roleSel = $('#f-role');
     roleSel.innerHTML = '';
-    for (const [k, r] of Object.entries(Questions.ROLES)) roleSel.add(new Option(r.label, k));
+    for (const [k, r] of Object.entries(Questions.ROLES)) if (r.track !== 'tech') roleSel.add(new Option(r.label, k));
+    renderEngineering();
+    renderLengths(settings.track);
+    $('#f-name').value = settings.name;
+    roleSel.value = settings.bpoRole;
+    setupRest();
+    applyTrack();
+  }
+
+  /** Interview lengths for a track (engineering has its own two-round loops). */
+  function renderLengths(track) {
     const lc = $('#length-cards');
     lc.innerHTML = '';
+    if (track === 'tech') {
+      for (const [k, p] of Object.entries(Questions.TECH_PLANS)) {
+        const label = document.createElement('label');
+        label.className = 'lc-eng';
+        label.innerHTML = '<input type="radio" name="length" value="' + k + '"><span class="lc"><strong></strong><span></span></span>';
+        label.querySelector('strong').textContent = p.label;
+        label.querySelector('.lc > span').textContent = p.note + ' · ' + aboutMin(p.minutes);
+        lc.appendChild(label);
+      }
+      if (!Questions.TECH_PLANS[settings.length]) settings.length = 'standard';
+    } else {
+      renderBpoLengths(lc);
+      if (!Questions.PLANS[settings.length]) settings.length = 'standard';
+    }
+    const el = form.querySelector('input[name="length"][value="' + settings.length + '"]');
+    if (el) el.checked = true;
+  }
+
+  // "about 25–30 min" never breaks across lines.
+  function aboutMin(m) {
+    return 'about ' + String(m).replace(/[–-]/, '⁠–⁠') + ' min';
+  }
+
+  function renderBpoLengths(lc) {
     for (const [k, p] of Object.entries(Questions.PLANS)) {
       const label = document.createElement('label');
       label.innerHTML = '<input type="radio" name="length" value="' + k + '"><span class="lc"><strong></strong><span></span></span>';
       label.querySelector('strong').textContent = p.label;
       label.querySelector('.lc > span').textContent = p.rounds
-        ? p.rounds.map((r) => r.title).join(' · ') + ' · about ' + p.minutes + ' min'
-        : p.slots.length + ' questions · about ' + p.minutes + ' min';
+        ? p.rounds.map((r) => r.title).join(' · ') + ' · ' + aboutMin(p.minutes)
+        : p.slots.length + ' questions · ' + aboutMin(p.minutes);
       if (p.rounds) {
         label.classList.add('lc-rounds');
         const badge = document.createElement('em');
@@ -219,8 +260,92 @@
       }
       lc.appendChild(label);
     }
-    $('#f-name').value = settings.name;
-    roleSel.value = settings.role;
+  }
+
+  // ---- engineering track: role cards, company chips, what to expect
+  const COMPANY_VALUES = { amazon: 'Leadership Principles', google: 'Googleyness', microsoft: 'growth mindset' };
+  const ROUND2 = {
+    bigtech: (senior) => 'Fundamentals and problem solving' + (senior ? ', plus system design' : '') + ', explained out loud',
+    product: (senior) => 'Fundamentals, problem solving and ' + (senior ? 'system design' : 'object-oriented design'),
+    services: () => 'CS fundamentals (OOP, DBMS, OS, networks, SDLC) and your role',
+    startup: (senior) => 'Your role and practical engineering: debugging, shipping, trade-offs' + (senior ? ', plus design' : ''),
+  };
+
+  function renderEngineering() {
+    const grid = $('#trole-grid');
+    grid.innerHTML = '';
+    for (const [k, r] of Object.entries(Questions.ROLES)) {
+      if (r.track !== 'tech') continue;
+      const label = document.createElement('label');
+      label.className = 'trole';
+      label.innerHTML = '<input type="radio" name="techRole"><span class="trole-body"><span class="trole-ico" aria-hidden="true"></span><strong></strong><small></small></span>';
+      label.querySelector('input').value = k;
+      label.querySelector('.trole-ico').textContent = r.icon;
+      label.querySelector('strong').textContent = r.label;
+      label.querySelector('small').textContent = r.blurb;
+      grid.appendChild(label);
+    }
+    const picker = $('#company-picker');
+    picker.innerHTML = '';
+    const kinds = Object.entries(Questions.KINDS).sort((a, b) => a[1].order - b[1].order);
+    for (const [kind, meta] of kinds) {
+      const group = document.createElement('div');
+      group.className = 'co-group';
+      group.innerHTML = '<span class="co-kind"></span><div class="co-chips"></div>';
+      group.querySelector('.co-kind').textContent = meta.label;
+      for (const [id, c] of Object.entries(Questions.COMPANIES)) {
+        if (c.kind !== kind) continue;
+        const chip = document.createElement('label');
+        chip.className = 'co-chip co-' + kind;
+        chip.innerHTML = '<input type="radio" name="company"><span></span>';
+        chip.querySelector('input').value = id;
+        chip.querySelector('span').textContent = c.display || c.name;
+        group.querySelector('.co-chips').appendChild(chip);
+      }
+      picker.appendChild(group);
+    }
+  }
+
+  /** "Incoming call" preview: who calls, their style, and the two rounds. */
+  function renderCompanyBrief() {
+    const c = Questions.COMPANIES[settings.company] || Questions.COMPANIES.generic;
+    const role = Questions.ROLES[settings.techRole] || Questions.ROLES.fullstack;
+    const senior = settings.experience === 'experienced';
+    const values = COMPANY_VALUES[settings.company] || (c.kind === 'services' ? 'learning, teamwork, relocation and shifts' : c.kind === 'startup' ? 'ownership and speed' : 'ownership and collaboration');
+    const brief = $('#company-brief');
+    brief.innerHTML = '<div class="cb-call"><span class="cb-ring" aria-hidden="true"></span><span class="cb-who"><small>Incoming call</small><strong></strong></span><span class="cb-role"></span></div>' +
+      '<p class="cb-style"></p><ol class="cb-rounds"><li><b>1</b><span><strong>Communication &amp; thought process</strong><small class="cb-r1"></small></span></li>' +
+      '<li><b>2</b><span><strong>Technical interview</strong><small class="cb-r2"></small></span></li></ol>';
+    brief.querySelector('.cb-who strong').textContent = INTERVIEWER + ' · ' + c.from;
+    brief.querySelector('.cb-role').textContent = role.icon + ' ' + role.label + (senior ? ' · Experienced' : ' · Fresher');
+    brief.querySelector('.cb-style').textContent = c.style;
+    brief.querySelector('.cb-r1').textContent = 'You, your projects, how you think, and ' + values;
+    brief.querySelector('.cb-r2').textContent = (ROUND2[c.kind] || ROUND2.product)(senior);
+    const cmd = $('#eng-cmd-text');
+    if (cmd) cmd.textContent = 'tushar-ai interview --role ' + settings.techRole + ' --company ' + settings.company.replace(/_/g, '-') + ' --level ' + settings.experience + ' --loop ' + settings.length;
+  }
+
+  /** Show the chosen track: the engineering panel or the BPO role, and matching lengths. */
+  function applyTrack() {
+    const tech = settings.track === 'tech';
+    $('#eng-panel').hidden = !tech;
+    $('#bpo-role-field').hidden = tech;
+    form.classList.toggle('is-tech', tech);
+    const check = (name, value) => {
+      const el = form.querySelector('input[name="' + name + '"][value="' + value + '"]');
+      if (el) el.checked = true;
+    };
+    check('track', settings.track);
+    check('techRole', settings.techRole);
+    check('company', settings.company);
+    renderLengths(settings.track);
+    if (tech) renderCompanyBrief();
+    const go = $('#btn-continue');
+    const label = tech ? 'Go live: start the engineering interview' : 'Go live: start the interview';
+    if (go.lastChild && go.lastChild.nodeType === 3) go.lastChild.textContent = label;
+  }
+
+  function setupRest() {
     $('#f-accent').value = settings.accent;
     $('#f-silence').value = String(settings.silenceSec);
     $('#f-rate').value = String(settings.rate);
@@ -249,9 +374,16 @@
 
   function readSetup() {
     const fd = new FormData(form);
+    const track = fd.get('track') === 'tech' ? 'tech' : 'bpo';
+    const bpoRole = fd.get('role') || settings.bpoRole || 'voice';
+    const techRole = fd.get('techRole') || settings.techRole || 'fullstack';
     settings = Object.assign({}, settings, {
       name: String(fd.get('name') || '').trim().slice(0, 60),
-      role: fd.get('role') || 'voice',
+      track,
+      bpoRole,
+      techRole,
+      company: fd.get('company') || settings.company || 'generic',
+      role: track === 'tech' ? techRole : bpoRole,
       experience: fd.get('experience') || 'fresher',
       length: fd.get('length') || 'standard',
       accent: fd.get('accent') || 'en-US',
@@ -278,6 +410,8 @@
     if (e.target.id === 'f-accent') settings.accentChosen = true;
     readSetup();
     if (e.target.id === 'f-accent') populateVoices();
+    if (e.target.name === 'track') applyTrack();
+    else if (settings.track === 'tech' && ['techRole', 'company', 'experience', 'length'].indexOf(e.target.name) !== -1) renderCompanyBrief();
   });
   $('#f-rate').addEventListener('input', (e) => {
     $('#rate-out').textContent = Number(e.target.value).toFixed(2).replace(/0$/, '') + '×';
@@ -358,7 +492,7 @@
         '<span class="history-actions"><button class="btn" type="button" data-act="view">View</button><button class="btn btn-ghost btn-danger" type="button" data-act="del" aria-label="Delete">✕</button></span>';
       li.querySelector('.history-score').textContent = h.overall;
       li.querySelector('strong').textContent = h.name + ' — ' + h.verdict;
-      li.querySelector('.muted').textContent = h.role + (h.integrity && h.integrity !== 'Clean' ? ' · Integrity: ' + h.integrity : '') + ' · ' + new Date(h.createdAt).toLocaleString();
+      li.querySelector('.muted').textContent = h.role + (h.company ? ' · ' + h.company : '') + (h.integrity && h.integrity !== 'Clean' ? ' · Integrity: ' + h.integrity : '') + ' · ' + new Date(h.createdAt).toLocaleString();
       li.querySelector('[data-act="view"]').addEventListener('click', async () => {
         const sheet = store.get(SHEET_PREFIX + h.id, null);
         if (!sheet) return alert('This scoresheet is no longer stored.');
@@ -385,7 +519,7 @@
   /** Save the scoresheet (localStorage) and its recordings (IndexedDB). Resolves the clip-save result. */
   async function saveSheet(sheet, clips) {
     const list = store.get(HISTORY_KEY, []).filter((x) => x.id !== sheet.id);
-    list.unshift({ id: sheet.id, name: sheet.candidate.name, role: sheet.role.label, overall: sheet.overall, verdict: sheet.verdict.label, integrity: sheet.proctoring && sheet.proctoring.rating ? sheet.proctoring.rating.label : null, createdAt: sheet.createdAt });
+    list.unshift({ id: sheet.id, name: sheet.candidate.name, role: sheet.role.label, overall: sheet.overall, verdict: sheet.verdict.label, company: sheet.company ? sheet.company.display || sheet.company.name : null, integrity: sheet.proctoring && sheet.proctoring.rating ? sheet.proctoring.rating.label : null, createdAt: sheet.createdAt });
     while (list.length > 12) {
       const old = list.pop();
       store.del(SHEET_PREFIX + old.id);
@@ -592,7 +726,7 @@
   function setPersona(who) {
     const live = state.call && !$('#caller-card').hidden;
     $('#avatar').classList.toggle('customer', who === 'customer');
-    $('#who-label').textContent = who === 'customer' ? (live ? state.call.customerName + ' · Live call' : 'Customer · mock call') : INTERVIEWER + ' · Interviewer';
+    $('#who-label').textContent = who === 'customer' ? (live ? state.call.customerName + ' · Live call' : 'Customer · mock call') : INTERVIEWER + ' · ' + (state.company ? (state.company.id === 'generic' ? 'Tech interview' : (state.company.display || state.company.name) + ' interview') : 'Interviewer');
     $('#cap-who').textContent = who === 'customer' ? (live ? state.call.customerName : 'Customer') : INTERVIEWER;
   }
 
@@ -608,12 +742,12 @@
     const bar = $('#rounds-bar');
     const r = step.round;
     bar.hidden = !r;
-    $('#dots').hidden = !!r;
+    $('#dots').hidden = !!r && !r.multi; // engineering rounds hold several questions: keep the dots
     if (r) {
-      const rounds = state.session && state.session.plan ? state.session.plan.length : r.of;
+      const rounds = r.multi ? r.of : state.session && state.session.plan ? state.session.plan.length : r.of;
       if (bar.children.length !== rounds) {
         bar.innerHTML = '';
-        const titles = (Questions.PLANS[settings.length] && Questions.PLANS[settings.length].rounds) || [];
+        const titles = r.titles ? r.titles.map((title) => ({ title })) : (Questions.PLANS[settings.length] && Questions.PLANS[settings.length].rounds) || [];
         for (let i = 0; i < rounds; i++) {
           const li = document.createElement('li');
           li.innerHTML = '<span class="rb-n">' + (i + 1) + '</span><span class="rb-t"></span>';
@@ -622,7 +756,7 @@
         }
       }
       Array.from(bar.children).forEach((li, i) => { li.className = i < r.n - 1 ? 'done' : i === r.n - 1 ? 'now' : ''; });
-      $('#room-q').textContent = 'Round ' + r.n + ' of ' + r.of + ' · ' + r.title;
+      $('#room-q').textContent = 'Round ' + r.n + ' of ' + r.of + ' · ' + r.title + (r.multi ? ' · Question ' + (step.index + 1) + ' of ' + step.total : '');
     }
     // Topic talk: the word, big, with the time left.
     const tc = $('#topic-card');
@@ -2052,10 +2186,13 @@
   async function startCall() {
     const gen = ++state.callGen;
     const alive = () => gen === state.callGen && !state.discard;
+    const co = settings.track === 'tech' ? Questions.COMPANIES[settings.company] || Questions.COMPANIES.generic : null;
+    state.company = co ? Object.assign({ id: settings.company }, co) : null;
     state.session = Engine.createSession({
       length: settings.length,
       role: settings.role,
       experience: settings.experience,
+      company: co ? settings.company : undefined,
       mode: 'voice',
       name: settings.name,
       interviewerName: INTERVIEWER,
@@ -2144,7 +2281,10 @@
 
     const session = state.session;
     const first = String(settings.name).trim().split(/\s+/)[0];
-    await say([{ text: 'Hi ' + first + "! I'm " + INTERVIEWER + ", and I'll be interviewing you today. You can just talk to me normally, no buttons needed.", voice: 'interviewer' }]);
+    const hello = state.company
+      ? ", calling from " + state.company.from + ' about the ' + ((Questions.ROLES[settings.role] || {}).short || 'engineering') + ' role'
+      : ", and I'll be interviewing you today";
+    await say([{ text: 'Hi ' + first + "! I'm " + INTERVIEWER + hello + '. You can just talk to me normally, no buttons needed.', voice: 'interviewer' }]);
     if (!alive()) return;
     // AI proctoring: calibrate on the candidate, alone and looking at the screen.
     const seen = await faceCheck(alive);
@@ -2340,6 +2480,7 @@
       endedAt: Date.now(),
       integrity,
       proctoring,
+      company: cfg.track === 'tech' ? Object.assign({ id: cfg.company }, Questions.COMPANIES[cfg.company] || Questions.COMPANIES.generic) : null,
     });
 
     if (useLlm && alive() && !state.skipLlm && sheet.llmUsed) {
@@ -2494,13 +2635,32 @@
   });
 
   // "4-round assessment" on the home page: pick that mode, then go to the setup form.
+  // "For my engineers": open the setup on the engineering track.
+  $$('[data-pick-track]').forEach((a) => a.addEventListener('click', () => {
+    settings.track = a.getAttribute('data-pick-track') === 'tech' ? 'tech' : 'bpo';
+    applyTrack();
+    readSetup();
+  }));
   $$('[data-pick-length]').forEach((a) => a.addEventListener('click', () => {
+    if (settings.track === 'tech') {
+      settings.track = 'bpo'; // the 4-round assessment is a BPO interview
+      applyTrack();
+    }
     const el = form.querySelector('input[name="length"][value="' + a.getAttribute('data-pick-length') + '"]');
     if (el) { el.checked = true; readSetup(); }
   }));
 
   $$('[data-sample]').forEach((btn) => btn.addEventListener('click', () => {
     const profile = btn.getAttribute('data-sample');
+    if (profile === 'engineer') {
+      // An experienced full-stack engineer, interviewed in the style of the company picked above.
+      const { sheet } = Demo.runScripted('engineer', {
+        role: 'fullstack', experience: 'experienced', company: settings.company || 'generic', length: 'standard',
+        name: 'Arjun Mehta (sample)', startedAt: Date.now() - 28 * 60000, seed: 11,
+      });
+      showReport(sheet, { sample: 'experienced full-stack engineer' });
+      return;
+    }
     const { sheet } = Demo.runScripted(profile, {
       role: settings.role === 'sales' || settings.role === 'tech' ? settings.role : 'voice',
       length: 'standard',
