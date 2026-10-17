@@ -1175,6 +1175,21 @@ details.qa[open] .qa-q { white-space: normal; }
 .drill-card audio { width: 100%; max-width: 420px; }
 .drill-actions { display: flex; flex-wrap: wrap; gap: 10px; }
 
+/* ---------- Live coaching under the candidate's words */
+.coach { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--line); animation: eng-in 0.3s var(--ease); }
+.coach .cc { padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line-2); background: var(--glass); font: 600 0.74rem/1.3 var(--f-mono); color: var(--ink-2); font-variant-numeric: tabular-nums; transition: border-color 0.3s, color 0.3s, background 0.3s; }
+.coach .cc[hidden] { display: none; }
+.coach .cc[data-tone="good"] { border-color: rgba(52, 211, 153, 0.45); color: var(--good-text); }
+.coach .cc[data-tone="warn"] { border-color: rgba(251, 191, 36, 0.55); background: rgba(251, 191, 36, 0.1); color: #fcd34d; }
+.coach-tip { flex-basis: 100%; font-size: 0.82rem; color: #fcd34d; }
+.coach-tip[hidden] { display: none; }
+
+/* ---------- Call layout on short laptop screens, and without the camera tile (practice drills) */
+@media (min-width: 700px) and (max-height: 860px) {
+  .orb { width: min(320px, 36vh); }
+  .drill-coach { padding: 8px 14px; font-size: 0.84rem; }
+}
+@media (min-width: 1100px) { .call-main:has(.proctor-tile[hidden]) { grid-template-columns: minmax(0, 1fr); } }
 /* ---------- motion & print ---------- */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }

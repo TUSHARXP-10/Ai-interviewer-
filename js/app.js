@@ -72,6 +72,7 @@
     track: 'bpo', bpoRole: 'voice', techRole: 'fullstack', company: 'generic',
     silenceSec: 3, interviewerVoice: '', customerVoice: '', rate: 1, record: true,
     showCaptions: true, engine: 'auto', llmEnabled: false, llmUrl: LLM.DEFAULT_URL, llmModel: '',
+    liveCoach: true,
   };
   let settings = Object.assign({}, DEFAULTS, store.get(SETTINGS_KEY, {}));
   // Older settings had one role (BPO): keep it as the BPO choice.
@@ -351,6 +352,7 @@
     $('#f-rate').value = String(settings.rate);
     $('#rate-out').textContent = Number(settings.rate).toFixed(2).replace(/0$/, '') + '×';
     $('#f-record').checked = settings.record;
+    $('#f-coach').checked = settings.liveCoach !== false;
     $('#f-record').disabled = !window.MediaRecorder;
     $('#f-engine').value = settings.engine;
     $$('#f-engine option').forEach((o) => {
@@ -392,6 +394,7 @@
       customerVoice: fd.get('customerVoice') || '',
       rate: Number(fd.get('rate') || 1),
       record: $('#f-record').checked,
+      liveCoach: $('#f-coach').checked,
       engine: fd.get('engine') || 'auto',
       llmEnabled: $('#f-llm').checked,
       llmUrl: String(fd.get('llmUrl') || LLM.DEFAULT_URL).trim(),
@@ -930,6 +933,30 @@
     return [f, head ? fixNames(interim) : both];
   }
   /** The candidate's words as the interviewer understood them (latest words kept in view). */
+  /** Live coaching under the candidate's words (null hides it). */
+  function renderCoach(c) {
+    const box = $('#coach');
+    if (!c || !c.words) {
+      if (!box.hidden) box.hidden = true;
+      return;
+    }
+    box.hidden = false;
+    const set = (k, item) => {
+      const el = box.querySelector('[data-k="' + k + '"]');
+      el.hidden = !item;
+      if (!item) return;
+      const text = k === 'time' ? '⏱ ' + item.label : k === 'pace' ? item.label + ' · ' + item.wpm + ' wpm' : item.label;
+      if (el.textContent !== text) el.textContent = text;
+      if (el.dataset.tone !== item.tone) el.dataset.tone = item.tone;
+    };
+    set('time', c.time);
+    set('pace', c.pace);
+    set('fillers', c.fillers);
+    const tip = $('#coach-tip');
+    tip.hidden = !c.tip;
+    if (c.tip && tip.textContent !== c.tip) tip.textContent = c.tip;
+  }
+
   function renderYou(fin, interim) {
     const live = $('#live');
     const f = String(fin || '').trim();
@@ -1172,6 +1199,10 @@
       let fatal = null;
       let hiddenAt = 0;
       let resumedAt = performance.now(); // silence is only counted from when listening (re)started
+      // Live coaching: not for the listening test or a sentence correction (short, exact answers).
+      const coachOn = settings.liveCoach !== false && !(q && (q.type === 'listening' || q.type === 'correction'));
+      let firstWordAt = 0;
+      let coachAt = 0;
       const pauses = [];                 // [from, to] while listening was paused, excluded from speaking time
       let pausedAt = 0;
 
@@ -1189,6 +1220,8 @@
         pauses.length = 0;
         pausedAt = 0;
         renderYou('', '');
+        renderCoach(null);
+        firstWordAt = 0;
         youPanel('waiting', 'Your turn', 'Start speaking… I’m listening.');
         const r = makeRecognizer({
           onUpdate: (fin, interim) => {
@@ -1198,6 +1231,7 @@
             if (namesOk) [fin, interim] = fixNamesLive(fin, interim);
             renderYou(fin, interim);
             const t = (fin + ' ' + interim).trim();
+            if (t && !firstWordAt) firstWordAt = performance.now();
             if (t !== lastText) {
               lastText = t;
               lastTextAt = performance.now();
@@ -1288,6 +1322,10 @@
         const text = rec ? (rec.text() + ' ' + rec.interim()).trim() : '';
         const live = !!rec && rec.live !== false;
         const words = live ? Voice.wordCount(text) : null;
+        if (coachOn && live && firstWordAt && now - coachAt > 900 && AII.Coach) {
+          coachAt = now;
+          renderCoach(AII.Coach.live({ text, speakingMs: now - firstWordAt, question: q }));
+        }
         const spokeMs = state.meter ? state.meter.segmentVoicedMs() : null;
         // Engines without live words need less voice before an answer counts as started,
         // so short replies ("No, thank you") still end normally.
@@ -1573,6 +1611,7 @@
         if (ctl.done) return;
         ctl.done = true;
         clearInterval(timer);
+        renderCoach(null);
         if (state.userAction) state.userAction(false);
         setButtons(false);
         setUi('thinking', state.engine === 'whisper' && !x.skipped ? 'Transcribing your answer…' : 'One moment…');

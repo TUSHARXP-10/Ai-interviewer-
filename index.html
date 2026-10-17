@@ -221,6 +221,7 @@
               <div class="field">
                 <span class="label">Options</span>
                 <label class="check"><input type="checkbox" id="f-record" name="record"> Record my answers so I can replay them in the scoresheet (saved only in this browser)</label>
+                <label class="check"><input type="checkbox" id="f-coach" name="liveCoach"> Live coaching while I answer: time against the target, pace and filler words</label>
               </div>
               <div class="field">
                 <label for="f-engine">Speech recognition</label>
@@ -354,6 +355,10 @@
             <span class="you-label" id="you-label">You</span>
           </div>
           <p class="you-text" id="live" data-placeholder=""></p>
+          <div class="coach" id="coach" hidden aria-hidden="true">
+            <span class="cc" data-k="time"></span><span class="cc" data-k="pace"></span><span class="cc" data-k="fillers"></span>
+            <span class="coach-tip" id="coach-tip"></span>
+          </div>
         </div>
 
         <div class="notice" id="notice" role="alert" hidden></div>
@@ -435,6 +440,7 @@
 
   <script src="js/textUtils.js"></script>
   <script src="js/lexicons.js"></script>
+  <script src="js/coach.js"></script>
   <script src="js/techBank.js"></script>
   <script src="js/questionBank.js"></script>
   <script src="js/analyzer.js"></script>
