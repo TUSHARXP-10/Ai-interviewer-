@@ -484,9 +484,64 @@
   });
 
   // ------------------------------------------------------------ history
+  // ------------------------------------------------------------ progress
+  /** Every practice drill's date, across saved scoresheets. */
+  function drillDates() {
+    const all = store.get(DRILL_KEY, {}) || {};
+    const out = [];
+    for (const sheetId of Object.keys(all)) for (const qid of Object.keys(all[sheetId])) for (const a of all[sheetId][qid]) if (a.at) out.push(a.at);
+    return out;
+  }
+
+  function renderProgress(list) {
+    const box = $('#progress');
+    // Older entries have no skill scores: read them from the saved scoresheet once.
+    let changed = false;
+    for (const h of list) {
+      if (h.dims) continue;
+      const sheet = store.get(SHEET_PREFIX + h.id, null);
+      h.dims = sheet ? dimsOf(sheet) : {};
+      h.track = sheet ? sheet.track || 'bpo' : 'bpo';
+      changed = true;
+    }
+    if (changed) store.set(HISTORY_KEY, list);
+    const labels = {};
+    for (const d of Scoring.DIMENSIONS) labels[d.key] = d.short;
+    const p = AII.Progress ? AII.Progress.summarize(list, { labels, drillDates: drillDates() }) : null;
+    box.hidden = !p;
+    if (!p) return;
+    const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const sign = (n) => (n > 0 ? '+' + n : String(n));
+    const delta = p.count > 1
+      ? '<span class="pg-delta ' + (p.change > 0 ? 'up' : p.change < 0 ? 'down' : '') + '">' + sign(p.change) + ' since your first interview</span>'
+      : '<span class="pg-delta">Your first interview. Do another to see your progress.</span>';
+    const meta = [p.streak ? '🔥 ' + p.streak + '-day streak' : null, p.count + (p.count === 1 ? ' interview' : ' interviews'), p.drills ? p.drills + (p.drills === 1 ? ' drill' : ' drills') : null, 'best ' + p.best].filter(Boolean).join(' · ');
+    const skills = p.skills.map((s) => '<li><span class="pg-k">' + esc(s.label) + '</span><span class="pg-bar"><i style="width:' + Math.max(2, Math.min(100, s.latest)) + '%"></i></span><b>' + s.latest + '</b>' +
+      (p.count > 1 && s.change ? '<em class="' + (s.change > 0 ? 'up' : 'down') + '">' + sign(s.change) + '</em>' : '<em></em>') + '</li>').join('');
+    box.innerHTML = '<div class="pg-main"><span class="eyebrow">' + (p.track === 'tech' ? 'Engineering interviews' : 'Customer service interviews') + '</span>' +
+      '<div class="pg-score"><strong>' + p.latest + '</strong>' + delta + '</div>' + AII.Progress.sparkline(p.trend, 240, 60) +
+      '<div class="pg-meta">' + esc(meta) + '</div></div>' +
+      '<ul class="pg-skills">' + skills + '</ul>' +
+      (p.weakest ? '<div class="pg-cta"><span>Weakest right now: <strong>' + esc(p.weakest.label) + ' (' + p.weakest.latest + ')</strong></span>' +
+        '<button class="btn btn-small btn-drill" type="button" id="pg-practise">🎯 Practise your weakest answers</button></div>' : '');
+    const btn = $('#pg-practise');
+    if (btn) {
+      btn.addEventListener('click', async () => {
+        const latest = list.filter((h) => (h.track || 'bpo') === p.track).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0];
+        const sheet = latest && store.get(SHEET_PREFIX + latest.id, null);
+        if (!sheet) return;
+        const clips = await Recorder.loadClips(sheet.id).catch(() => []);
+        showReport(sheet, { clips });
+        const card = $('#rep-practice');
+        if (card) setTimeout(() => card.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);
+      });
+    }
+  }
+
   function renderHistory() {
     const list = store.get(HISTORY_KEY, []);
     $('#history-card').hidden = !list.length;
+    if (list.length) renderProgress(list);
     const ul = $('#history-list');
     ul.innerHTML = '';
     for (const h of list) {
@@ -519,10 +574,16 @@
     renderHistory();
   });
 
+  function dimsOf(sheet) {
+    const out = {};
+    for (const d of sheet.dimensions || []) out[d.key] = d.score;
+    return out;
+  }
+
   /** Save the scoresheet (localStorage) and its recordings (IndexedDB). Resolves the clip-save result. */
   async function saveSheet(sheet, clips) {
     const list = store.get(HISTORY_KEY, []).filter((x) => x.id !== sheet.id);
-    list.unshift({ id: sheet.id, name: sheet.candidate.name, role: sheet.role.label, overall: sheet.overall, verdict: sheet.verdict.label, company: sheet.company ? sheet.company.display || sheet.company.name : null, integrity: sheet.proctoring && sheet.proctoring.rating ? sheet.proctoring.rating.label : null, createdAt: sheet.createdAt });
+    list.unshift({ id: sheet.id, name: sheet.candidate.name, role: sheet.role.label, overall: sheet.overall, verdict: sheet.verdict.label, track: sheet.track || 'bpo', dims: dimsOf(sheet), company: sheet.company ? sheet.company.display || sheet.company.name : null, integrity: sheet.proctoring && sheet.proctoring.rating ? sheet.proctoring.rating.label : null, createdAt: sheet.createdAt });
     while (list.length > 12) {
       const old = list.pop();
       store.del(SHEET_PREFIX + old.id);
@@ -2419,7 +2480,7 @@
   // ------------------------------------------------------------ practice drills
   // Answer one question again: the same voice call without the camera (it is practice, not an
   // interview), then the score before and after. Attempts are kept per scoresheet, on this device.
-  const DRILL_KEY = 'aii-drills';
+  const DRILL_KEY = 'aii.drills.v1';
   function drillsFor(sheetId) {
     return (store.get(DRILL_KEY, {}) || {})[sheetId] || {};
   }

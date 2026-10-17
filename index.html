@@ -264,9 +264,11 @@
 
       <section class="card glass" id="history-card" hidden>
         <div style="display:flex; justify-content:space-between; align-items:center; gap:10px">
-          <h2 style="margin:0">Your past interviews</h2>
+          <h2 style="margin:0">Your progress</h2>
           <button class="btn btn-ghost btn-danger" type="button" id="history-clear">Clear all</button>
         </div>
+        <div class="progress" id="progress"></div>
+        <h3 class="history-title">Past interviews</h3>
         <ul class="history-list" id="history-list"></ul>
         <p class="muted small" style="margin:8px 0 0">Saved only in this browser.</p>
       </section>
@@ -441,6 +443,7 @@
   <script src="js/textUtils.js"></script>
   <script src="js/lexicons.js"></script>
   <script src="js/coach.js"></script>
+  <script src="js/progress.js"></script>
   <script src="js/techBank.js"></script>
   <script src="js/questionBank.js"></script>
   <script src="js/analyzer.js"></script>
