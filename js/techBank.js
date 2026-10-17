@@ -464,7 +464,7 @@
     tq({
       id: 'dsa_reverse_list', slot: 'tproblem', type: 'problem', roles: DEV, exp: 'fresher',
       text: 'How would you reverse a singly linked list?',
-      concepts: [c('pointers', 'Previous, current and next pointers', 1.5, ['previous', 'prev', 'current', 'next', 'pointer*', 'reference*']), c('relink', 'Point each node back', 1.2, ['reverse the link*', 'point* to the previous', 'point it back', 'change the next', 'swap', 'reverse the pointer*', 'backwards']), c('complexity', 'Complexity', 1, COMPLEXITY), c('edges', 'Edge cases or recursion', 0.6, EDGES.concat(['recurs*']))],
+      concepts: [c('pointers', 'Previous, current and next pointers', 1.5, ['previous', 'prev', 'current', 'next', 'pointer*', 'reference*']), c('relink', 'Point each node back', 1.2, ['reverse the link*', 'back to previous', 'back to the previous', 'next to previous', 'next to the previous', 'points backwards', 'point* to the previous', 'point it back', 'change the next', 'swap', 'reverse the pointer*', 'backwards']), c('complexity', 'Complexity', 1, COMPLEXITY), c('edges', 'Edge cases or recursion', 0.6, EDGES.concat(['recurs*']))],
       tip: 'Walk the list with three pointers (previous, current, next): save next, point current back to previous, move both one step. O(n) time, O(1) space. Mention the empty list, a single node, and the recursive version.',
     }),
     tq({
