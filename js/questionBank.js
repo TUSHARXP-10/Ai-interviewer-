@@ -18,6 +18,7 @@
   'use strict';
   const isNode = typeof module === 'object' && module.exports;
   const Tech = isNode ? require('./techBank.js') : root.AII.TechBank;
+  const JobFit = isNode ? require('./jobFit.js') : root.AII.JobFit;
 
   const ROLES = {
     voice: { label: 'Customer Support (Voice)', short: 'Customer Support', checklist: 'support' },
@@ -851,12 +852,39 @@
    * Choose the concrete questions for an interview.
    * opts: { length: 'quick'|'standard'|'full', role, experience, random: () => [0,1) }
    */
+  /** The question built from a job description (see jobFit.js), ready to ask. */
+  function jobQuestion(job) {
+    const q = JobFit && job ? JobFit.question(job) : null;
+    if (!q) return null;
+    q.dims = Object.assign({}, TYPE_DIMS[q.type]);
+    q.stageLabel = 'Job Fit';
+    return q;
+  }
+
+  /**
+   * opts: { length, role, experience, company, random, only, job }
+   * job: what a pasted job description asks for (JobFit.read): each slot then prefers the
+   * questions about those things, and one question built from the job is asked after the intro.
+   */
   function buildPlan(opts) {
     const rand = opts.random || Math.random;
     const used = new Set();
     const out = [];
+    const job = opts.job && opts.job.skills && opts.job.skills.length ? opts.job : null;
     // A practice drill: exactly these questions, in this order.
-    if (opts.only) return opts.only.map((id) => byId[id]).filter(Boolean).map((q) => fill(q, opts.role, opts.company));
+    if (opts.only) {
+      return opts.only.map((id) => (id === 'jd_fit' ? jobQuestion(job) : byId[id])).filter(Boolean).map((q) => fill(q, opts.role, opts.company));
+    }
+    // One random draw per slot either way, so a plan stays reproducible from its seed.
+    const pick = (pool) => {
+      const r = rand();
+      if (!job || pool.length < 2) return pool[Math.floor(r * pool.length)];
+      const scored = pool.map((q) => JobFit.relevance(q, job));
+      const best = Math.max.apply(null, scored);
+      const top = best > 0 ? pool.filter((q, i) => scored[i] === best) : pool;
+      return top[Math.floor(r * top.length)];
+    };
+    const jq = jobQuestion(job);
     if (trackOf(opts.role) === 'tech') {
       // Engineering: each question carries its round (1: communication & thought, 2: technical).
       const plan = planInfo(opts.length, opts.role, opts.company, opts.experience);
@@ -864,12 +892,13 @@
         for (const s of slot.split('|')) {
           const pool = QUESTIONS.filter((q) => q.slot === s && !used.has(q.id) && eligible(q, opts.role, opts.experience, opts.company));
           if (!pool.length) continue;
-          const q = pool[Math.floor(rand() * pool.length)];
+          const q = pick(pool);
           used.add(q.id);
           out.push(Object.assign({}, fill(q, opts.role, opts.company), { round }));
           break;
         }
       }
+      if (jq && jq.track === 'tech') out.splice(Math.min(1, out.length), 0, Object.assign(jq, { round: 1 }));
       return out;
     }
     const plan = PLANS[opts.length] || PLANS.standard;
@@ -878,10 +907,12 @@
         ? QUESTIONS.filter((q) => q.id === slot.slice(1))
         : QUESTIONS.filter((q) => q.slot === slot && !used.has(q.id) && eligible(q, opts.role, opts.experience));
       if (!pool.length) continue;
-      const q = pool[Math.floor(rand() * pool.length)];
+      const q = pick(pool);
       used.add(q.id);
       out.push(q);
     }
+    // (The 4-round assessment keeps its fixed rounds.)
+    if (jq && jq.track !== 'tech' && !plan.rounds) out.splice(Math.min(1, out.length), 0, jq);
     return out;
   }
 

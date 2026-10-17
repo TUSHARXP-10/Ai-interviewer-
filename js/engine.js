@@ -87,7 +87,7 @@
     // o.only: a practice drill of just these questions (one follow-up at most, no rounds).
     const planDef = o.only ? { label: 'Practice drill', minutes: '2', maxFollowUps: 1 }
       : Questions.planInfo ? Questions.planInfo(o.length, o.role, o.company, o.experience) : Questions.PLANS[o.length] || Questions.PLANS.standard;
-    const plan = Questions.buildPlan({ length: o.length, role: o.role, experience: o.experience, company: o.company, only: o.only, random: rand });
+    const plan = Questions.buildPlan({ length: o.length, role: o.role, experience: o.experience, company: o.company, only: o.only, job: o.job, random: rand });
     const company = (Questions.COMPANIES && Questions.COMPANIES[o.company]) || null;
     const items = plan.map((q, i) => {
       const item = { question: q, parts: [], followUps: [], turns: [], pendingCustomer: null, sim: null, round: null };

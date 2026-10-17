@@ -72,7 +72,7 @@
     track: 'bpo', bpoRole: 'voice', techRole: 'fullstack', company: 'generic',
     silenceSec: 3, interviewerVoice: '', customerVoice: '', rate: 1, record: true,
     showCaptions: true, engine: 'auto', llmEnabled: false, llmUrl: LLM.DEFAULT_URL, llmModel: '',
-    liveCoach: true,
+    liveCoach: true, jobText: '',
   };
   let settings = Object.assign({}, DEFAULTS, store.get(SETTINGS_KEY, {}));
   // Older settings had one role (BPO): keep it as the BPO choice.
@@ -323,10 +323,87 @@
     brief.querySelector('.cb-r1').textContent = 'You, your projects, how you think, and ' + values;
     brief.querySelector('.cb-r2').textContent = (ROUND2[c.kind] || ROUND2.product)(senior);
     const cmd = $('#eng-cmd-text');
-    if (cmd) cmd.textContent = 'tushar-ai interview --role ' + settings.techRole + ' --company ' + settings.company.replace(/_/g, '-') + ' --level ' + settings.experience + ' --loop ' + settings.length;
+    if (cmd) cmd.textContent = 'tushar-ai interview --role ' + settings.techRole + ' --company ' + settings.company.replace(/_/g, '-') + ' --level ' + settings.experience + ' --loop ' + settings.length + (currentJob('tech') ? ' --jd' : '');
   }
 
   /** Show the chosen track: the engineering panel or the BPO role, and matching lengths. */
+  /** What the pasted job description asks for, for this track (null when empty or nothing found). */
+  function currentJob(track) {
+    const text = String(settings.jobText || '').trim();
+    if (!text || !AII.JobFit) return null;
+    const job = AII.JobFit.read(text, track || settings.track);
+    return job && job.skills.length ? job : null;
+  }
+
+  function renderJobFound() {
+    const box = $('#jf-found');
+    const count = $('#jf-count');
+    const text = String(settings.jobText || '').trim();
+    const job = currentJob();
+    box.innerHTML = '';
+    count.hidden = !job;
+    if (job) count.textContent = job.skills.length + ' found';
+    if (!text) return;
+    const head = document.createElement('p');
+    head.className = 'jf-head';
+    if (!job) {
+      head.textContent = settings.track === 'tech'
+        ? 'No skills recognised yet. Paste the whole description, including the requirements.'
+        : 'Nothing specific recognised yet. Paste the whole description, including the requirements.';
+      box.appendChild(head);
+      return;
+    }
+    head.textContent = settings.track === 'tech' ? 'This job asks for:' : 'This role asks for:';
+    const chips = document.createElement('div');
+    chips.className = 'jf-chips';
+    for (const s of job.skills) {
+      const c = document.createElement('span');
+      c.className = 'jf-chip';
+      c.textContent = s.label;
+      chips.appendChild(c);
+    }
+    const note = document.createElement('p');
+    note.className = 'muted small';
+    note.textContent = 'Questions lean towards these, and one question is about the job itself.';
+    box.append(head, chips, note);
+    // The job reads like another role: offer to switch.
+    const suggested = AII.JobFit.suggestRole(job);
+    const current = settings.track === 'tech' ? settings.techRole : settings.bpoRole;
+    if (suggested && suggested !== current && Questions.ROLES[suggested]) {
+      const tip = document.createElement('div');
+      tip.className = 'jf-suggest';
+      const span = document.createElement('span');
+      span.textContent = 'This looks like a ' + Questions.ROLES[suggested].short + ' job.';
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'btn btn-small btn-drill';
+      btn.textContent = 'Switch to ' + Questions.ROLES[suggested].short;
+      btn.addEventListener('click', () => {
+        if (settings.track === 'tech') settings.techRole = suggested;
+        else {
+          settings.bpoRole = suggested;
+          $('#f-role').value = suggested;
+        }
+        settings.role = suggested;
+        store.set(SETTINGS_KEY, settings);
+        applyTrack();
+        readSetup();
+      });
+      tip.append(span, btn);
+      box.appendChild(tip);
+    }
+  }
+  let jobTimer = 0;
+  $('#f-job').addEventListener('input', (e) => {
+    clearTimeout(jobTimer);
+    jobTimer = setTimeout(() => {
+      settings.jobText = e.target.value.slice(0, 8000);
+      store.set(SETTINGS_KEY, settings);
+      renderJobFound();
+      if (settings.track === 'tech') renderCompanyBrief();
+    }, 250);
+  });
+
   function applyTrack() {
     const tech = settings.track === 'tech';
     $('#eng-panel').hidden = !tech;
@@ -340,6 +417,7 @@
     check('techRole', settings.techRole);
     check('company', settings.company);
     renderLengths(settings.track);
+    renderJobFound();
     if (tech) renderCompanyBrief();
     const go = $('#btn-continue');
     const label = tech ? 'Go live: start the engineering interview' : 'Go live: start the interview';
@@ -353,6 +431,9 @@
     $('#rate-out').textContent = Number(settings.rate).toFixed(2).replace(/0$/, '') + '×';
     $('#f-record').checked = settings.record;
     $('#f-coach').checked = settings.liveCoach !== false;
+    $('#f-job').value = settings.jobText || '';
+    $('#job-fit').open = !!settings.jobText;
+    renderJobFound();
     $('#f-record').disabled = !window.MediaRecorder;
     $('#f-engine').value = settings.engine;
     $$('#f-engine option').forEach((o) => {
@@ -395,6 +476,7 @@
       rate: Number(fd.get('rate') || 1),
       record: $('#f-record').checked,
       liveCoach: $('#f-coach').checked,
+      jobText: String(fd.get('jobText') || '').slice(0, 8000),
       engine: fd.get('engine') || 'auto',
       llmEnabled: $('#f-llm').checked,
       llmUrl: String(fd.get('llmUrl') || LLM.DEFAULT_URL).trim(),
@@ -2333,11 +2415,13 @@
       experience: src ? src.candidate.experience : settings.experience,
       company: co ? companyId : undefined,
       only: drill ? [drill.qid] : undefined,
+      job: drill ? (src.config && src.config.job) || null : currentJob(),
       mode: 'voice',
       name: settings.name || (src && !drill.sample ? src.candidate.name : ''),
       interviewerName: INTERVIEWER,
       seed: (Math.random() * 2147483647) | 0,
     });
+    state.job = drill ? null : currentJob();
     state.integrity = { tabSwitches: 0, pastes: 0, repeats: 0 };
     resetProctoring();
     state.endRequested = false;
@@ -2427,7 +2511,8 @@
     const hello = state.company
       ? ", calling from " + state.company.from + ' about the ' + ((Questions.ROLES[settings.role] || {}).short || 'engineering') + ' role'
       : ", and I'll be interviewing you today";
-    await say([{ text: 'Hi ' + first + "! I'm " + INTERVIEWER + hello + '. You can just talk to me normally, no buttons needed.', voice: 'interviewer' }]);
+    const jd = state.job ? " I've read the job description you shared, so some questions are about what it asks for." : '';
+    await say([{ text: 'Hi ' + first + "! I'm " + INTERVIEWER + hello + '.' + jd + ' You can just talk to me normally, no buttons needed.', voice: 'interviewer' }]);
     if (!alive()) return;
     // AI proctoring: calibrate on the candidate, alone and looking at the screen.
     const seen = await faceCheck(alive);
@@ -2657,7 +2742,7 @@
     stopMedia();
     const sheet = Scoring.buildScoresheet({
       candidate: Object.assign({}, drill.sheet.candidate),
-      config: { length: drill.sheet.config.length, mode: 'voice', engine: state.engine },
+      config: { length: drill.sheet.config.length, mode: 'voice', engine: state.engine, job: drill.sheet.config.job || null },
       items,
       startedAt: state.startedAt,
       endedAt: Date.now(),
@@ -2922,7 +3007,7 @@
 
     const sheet = Scoring.buildScoresheet({
       candidate: { name: cfg.name, role: cfg.role, experience: cfg.experience },
-      config: { length: cfg.length, mode: 'voice', accent: cfg.accent, engine },
+      config: { length: cfg.length, mode: 'voice', accent: cfg.accent, engine, job: state.job || null },
       items,
       startedAt,
       endedAt: Date.now(),

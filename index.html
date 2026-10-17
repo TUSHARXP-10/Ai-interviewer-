@@ -183,6 +183,16 @@
             <div class="hint">Tushar AI waits longer when you've only just started, so thinking pauses are safe.</div>
           </div>
           <div class="field full">
+            <details class="job-fit" id="job-fit">
+              <summary><span class="jf-ico" aria-hidden="true">📋</span><span class="jf-sum"><strong>Tailor it to a real job</strong><span class="muted small">Optional: paste the job description</span></span><span class="jf-count" id="jf-count" hidden></span></summary>
+              <div class="jf-body">
+                <label for="f-job" class="sr-only">Job description</label>
+                <textarea id="f-job" name="jobText" rows="6" maxlength="8000" placeholder="Paste the job description here. Tushar AI picks questions about what it asks for, and adds one question about the job itself. It never leaves this device."></textarea>
+                <div class="jf-found" id="jf-found" aria-live="polite"></div>
+              </div>
+            </details>
+          </div>
+          <div class="field full">
             <span class="label" id="l-length">Interview length</span>
             <div class="length-cards" role="radiogroup" aria-labelledby="l-length" id="length-cards"></div>
           </div>
@@ -445,6 +455,7 @@
   <script src="js/lexicons.js"></script>
   <script src="js/coach.js"></script>
   <script src="js/progress.js"></script>
+  <script src="js/jobFit.js"></script>
   <script src="js/techBank.js"></script>
   <script src="js/questionBank.js"></script>
   <script src="js/analyzer.js"></script>

@@ -1235,6 +1235,28 @@ details.qa[open] .qa-q { white-space: normal; }
 .approach-steps li.ok { color: var(--ink); border-color: rgba(52, 211, 153, 0.5); background: rgba(52, 211, 153, 0.1); }
 .approach-steps li.ok span[aria-hidden] { color: var(--good-text); }
 
+/* ---------- Tailor to a job description (setup) */
+.job-fit { border: 1px solid var(--line-2); border-radius: 20px; background: rgba(5, 6, 10, 0.45); transition: border-color 0.2s; }
+.job-fit[open] { border-color: rgba(62, 230, 208, 0.4); }
+.job-fit summary { display: flex; align-items: center; gap: 12px; padding: 14px 16px; cursor: pointer; list-style: none; }
+.job-fit summary::-webkit-details-marker { display: none; }
+.job-fit summary::after { content: "+"; margin-left: auto; font: 600 1.2rem/1 var(--f-mono); color: var(--muted); }
+.job-fit[open] summary::after { content: "–"; }
+.jf-ico { display: grid; place-items: center; flex: none; width: 38px; height: 38px; border-radius: 12px; background: var(--glass-2); font-size: 1.1rem; }
+.jf-sum { display: grid; gap: 2px; }
+.jf-sum strong { font-size: 0.98rem; }
+.jf-count { padding: 4px 10px; border-radius: 999px; background: rgba(62, 230, 208, 0.14); border: 1px solid rgba(62, 230, 208, 0.45); color: var(--cyan-2); font: 700 0.72rem/1 var(--f-mono); }
+.jf-count[hidden] { display: none; }
+.jf-body { display: grid; gap: 10px; padding: 0 16px 16px; }
+.jf-body textarea { width: 100%; min-height: 120px; resize: vertical; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--line-2); background: rgba(2, 3, 8, 0.6); color: var(--ink); font: 400 0.92rem/1.5 var(--f-body); }
+.jf-body textarea:focus { outline: 2px solid var(--cyan); outline-offset: 1px; }
+.jf-found { display: grid; gap: 8px; }
+.jf-found p { margin: 0; }
+.jf-head { font-weight: 600; color: var(--ink-2); font-size: 0.88rem; }
+.jf-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.jf-suggest { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 12px; border-radius: 14px; border: 1px dashed rgba(143, 128, 255, 0.5); background: rgba(143, 128, 255, 0.08); font-size: 0.88rem; }
+.jf-chip { padding: 5px 11px; border-radius: 999px; border: 1px solid rgba(62, 230, 208, 0.45); background: rgba(62, 230, 208, 0.08); font: 600 0.8rem/1.2 var(--f-body); color: var(--ink); }
+
 /* ---------- motion & print ---------- */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }

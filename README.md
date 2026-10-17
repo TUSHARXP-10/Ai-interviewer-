@@ -8,6 +8,8 @@ A free **voice** interviewer for **BPO and customer-service jobs**, and now for 
 - **Hear yourself back.** Every answer is recorded (on your device only) so you can replay it next to its feedback.
 - **AI-proctored, camera on.** Like a video call, your camera stays on and an AI on your device checks that you stay in view, alone and looking at the screen, with no phone, and on this window. Three warnings end the interview, and the scoresheet gets an integrity rating with photos of the flagged moments.
 - **Engineering interviews in a company's style.** Full-stack, frontend, Java, Python, AI/ML, data and DevOps roles, in the style of Google, Microsoft, Amazon, Uber, Flipkart, Swiggy, TCS, Infosys, Wipro, Tech Mahindra, Accenture, Cognizant or a startup: a communication round, then a technical round.
+- **Practise until it sounds right.** Answer any question again from your scoresheet and see the score before and after, hear a model answer, and follow your progress across interviews.
+- **Tailored to a real job.** Paste a job description and the interview leans towards what it asks for.
 - **Transparent scoring model.** Every score traces back to concrete signals in your answers.
 - **Optional free local AI.** If you have [Ollama](https://ollama.com) installed, a local model can review each answer as a second opinion.
 
@@ -137,6 +139,10 @@ The company styles follow each company's publicly described interview format. Th
 
 Three lengths are available: **Quick** (7 questions, about 10 min), **Standard** (14, about 20 min) and **Full** (21, about 30 min). Questions adapt to the role (voice support, tech support, sales, chat/email, general) and to fresher or experienced candidates. The question set is randomised, so practising again gives different questions.
 
+### Tailor it to a real job
+
+Open **Tailor it to a real job** on the setup page and paste the job description. Tushar AI recognises what it asks for (engineering skills such as Java and Spring, Kafka, AWS, Kubernetes, React, LLMs; or for BPO jobs an international process, night shifts, sales targets, CRM tools, AHT and CSAT) and shows it as chips. Each question slot then prefers the questions about those things, and one extra question right after the introduction is built from the job's top asks (*"The job description asks for Java and Spring, plus microservices and messaging. Tell me about your hands-on experience with Java and Spring…"*). If the job reads like a different role from the one selected, it offers to switch. The text never leaves your device.
+
 ### The interviewer reacts to your answers
 
 - **Follow-ups:** if an answer is too short, misses an example, skips something important (e.g. empathy with an angry customer), or contains a red flag, the interviewer asks a probing follow-up, just as a real recruiter would.
@@ -144,6 +150,17 @@ Three lengths are available: **Quick** (7 questions, about 10 min), **Standard**
 - **Branching mock call:** the customer's next line depends on what you said. Apologise and empathise and they calm down and share their order number; skip the empathy and they get angrier.
 
 ---
+
+## Practise, then practise again
+
+Research on interview practice tools is clear that the learning happens on the second try, so the scoresheet leads straight into it:
+
+- **Your practice plan:** the three weakest answers, each one tap away from a **practice drill**. Every question on the scoresheet also has *Practise this question again*.
+- **Practice drills:** the same voice call with just that question (microphone only: it's practice, not a proctored interview). A coach card says what to aim for this time: the gaps from last time and your weakest skill on that answer. Afterwards you see the score **before and after**, each skill's change, your new answer and recording, and what was still missing, with buttons to try again or move to the next weakest question.
+- **Model answers:** *"A strong answer could sound like this"*, with a **Listen** button, for every question with a scripted strong answer (all BPO questions and the full-stack engineering set).
+- **Live coaching while you answer:** under your live words, the time spoken against the question's target length, your pace once there's enough speech to judge, filler words, and at most one short tip (*"Time to wrap up"*). It can be turned off in Studio settings.
+- **Think out loud (engineering):** problem-solving questions show the steps interviewers listen for (clarify, a simple approach, improve it, complexity, edge cases, test it), and system design shows requirements, API and data, components, scaling, trade-offs and failures. Each step lights up as you say it, and the scoresheet keeps the checklist.
+- **Your progress:** on the home page, your score over time with the hire line, each skill's change since your first interview, your practice streak, and your weakest skill with a button to its practice plan.
 
 ## The scoresheet
 
@@ -265,6 +282,9 @@ css/styles.css        Styles (light and dark themes, print layout)
 js/textUtils.js       Tokenising, contraction handling, pattern matching, numbers
 js/lexicons.js        Word lists: fillers, hedges, STAR, empathy, red flags, grammar
 js/questionBank.js    Questions, rubrics, follow-ups, interview plans
+js/jobFit.js          Tailoring to a pasted job description: skills, question choice, the job question
+js/coach.js           Live coaching (time, pace, fillers) and the engineering approach checklist
+js/progress.js        Progress across saved interviews: trend, skills, streak
 js/techBank.js        Engineering roles, company styles, two-round plans and 100+ technical questions
 js/analyzer.js        Per-answer signals and 0–100 scores
 js/scoring.js         Interview-level scoresheet, recruiter scale, gates, verdict
