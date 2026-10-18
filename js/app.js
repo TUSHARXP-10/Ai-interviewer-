@@ -199,7 +199,8 @@
     // Share our (echo-cancelled) mic track with the recogniser where Chrome supports it;
     // the mic check turns this off if the recogniser then hears nothing.
     const track = state.useTrack && state.meter && state.meter.stream && state.meter.stream.getAudioTracks()[0];
-    return Speech.createRecognizer(Object.assign({ lang: settings.accent, track, micGranted: !!(state.meter && state.meter.running) }, handlers));
+    const micGranted = !!(state.meter && state.meter.running) || !!state.micGranted;
+    return Speech.createRecognizer(Object.assign({ lang: settings.accent, track, micGranted }, handlers));
   }
 
   // ------------------------------------------------------------ setup form
@@ -737,6 +738,25 @@
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       return { ok: false, message: 'This browser cannot use the microphone on this page. Open it in Chrome or Edge on https or http://localhost.' };
     }
+    if (sharedMicOff()) {
+      // On a phone, the browser's speech recogniser needs the microphone to itself: on Android
+      // it is the phone's own speech service, which hears only silence while the page keeps a
+      // second microphone stream open. So: ask for permission once, then let go of it.
+      if (!fresh && state.micGranted) return { ok: true };
+      try {
+        const s = given || await navigator.mediaDevices.getUserMedia({ audio: true });
+        s.getTracks().forEach((t) => t.stop());
+        if (state.meter) state.meter.stop();
+        state.meter = null;
+        if (state.recorder) state.recorder.discard();
+        state.recorder = null;
+        state.micGranted = true;
+        return { ok: true };
+      } catch (err) {
+        const denied = err && (err.name === 'NotAllowedError' || err.name === 'SecurityError');
+        return { ok: false, denied, message: denied ? micBlockedHelp() : 'No working microphone was found (' + ((err && (err.name || err.message)) || 'unknown') + '). Check your phone\'s settings, then press Try again.' };
+      }
+    }
     const old = state.meter;
     const m = Audio.createMeter();
     state.meter = m;
@@ -762,10 +782,31 @@
         ok: false,
         denied,
         message: denied
-          ? 'Microphone access is blocked. Click the 🔒 or 🎤 icon in the address bar, allow the microphone, then press Try again.'
+          ? micBlockedHelp()
           : 'No working microphone was found (' + ((err && (err.name || err.message)) || 'unknown') + '). Plug one in or check your system settings, then press Try again.',
       };
     }
+  }
+
+  /** Phones with the browser's recogniser: no page microphone stream while it listens. */
+  function sharedMicOff() {
+    return IS_MOBILE && state.engine === 'browser';
+  }
+
+  /** 'granted' | 'prompt' | 'denied' | 'unknown' (not every browser can tell). */
+  async function micPermission() {
+    try {
+      return (await navigator.permissions.query({ name: 'microphone' })).state;
+    } catch (e) {
+      return 'unknown';
+    }
+  }
+
+  /** How to unblock the microphone, for this device. */
+  function micBlockedHelp() {
+    if (IS_IOS) return 'Microphone access is blocked. On iPhone: Settings → Apps → Safari → Microphone → Allow (or tap “aA” in the address bar → Website Settings → Microphone → Allow), then press Try again.';
+    if (IS_ANDROID) return 'Microphone access is blocked. Tap the icon left of the web address → Permissions → Microphone → Allow, then press Try again. When Chrome asks, choose “Allow while visiting the site”, not “Only this time”.';
+    return 'Microphone access is blocked. Click the 🔒 or 🎤 icon in the address bar, allow the microphone, then press Try again.';
   }
 
   const CAMERA_CONSTRAINTS = { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' };
@@ -1175,15 +1216,17 @@
   function orbLoop() {
     const now = performance.now();
     // Mic bars: how loud the candidate is right now (only while we listen).
-    const listeningNow = state.ui === 'listening' && state.meter;
-    barLvl += ((listeningNow ? state.meter.level : 0) - barLvl) * 0.35;
+    // Without the page's own microphone (phones), words arriving are the sign of a voice.
+    const heardLvl = () => (state.meter ? state.meter.level : Math.max(0, 0.6 - (now - (state.wordsAt || 0)) / 900));
+    const listeningNow = state.ui === 'listening';
+    barLvl += ((listeningNow ? heardLvl() : 0) - barLvl) * 0.35;
     $$('#mic-bars i').forEach((b, i) => {
       const wobble = barLvl > 0.08 ? 0.75 + 0.25 * Math.sin(now / 90 + i * 1.7) : 1;
       b.style.transform = 'scaleY(' + (0.15 + 0.85 * Math.min(1, barLvl * 1.8 * BAR_GAIN[i] * wobble)).toFixed(3) + ')';
     });
     if (speakingSince && now - lastBoundary > 420) mouthLevel = Math.max(mouthLevel, 0.3 + 0.4 * Math.abs(Math.sin(now / 95)));
     mouthLevel *= 0.85;
-    const target = state.ui === 'speaking' ? mouthLevel : state.ui === 'listening' && state.meter ? state.meter.level : 0;
+    const target = state.ui === 'speaking' ? mouthLevel : state.ui === 'listening' ? heardLvl() : 0;
     orbLvl += (target - orbLvl) * 0.3;
     $('#orb').style.setProperty('--lvl', orbLvl.toFixed(3));
     $('#av-mouth').style.transform = 'scaleY(' + (1 + (state.ui === 'speaking' ? mouthLevel : 0) * 2.6).toFixed(2) + ')';
@@ -1196,7 +1239,8 @@
   // ------------------------------------------------------------ speaking
   const UA = navigator.userAgent || '';
   const IS_ANDROID = /Android/i.test(UA);
-  const IS_MOBILE = IS_ANDROID || /iPhone|iPad|iPod/i.test(UA);
+  const IS_IOS = /iPhone|iPad|iPod/i.test(UA) || (/Macintosh/.test(UA) && navigator.maxTouchPoints > 1);
+  const IS_MOBILE = IS_ANDROID || IS_IOS;
   // A short gap after the interviewer stops: audio output lags behind the "end" event, and
   // recognisers use their first ~300 ms of audio to measure the room's noise.
   const GUARD_MS = IS_MOBILE ? 450 : 300;
@@ -1449,6 +1493,7 @@
             if (t !== lastText) {
               lastText = t;
               lastTextAt = performance.now();
+              state.wordsAt = lastTextAt;
             }
             if (Voice.wordCount(t) >= 3) $('#btn-repeat').disabled = true;
           },
@@ -1662,6 +1707,7 @@
           await say([{ text: "I'm having trouble catching your words, so I'll switch to my offline listening. One moment.", voice: 'interviewer' }]);
           if (ctl.done) return;
           state.engine = 'whisper';
+          await ensureMic(); // the offline engine listens through the page's own stream
           const ok = await AII.Whisper.preload(whisperProgress);
           if (ctl.done) return;
           if (ok) {
@@ -1771,6 +1817,7 @@
         if (!f.camera && state.engine === 'browser' && hasWhisper() && !state.whisperFailed && (micOk || (f.code !== 'not-allowed' && f.code !== 'audio-capture'))) {
           setButtons(false);
           state.engine = 'whisper';
+          await ensureMic(); // the offline engine listens through the page's own stream
           setUi('thinking', 'Switching to the offline speech engine…');
           await say([{ text: 'One moment, I am switching to my offline listening mode.', voice: 'interviewer' }]);
           if (ctl.done) return;
@@ -1811,8 +1858,9 @@
             continue;
           }
           if (state.meter && state.meter.running) break;
-          // Reopens the microphone (a reconnected or different one) and its recorder.
-          const mic = await ensureMic();
+          // Reopens the microphone (a reconnected or different one) and its recorder; on a
+          // phone, asks for the permission again in case it was withdrawn.
+          const mic = await ensureMic({ fresh: sharedMicOff() });
           if (ctl.done) return;
           if (mic.ok) break;
           message = mic.message;
@@ -2273,6 +2321,7 @@
           (micOk || (heard.code !== 'not-allowed' && heard.code !== 'audio-capture'))) {
         youPanel('problem', 'Switching to offline listening…', '');
         state.engine = 'whisper';
+        await ensureMic(); // the offline engine listens through the page's own stream
         const ok = await prepareWhisper(alive);
         if (!alive()) return false;
         if (ok === null) return false; // ended meanwhile
@@ -2499,9 +2548,16 @@
     startOrb();
     startElapsed();
 
-    // Microphone first: without it there is no interview.
+    // Microphone first: without it there is no interview. On a phone, say which button to
+    // press first: "Only this time" makes the browser ask again during the interview.
+    if (IS_MOBILE && (await micPermission()) !== 'granted') {
+      notice(IS_ANDROID
+        ? 'Your phone will ask for the microphone' + (drill ? '' : ' and camera') + ': choose “Allow while visiting the site” (not “Only this time”) so it won’t ask again during the interview.'
+        : 'Safari will ask for the microphone' + (drill ? '' : ' and camera') + ': tap Allow. To stop it asking every time: Settings → Apps → Safari → Microphone → Allow.');
+    }
     // Ask once for both: phones otherwise show two prompts. Each is then checked on its own.
     const both = await openMedia(drill ? { video: false } : undefined);
+    notice('');
     if (!alive()) {
       if (both) both.getTracks().forEach((tr) => tr.stop());
       return;

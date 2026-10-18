@@ -41,6 +41,13 @@ npm run lan
 2. The phone warns that the connection is *not private*. That's expected: the server made its own certificate (no installs, no openssl; it's kept in `.cert/` and reused next time). Tap **Advanced → Proceed** (Chrome) or **Show Details → visit this website** (Safari).
 3. Allow the microphone and start the interview. On iPhone, Dictation must be on (Settings → General → Keyboard) for Safari's speech recognition.
 
+On a phone, the app asks for the microphone (and camera) **once**, at the start, keeps the screen on during the interview, and then hands the microphone to the browser's speech recognition: on Android that is the phone's own speech service, which hears only silence if the page keeps a second microphone stream open. Answer recordings are therefore only saved on computers.
+
+If the phone keeps asking for the microphone or doesn't hear you:
+- **Android (Chrome):** when asked, choose **Allow while visiting the site**, not *Only this time*. If you chose wrong: tap the icon left of the address → *Permissions* → *Microphone* → *Allow*. Keep the Google app installed and up to date (Chrome uses it for speech recognition), and turn off Battery Saver (it can stop the screen staying on).
+- **iPhone (Safari):** Settings → Apps → Safari → Microphone → **Allow**, and turn on Dictation (Settings → General → Keyboard).
+- Use **Chrome or Safari itself**, not a link opened inside WhatsApp, Instagram or another app's built-in browser.
+
 If the phone can't connect:
 - **Windows:** when the firewall asks about Node.js, allow it on **Private networks**. If you missed the prompt, allow `node.exe` in *Windows Defender Firewall → Allow an app*. Make sure the Wi-Fi is set to a *Private* network.
 - **Guest, office or college Wi-Fi** often stops devices from seeing each other. Turn on your **phone's hotspot**, connect the computer to it, run `npm run lan` again and open the new address.
