@@ -1311,3 +1311,7 @@ details.qa[open] .qa-q { white-space: normal; }
   .meter, .progress, .qbar-fill, .meter-fill, mark.hl, .why li::before, .round::before { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .meter::after { display: none; }
 }
+
+/* Prompts that need a tap stay clear of the floating call controls (room to scroll above them). */
+#btn-tap-audio, #notice { scroll-margin-bottom: 140px; }
+@media (max-width: 700px) { .call-stage { padding-bottom: 110px; } }

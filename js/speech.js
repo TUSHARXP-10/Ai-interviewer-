@@ -16,6 +16,19 @@
   const Voice = root.AII && root.AII.Voice;
   const doc = root.document || null;
   const isAndroid = /Android/i.test((root.navigator && root.navigator.userAgent) || '');
+  const nav = root.navigator || {};
+  const isIOS = /iPhone|iPad|iPod/i.test(nav.userAgent || '') || (/Macintosh/.test(nav.userAgent || '') && nav.maxTouchPoints > 1);
+
+  /**
+   * iPhone audio route (Safari 16.4+): "playback" plays through the loudspeaker and is not
+   * silenced by the Silent switch; "play-and-record" is needed while listening. Without this,
+   * speech after the microphone was used can go to the quiet earpiece, or not be heard at all.
+   */
+  function audioSession(type) {
+    try {
+      if (nav.audioSession && nav.audioSession.type !== type) nav.audioSession.type = type;
+    } catch (e) { /* not supported */ }
+  }
 
   // Name fragments used to guess a voice's style (the API has no gender field).
   const FEMALE = /female|zira|aria|jenny|sonia|neerja|libby|natasha|clara|samantha|karen|moira|tessa|veena|serena|victoria|fiona|susan|hazel|heera|emma|ava|allison|joanna|salli|kimberly|google uk english female|google us english/i;
@@ -139,6 +152,7 @@
     }
     const rate = o.rate || 1;
     const pieces = chunks(text, Math.round(160 * rate));
+    if (isIOS && !o.keepSession) audioSession('playback');
 
     const sayOne = (piece, base) => new Promise((resolve) => {
       if (token !== speakToken) return resolve('cancelled');
@@ -229,6 +243,17 @@
    * on Android) only allow speech that was first started by a user gesture.
    */
   function unlock() {
+    if (isIOS) {
+      audioSession('playback');
+      // A short silent sound, played inside the tap, switches an iPhone to media playback
+      // (loudspeaker, not muted by the Silent switch) before the first spoken word.
+      try {
+        const a = new root.Audio('data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=');
+        a.setAttribute('playsinline', '');
+        const p = a.play();
+        if (p && p.catch) p.catch(() => {});
+      } catch (e) { /* ignore */ }
+    }
     if (!synth) return;
     try {
       const u = new SpeechSynthesisUtterance(' ');
@@ -373,6 +398,7 @@
       };
       sessions.add(s);
       current = s;
+      if (isIOS) audioSession('play-and-record');
       try {
         const track = o.track;
         if (track && track.readyState === 'live') {
@@ -483,6 +509,8 @@
     speak,
     cancel,
     unlock,
+    audioSession,
+    isIOS,
     chunks,
     createRecognizer,
     onceVisible,

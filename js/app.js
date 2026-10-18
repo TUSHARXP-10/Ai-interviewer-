@@ -1261,8 +1261,10 @@
     if (state.cancelTap) state.cancelTap();
     notice('Tap the button so your browser lets ' + INTERVIEWER + ' speak.');
     const btn = $('#btn-tap-audio');
+    btn.textContent = 'Tap to hear ' + INTERVIEWER;
     btn.hidden = false;
     btn.focus();
+    btn.scrollIntoView({ block: 'center', behavior: 'smooth' });
     return new Promise((resolve) => {
       const close = (tapped) => {
         btn.onclick = null;
@@ -1330,6 +1332,8 @@
           rate: seg.voice === 'customer' ? Math.min(1.3, settings.rate * 1.05) : settings.rate,
           pitch: seg.voice === 'customer' ? 0.95 : 1.02,
           muted,
+          // iPhone: switching to playback would cut a microphone the page is recording from.
+          keepSession: !!(state.meter && state.meter.running),
           mutedDelayMs: Math.max(hidden ? 4000 : 1500, wordsIn(seg.text) * (hidden ? 300 : 280)),
           onBoundary: (i) => {
             lastBoundary = performance.now();
@@ -1350,14 +1354,24 @@
           // Still refused after two taps: never treat unheard speech as spoken.
           state.ttsOk = false;
           setCaptions(true, false);
+          offerVoice();
           continue;
         }
         if (r && r.failed) {
-          // The voice engine is broken (e.g. no voices installed): continue with captions.
+          // A stuck voice engine (iPhone after the microphone was used): reset it and try once
+          // more before falling back to captions, and say how to get the voice back.
+          state.ttsFails = (state.ttsFails || 0) + 1;
+          if (state.ttsFails <= 1 && attempt < 2) {
+            Speech.cancel();
+            await sleep(350);
+            continue;
+          }
           state.ttsOk = false;
           setCaptions(true, false);
+          offerVoice();
           continue;
         }
+        if (r && r.ok && !muted) state.ttsFails = 0;
         if (state.hiddenCount !== hiddenBefore && !state.endRequested && attempt < 2) {
           // The tab was hidden mid-sentence (speech was cut): say it again on return.
           await Speech.onceVisible();
@@ -1368,6 +1382,31 @@
       state.lastSpoken = seg.text;
       if (segments.length > 1) await sleep(220);
     }
+  }
+
+  /**
+   * The interviewer's voice could not be played: keep going with captions, but say why it may
+   * be silent and offer a tap that turns the voice back on (a tap also unlocks iPhone audio).
+   */
+  function offerVoice() {
+    if (state.cancelTap || !state.running) return; // a "Tap to hear" prompt is already waiting
+    const btn = $('#btn-tap-audio');
+    btn.textContent = '🔊 Turn on ' + INTERVIEWER + '’s voice';
+    btn.hidden = false;
+    btn.scrollIntoView({ block: 'center', behavior: 'smooth' }); // never hidden behind the controls
+    notice(IS_IOS
+      ? 'Can’t hear ' + INTERVIEWER + '? Switch off Silent mode (the switch on the side of the iPhone), turn the volume up, then tap the button.'
+      : 'Can’t hear ' + INTERVIEWER + '? Turn the volume up, then tap the button.');
+    btn.onclick = () => {
+      Speech.unlock();
+      Audio.prime();
+      state.ttsOk = true;
+      state.ttsFails = 0;
+      btn.onclick = null;
+      btn.hidden = true;
+      btn.textContent = 'Tap to hear ' + INTERVIEWER;
+      notice('');
+    };
   }
 
   async function pickVoices() {
@@ -2553,7 +2592,7 @@
     if (IS_MOBILE && (await micPermission()) !== 'granted') {
       notice(IS_ANDROID
         ? 'Your phone will ask for the microphone' + (drill ? '' : ' and camera') + ': choose “Allow while visiting the site” (not “Only this time”) so it won’t ask again during the interview.'
-        : 'Safari will ask for the microphone' + (drill ? '' : ' and camera') + ': tap Allow. To stop it asking every time: Settings → Apps → Safari → Microphone → Allow.');
+        : 'Safari will ask for the microphone' + (drill ? '' : ' and camera') + ': tap Allow. To stop it asking every time: Settings → Apps → Safari → Microphone → Allow. Switch off Silent mode and turn the volume up to hear ' + INTERVIEWER + '.');
     }
     // Ask once for both: phones otherwise show two prompts. Each is then checked on its own.
     const both = await openMedia(drill ? { video: false } : undefined);
@@ -3002,7 +3041,7 @@
 
   function setCallHint() {
     const hint = $('#call-hint');
-    const html = 'Say <strong>“repeat”</strong> to hear a question again · ' + (pauseEnds()
+    const html = (IS_IOS ? '🔔 Silent mode off, volume up · ' : '') + 'Say <strong>“repeat”</strong> to hear a question again · ' + (pauseEnds()
       ? 'pause or say <strong>“that’s all”</strong> when you finish'
       : 'say <strong>“that’s all”</strong> when you finish');
     if (hint && hint.innerHTML !== html) hint.innerHTML = html;
