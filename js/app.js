@@ -663,6 +663,8 @@
   function renderHistory() {
     const list = store.get(HISTORY_KEY, []);
     $('#history-card').hidden = !list.length;
+    $('#restore-empty').hidden = !!list.length;
+    if (list.length) $('#restore-msg-empty').hidden = true;
     if (list.length) renderProgress(list);
     const ul = $('#history-list');
     ul.innerHTML = '';
@@ -696,6 +698,79 @@
     renderHistory();
   });
 
+  // ------------------------------------------------------------ backup, restore, CSV
+  function download(name, text, type) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([text], { type }));
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      URL.revokeObjectURL(a.href);
+      a.remove();
+    }, 1000);
+  }
+  function savedSheets(list) {
+    const out = {};
+    for (const h of list) {
+      const s = store.get(SHEET_PREFIX + h.id, null);
+      if (s) out[h.id] = s;
+    }
+    return out;
+  }
+  const today = () => new Date().toISOString().slice(0, 10);
+  $('#history-csv').addEventListener('click', () => {
+    const list = store.get(HISTORY_KEY, []);
+    if (!list.length) return;
+    download('interviews-' + today() + '.csv', AII.Backup.toCsv(list, savedSheets(list)), 'text/csv;charset=utf-8');
+  });
+  $('#history-backup').addEventListener('click', () => {
+    const list = store.get(HISTORY_KEY, []);
+    const backup = AII.Backup.build({ history: list, sheets: savedSheets(list), drills: store.get(DRILL_KEY, {}) });
+    download('tushar-ai-backup-' + today() + '.json', JSON.stringify(backup), 'application/json');
+  });
+  function restoreMessage(text, bad) {
+    const el = $('#history-card').hidden ? $('#restore-msg-empty') : $('#restore-msg');
+    el.textContent = text;
+    el.classList.toggle('bad', !!bad);
+    el.hidden = false;
+  }
+  $$('[data-restore]').forEach((b) => b.addEventListener('click', () => $('#restore-file').click()));
+  $('#restore-file').addEventListener('change', async (e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = ''; // the same file can be picked again
+    if (!file) return;
+    let incoming;
+    try {
+      if (file.size > 20 * 1024 * 1024) throw new Error('This file is too large to be a backup.');
+      incoming = AII.Backup.parse(await file.text());
+    } catch (err) {
+      restoreMessage('⚠️ ' + err.message, true);
+      return;
+    }
+    const m = AII.Backup.merge({ history: store.get(HISTORY_KEY, []), drills: store.get(DRILL_KEY, {}) }, incoming, AII.Backup.MAX);
+    let failed = 0;
+    for (const id of m.remove) {
+      store.del(SHEET_PREFIX + id);
+      Recorder.deleteClips(id);
+    }
+    const history = m.history.filter((h) => {
+      if (!m.write[h.id]) return true;
+      if (store.set(SHEET_PREFIX + h.id, m.write[h.id])) return true;
+      failed++;
+      return false;
+    });
+    store.set(HISTORY_KEY, history);
+    store.set(DRILL_KEY, m.drills);
+    renderHistory();
+    const added = m.added - failed;
+    const parts = [added ? '✓ Restored ' + added + (added === 1 ? ' interview' : ' interviews') : 'No new interviews to add'];
+    if (m.skipped) parts.push(m.skipped + ' already here');
+    if (m.dropped) parts.push(m.dropped + ' oldest left out (the history keeps ' + AII.Backup.MAX + ')');
+    if (failed) parts.push(failed + " didn't fit in this browser's storage");
+    restoreMessage(parts.join(' · ') + '.', !added && !m.skipped);
+  });
+
   function dimsOf(sheet) {
     const out = {};
     for (const d of sheet.dimensions || []) out[d.key] = d.score;
@@ -705,7 +780,7 @@
   /** Save the scoresheet (localStorage) and its recordings (IndexedDB). Resolves the clip-save result. */
   async function saveSheet(sheet, clips) {
     const list = store.get(HISTORY_KEY, []).filter((x) => x.id !== sheet.id);
-    list.unshift({ id: sheet.id, name: sheet.candidate.name, role: sheet.role.label, overall: sheet.overall, verdict: sheet.verdict.label, track: sheet.track || 'bpo', dims: dimsOf(sheet), company: sheet.company ? sheet.company.display || sheet.company.name : null, integrity: sheet.proctoring && sheet.proctoring.rating ? sheet.proctoring.rating.label : null, createdAt: sheet.createdAt });
+    list.unshift(AII.Backup.entryOf(sheet));
     while (list.length > 12) {
       const old = list.pop();
       store.del(SHEET_PREFIX + old.id);
@@ -3360,6 +3435,34 @@
     stopFeedbackAudio();
     $$('#report-root audio').forEach((a) => { if (a !== e.target) a.pause(); });
   }, true);
+
+  // ------------------------------------------------------------ installable app
+  // The service worker lets the app be installed and open offline (see sw.js). Browsers only
+  // allow it on https:// or localhost; a self-signed LAN certificate is refused, harmlessly.
+  if ('serviceWorker' in navigator && (location.protocol === 'https:' || /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname))) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').catch(() => {});
+    });
+  }
+  let installPrompt = null;
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault(); // show our own button instead of the browser's mini bar
+    installPrompt = e;
+    $('#install-app').hidden = false;
+  });
+  window.addEventListener('appinstalled', () => {
+    installPrompt = null;
+    $('#install-app').hidden = true;
+  });
+  $('#install-app').addEventListener('click', async () => {
+    if (!installPrompt) return;
+    const p = installPrompt;
+    installPrompt = null;
+    $('#install-app').hidden = true;
+    try {
+      await p.prompt();
+    } catch (e) { /* dismissed */ }
+  });
 
   // ------------------------------------------------------------ boot
   fillSetup();

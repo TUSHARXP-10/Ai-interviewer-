@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /*
- * build.js — copy the static site (index.html, css/, js/) into dist/ for hosting
- * (Vercel, Netlify, GitHub Pages…). No bundling or dependencies: the app runs as is.
+ * build.js — copy the static site (index.html, the app manifest and service worker, css/,
+ * js/, icons/) into dist/ for hosting (Vercel, Netlify, GitHub Pages…). No bundling or
+ * dependencies: the app runs as is.
  */
 'use strict';
 const fs = require('fs');
@@ -9,7 +10,7 @@ const path = require('path');
 
 const root = path.join(__dirname, '..');
 const out = path.join(root, 'dist');
-const FILES = ['index.html', 'css', 'js'];
+const FILES = ['index.html', 'manifest.webmanifest', 'sw.js', 'css', 'js', 'icons'];
 
 fs.rmSync(out, { recursive: true, force: true });
 fs.mkdirSync(out, { recursive: true });

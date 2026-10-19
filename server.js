@@ -29,8 +29,9 @@ const TYPES = {
   '.png': 'image/png',
   '.ico': 'image/x-icon',
   '.md': 'text/markdown; charset=utf-8',
+  '.webmanifest': 'application/manifest+json; charset=utf-8',
 };
-const PUBLIC = new Set(['index.html', 'css', 'js']);
+const PUBLIC = new Set(['index.html', 'css', 'js', 'icons', 'manifest.webmanifest', 'sw.js']);
 
 function handler(req, res) {
   let urlPath;

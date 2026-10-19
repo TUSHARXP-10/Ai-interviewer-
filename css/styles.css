@@ -477,6 +477,15 @@ details.advanced[open] > summary { margin-bottom: 18px; }
 .history-score { min-width: 3ch; font: 800 1.7rem/1 var(--f-display); font-stretch: 125%; letter-spacing: -0.03em; color: var(--ember-2); font-variant-numeric: tabular-nums; }
 .history-meta { flex: 1; min-width: 160px; }
 .history-actions { display: flex; gap: 6px; }
+.history-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.history-tools { display: flex; gap: 6px; flex-wrap: wrap; }
+.btn-link { background: none; border: 0; padding: 0; font: inherit; color: var(--ember-2); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.btn-link:hover { color: var(--ember); }
+.restore-empty { margin: 14px 0 0; text-align: center; color: var(--muted); }
+.restore-msg { margin: 10px 0 0; color: var(--good-text); }
+.restore-msg.bad { color: var(--serious); }
+#restore-msg-empty { text-align: center; }
+.install-btn[hidden] { display: none !important; }
 .how-grid { display: grid; grid-template-columns: 1fr; gap: 18px; }
 @media (min-width: 780px) { .how-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 .how-grid h3 { margin: 0 0 6px; font-stretch: 112%; }

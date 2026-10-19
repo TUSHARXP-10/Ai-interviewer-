@@ -11,6 +11,8 @@ A free **voice** interviewer for **BPO and customer-service jobs**, and now for 
 - **Practise until it sounds right.** Answer any question again from your scoresheet and see the score before and after, hear a model answer, and follow your progress across interviews.
 - **Tailored to a real job.** Paste a job description and the interview leans towards what it asks for.
 - **Transparent scoring model.** Every score traces back to concrete signals in your answers.
+- **Install it like an app.** Add it to your phone's home screen or your computer's app list; it opens offline too.
+- **Take your history with you.** Back up every scoresheet to a file and restore it on another device, or export all interviews as a spreadsheet (CSV).
 - **Optional free local AI.** If you have [Ollama](https://ollama.com) installed, a local model can review each answer as a second opinion.
 
 ---
@@ -70,6 +72,17 @@ vercel --prod       # build and deploy to production
 **Share the right link.** Open and share the short address, `https://<project>.vercel.app`: it's on the CLI's **Aliased** line, and in the dashboard under **Domains** (or press **Visit**). Open it in Chrome or Edge, allow the microphone, and you're in. The longer `<project>-<hash>-<team>.vercel.app` links (the *Production:*/*Preview:* lines, and every preview deployment) sit behind Vercel's default Deployment Protection, so anyone not logged in to your Vercel account sees a "Log in to Vercel" page. To make those public too, turn off **Vercel Authentication** in Project → Settings → Deployment Protection.
 
 To check the build locally: `npm run build`, then serve `dist/`, e.g. `python3 -m http.server 8080 -d dist`.
+
+### Install it as an app
+
+On the hosted site (HTTPS) or `localhost`, the app can be installed:
+
+- **Chrome / Edge (Android, Windows, Mac, Linux):** press **⤓ Install app** at the top of the page (or the install icon in the address bar).
+- **iPhone / iPad (Safari):** tap **Share → Add to Home Screen**.
+
+The installed app opens in its own window, without the browser's address bar. A small service worker (`sw.js`) keeps a copy of the app, so it **opens offline** too. It always loads the newest version while you're online. Offline, the built-in speech recognition of Chrome and Edge doesn't work (it needs the internet), so use the offline Whisper engine: run one interview online first, so its model is downloaded. The proctoring models are kept after their first download as well.
+
+> `npm run lan` uses a self-signed certificate, which browsers don't accept for installing apps. Install from the hosted site (Vercel or GitHub Pages) or from `localhost` instead.
 
 ### Or GitHub Pages
 
@@ -192,7 +205,14 @@ The scoresheet also includes an **estimated English level (CEFR)**, **role fit**
 
 **Your answers, word for word.** Every question is listed with exactly what you said, caption style (or why there is no answer: skipped, or time ran out). Grammar slips get a wavy underline, weak or informal words (*gonna*, *stuff*, *good* used four times…) a dotted one, and fillers are highlighted. Under each answer, a language check lists the better way to say each one, and your recording plays right beside it.
 
-Scoresheets (and answer recordings) are saved in your browser's history. They can be printed or saved as PDF, or downloaded as JSON. Press **🔊 Hear my feedback** to have Tushar AI read your result aloud again.
+Scoresheets (and answer recordings) are saved in your browser's history (the newest 12).
+
+**Back up, restore and export** (on the home page, under *Your progress*):
+
+- **💾 Back up** saves every scoresheet and your practice drills to one `.json` file. **📂 Restore** adds them on another browser or device; interviews already there are skipped, and the newest 12 are kept. Recordings and proctoring photos stay on the device they were made on. Restore also accepts a single scoresheet from **Download JSON**, so a candidate can send you theirs.
+- **⬇ Export CSV** writes one row per interview (date, candidate, role, company style, overall score, verdict, integrity, English level, every skill score) for Excel or Google Sheets: handy for comparing candidates or tracking a batch.
+
+Scoresheets They can be printed or saved as PDF, or downloaded as JSON. Press **🔊 Hear my feedback** to have Tushar AI read your result aloud again.
 
 ### How the scoring model works
 
@@ -262,7 +282,7 @@ The camera tile on the right of the call is read about eight times a second by G
 - **Speech recognition:** with the built-in engine, Chrome and Edge transcribe speech through their own cloud speech service (that's what makes it free and keyless). With the offline Whisper engine, audio never leaves your device.
 - **Recordings** of your answers are stored only in this browser (IndexedDB) so you can replay them. Turn recording off in the settings, or delete them with the history.
 - **Camera:** required, for the AI proctoring. The face and phone checks run on your device; the video is never recorded or uploaded. When something is flagged, a small photo of that moment is saved with the scoresheet in this browser only (and deleted with the history). The proctoring models come from Google's and jsDelivr's CDNs.
-- History is stored in your browser's `localStorage`. Use **Clear all** on the home page to delete it, recordings included.
+- History is stored in your browser's `localStorage`. Use **Clear all** on the home page to delete it, recordings included. A backup file holds your scoresheets, transcripts included, so keep it somewhere private.
 
 ## Browser support
 
@@ -296,6 +316,7 @@ js/questionBank.js    Questions, rubrics, follow-ups, interview plans
 js/jobFit.js          Tailoring to a pasted job description: skills, question choice, the job question
 js/coach.js           Live coaching (time, pace, fillers) and the engineering approach checklist
 js/progress.js        Progress across saved interviews: trend, skills, streak
+js/backup.js          Back up and restore saved interviews, and export them as CSV
 js/techBank.js        Engineering roles, company styles, two-round plans and 100+ technical questions
 js/analyzer.js        Per-answer signals and 0–100 scores
 js/scoring.js         Interview-level scoresheet, recruiter scale, gates, verdict
@@ -313,11 +334,15 @@ js/llm.js             Optional Ollama integration
 js/report.js          Scoresheet rendering
 js/demo.js            Scripted candidates (sample report, demo, tests)
 js/app.js             UI controller
+sw.js                 Service worker: install as an app, open offline
+manifest.webmanifest  App name, icons and colours for installing
+icons/                App icons (drawn by tools/icons.js)
 server.js             Zero-dependency local server (npm start; npm run lan for phones on Wi-Fi)
 tools/selfsigned.js   Self-signed HTTPS certificate with Node's crypto (for npm run lan)
 vercel.json           Vercel hosting: build command, output folder, headers
 tools/build.js        Copies the site into dist/ for static hosting (npm run build)
 tools/simulate.js     Run a scripted interview in the terminal
+tools/icons.js        Draws the app icons as PNG files (no dependencies)
 tests/                node:test suite (npm test), incl. 30 recruiter-rated interviews
 ```
 
