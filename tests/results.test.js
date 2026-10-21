@@ -16,7 +16,8 @@ const ENV = { ADMIN_KEY: 'letmein' };
 const call = (store, method, opts, env) => R.handle(Object.assign({ method, query: {}, headers: {}, ip: '1.2.3.4' }, opts), store, env || ENV);
 
 test('the status check says whether the board is set up and public', async () => {
-  assert.deepEqual((await call(null, 'GET', { query: { status: '1' } }, {})).body, { enabled: false, public: false, passcodeSet: false });
+  assert.deepEqual((await call(null, 'GET', { query: { status: '1' } }, { BUILT_IN_KEY: null })).body, { enabled: false, public: false, passcodeSet: false });
+  assert.equal((await call(null, 'GET', { query: { status: '1' } }, {})).body.passcodeSet, true, 'the built-in passcode counts');
   const st = await call(R.memoryStore(), 'GET', { query: { status: '1' } }, { ADMIN_KEY: 'x', PUBLIC_RESULTS: '1' });
   assert.deepEqual(st.body, { enabled: true, public: true, passcodeSet: true });
   const none = await call(null, 'POST', { body: sheetOf('strong', 'A') });
@@ -34,7 +35,8 @@ test('anyone can send a result; only the passcode can read or delete', async () 
 
   assert.equal((await call(store, 'GET', {})).status, 401);
   assert.equal((await call(store, 'GET', { headers: { 'x-admin-key': 'nope' } })).status, 401);
-  assert.equal((await call(store, 'GET', {}, {})).status, 403, 'no passcode set yet');
+  assert.equal((await call(store, 'GET', {}, { BUILT_IN_KEY: null })).status, 403, 'no passcode at all');
+  assert.equal((await call(store, 'GET', {}, {})).status, 401, 'the built-in passcode is asked for');
 
   const list = await call(store, 'GET', { headers: { 'x-admin-key': 'letmein' } });
   assert.equal(list.status, 200);
@@ -115,7 +117,7 @@ test('the Redis store speaks the Upstash REST pipeline', async () => {
     const [cmd, ...a] = c;
     seen.push(cmd);
     switch (cmd) {
-      case 'SET': kv.set(a[0], a[1]); return 'OK';
+      case 'SET': if (a.includes('NX') && kv.has(a[0])) return null; kv.set(a[0], a[1]); return 'OK';
       case 'GET': return kv.has(a[0]) ? kv.get(a[0]) : null;
       case 'DEL': return kv.delete(a[0]) ? 1 : 0;
       case 'HSET': { const h = hashes.get(a[0]) || new Map(); h.set(a[1], a[2]); hashes.set(a[0], h); return 1; }
@@ -125,7 +127,7 @@ test('the Redis store speaks the Upstash REST pipeline', async () => {
       case 'ZREVRANGE': { const z = zsets.get(a[0]) || new Map(); return Array.from(z.entries()).sort((x, y) => y[1] - x[1]).map((e) => e[0]).slice(Number(a[1]), Number(a[2]) + 1); }
       case 'ZREM': { const z = zsets.get(a[0]); return z && z.delete(a[1]) ? 1 : 0; }
       case 'INCR': { const n = (Number(kv.get(a[0])) || 0) + 1; kv.set(a[0], String(n)); return n; }
-      case 'EXPIRE': return 1;
+      case 'DECR': { const n = (Number(kv.get(a[0])) || 0) - 1; kv.set(a[0], String(n)); return n; }
       default: throw new Error('unexpected ' + cmd);
     }
   };
@@ -146,6 +148,9 @@ test('the Redis store speaks the Upstash REST pipeline', async () => {
   await call(store, 'DELETE', { query: { id: a.body.id }, headers: { 'x-admin-key': 'letmein' } });
   assert.equal((await call(store, 'GET', { headers: { 'x-admin-key': 'letmein' } })).body.results.length, 1);
   assert.ok(seen.includes('INCR'), 'rate limit counted');
+  assert.equal(kv.get('aii:rl:1.2.3.4'), '2', 'two sends counted in one window');
+  assert.ok(seen.includes('DECR'), 'a right passcode is not counted as a wrong try');
+  assert.equal(kv.get('aii:pw:1.2.3.4'), '0');
   assert.equal(R.storeFromEnv({}), null);
   assert.ok(R.storeFromEnv({ KV_REST_API_URL: 'https://x', KV_REST_API_TOKEN: 't' }));
   assert.ok(R.storeFromEnv({ UPSTASH_REDIS_REST_URL: 'https://x', UPSTASH_REDIS_REST_TOKEN: 't' }));
@@ -180,4 +185,46 @@ test('the Results page filters, sorts, counts and exports the rows', async () =>
   assert.equal(lines.length, 4, 'a header and one row per interview');
   assert.match(lines[0], /Candidate.*Overall.*Verdict/);
   assert.ok(lines.some((l) => l.includes('Riya Kapoor')));
+});
+
+// A stand-in for the built-in passcode (the real one is never written in this public repo).
+const crypto = require('crypto');
+const SPEC = (() => {
+  const salt = crypto.randomBytes(16).toString('hex');
+  const hash = crypto.scryptSync('open-sesame', Buffer.from(salt, 'hex'), 32, { N: 1024, r: 8, p: 1 }).toString('hex');
+  return { salt, hash, N: 1024, r: 8, p: 1 };
+})();
+
+test('the built-in passcode opens the board; ADMIN_KEY replaces it', async () => {
+  const store = R.memoryStore();
+  await call(store, 'POST', { body: sheetOf('strong', 'Built In') });
+  const env = { BUILT_IN_KEY: SPEC };
+  assert.equal((await call(store, 'GET', { headers: { 'x-admin-key': 'open-sesame' } }, env)).status, 200);
+  assert.equal((await call(store, 'GET', { headers: { 'x-admin-key': 'open-sesame' } }, env)).status, 200, 'cached the second time');
+  assert.equal((await call(store, 'GET', { headers: { 'x-admin-key': 'Open-sesame' } }, env)).status, 401);
+  assert.equal((await call(store, 'GET', { headers: { 'x-admin-key': 'open-sesame' } }, { BUILT_IN_KEY: SPEC, ADMIN_KEY: 'mine' })).status, 401, 'ADMIN_KEY wins');
+  assert.equal((await call(store, 'GET', { headers: { 'x-admin-key': 'mine' } }, { BUILT_IN_KEY: SPEC, ADMIN_KEY: 'mine' })).status, 200);
+  const one = await call(store, 'GET', { headers: { 'x-admin-key': 'open-sesame' } }, env);
+  const del = await call(store, 'DELETE', { query: { id: one.body.results[0].id }, headers: { 'x-admin-key': 'open-sesame' } }, Object.assign({ PUBLIC_RESULTS: '1' }, env));
+  assert.equal(del.status, 200, 'the built-in passcode can delete');
+  assert.ok(R.builtInMatches, 'exported for a manual check');
+});
+
+test('guessing the passcode is stopped after a few wrong tries', async () => {
+  const store = R.memoryStore();
+  const env = { BUILT_IN_KEY: SPEC };
+  const get = (key, ip) => call(store, 'GET', { headers: key ? { 'x-admin-key': key } : {}, ip }, env);
+  for (let i = 0; i < R.WRONG_TRIES; i++) assert.equal((await get('guess' + i, '5.5.5.5')).status, 401);
+  const locked = await get('open-sesame', '5.5.5.5');
+  assert.equal(locked.status, 429, 'even the right passcode waits once locked');
+  assert.match(locked.body.message, /15 minutes/);
+  assert.equal((await get('open-sesame', '6.6.6.6')).status, 200, 'other addresses are not affected');
+  assert.equal((await get('', '7.7.7.7')).status, 401);
+  for (let i = 0; i < R.WRONG_TRIES + 3; i++) await get('', '7.7.7.7');
+  assert.equal((await get('open-sesame', '7.7.7.7')).status, 200, 'opening the page without a passcode is not a wrong try');
+  for (let i = 0; i < R.WRONG_TRIES + 5; i++) assert.equal((await get('open-sesame', '7.7.7.7')).status, 200, 'the owner using the board is never locked out');
+  // Guesses sent all at once are counted too.
+  const burst = await Promise.all(Array.from({ length: 40 }, (_, i) => get(i === 39 ? 'open-sesame' : 'g' + i, '8.8.4.4')));
+  assert.ok(burst.filter((r) => r.status === 401).length <= R.WRONG_TRIES, 'at most ' + R.WRONG_TRIES + ' guesses checked');
+  assert.equal(burst[39].status, 429);
 });

@@ -151,7 +151,7 @@
 
     function passcodeForm(message) {
       shell('<form class="card board-login" data-form="login"><label for="board-key"><strong>Passcode</strong></label>' +
-        '<p class="muted small">The passcode is the <code>ADMIN_KEY</code> set in Vercel (Settings → Environment Variables), or the code printed by <code>npm start</code> on your computer.</p>' +
+        '<p class="muted small">Only the site owner can see every result. Enter your passcode; this browser remembers it until you press Lock.</p>' +
         '<div class="board-login-row"><input id="board-key" type="password" autocomplete="current-password" required placeholder="Enter passcode">' +
         '<button class="btn btn-primary" type="submit">Open results</button></div>' +
         (message ? '<p class="board-error" role="alert">' + esc(message) + '</p>' : '') + '</form>');
@@ -178,6 +178,12 @@
         res = await api('GET', '', key);
       } catch (e) {
         return notReady('The results board could not be reached. Check your internet connection.');
+      }
+      if (res.status === 429) {
+        saveKey('');
+        key = '';
+        savedKeyTried = false;
+        return passcodeForm((res.body && res.body.message) || 'Too many wrong passcodes. Wait 15 minutes, then try again.');
       }
       if (res.status === 401) {
         if (key) saveKey('');

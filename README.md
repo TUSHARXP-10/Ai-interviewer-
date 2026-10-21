@@ -77,17 +77,18 @@ To check the build locally: `npm run build`, then serve `dist/`, e.g. `python3 -
 
 Every finished interview can be sent to a **Results board** on your website: press **📊 Results** at the top of the page to see every candidate, their score, verdict, skills and integrity, search and sort them, open anyone's full scoresheet (transcript included), print it, delete it, or export them all to a spreadsheet (CSV). Recordings and proctoring photos never leave the candidate's device; only the scoresheet is sent.
 
-It's free on Vercel, and takes three steps (once):
+It's free on Vercel. Set it up once:
 
 1. **Add storage.** Vercel → your project → **Storage** → **Create Database** → **Upstash for Redis** (the free plan) → **Connect** it to this project. This adds `KV_REST_API_URL` and `KV_REST_API_TOKEN` to the project by itself.
-2. **Choose who can see the board.** Project → **Settings** → **Environment Variables** → add:
-   - `ADMIN_KEY` = a passcode only you know (the board asks for it; the browser remembers it), **or**
-   - `PUBLIC_RESULTS` = `1` to let **everyone** who opens the site see every result. Deleting a result always needs `ADMIN_KEY`.
-3. **Redeploy:** **Deployments** → ⋯ on the latest one → **Redeploy**.
+2. **Redeploy:** **Deployments** → ⋯ on the latest one → **Redeploy**.
+
+**The passcode.** The board asks for the site owner's passcode, which is built in: `lib/results.js` keeps only a salted scrypt hash of it (this repository is public), never the passcode itself. The browser remembers it until you press **Lock**. After 10 wrong passcodes, that address must wait 15 minutes. Optional, in Project → **Settings** → **Environment Variables** (then redeploy):
+- `ADMIN_KEY` = a different passcode: it replaces the built-in one.
+- `PUBLIC_RESULTS` = `1` to let **everyone** who opens the site see every result. Deleting a result always needs the passcode.
 
 From then on the setup page tells candidates that their scoresheet goes to the recruiter (or the public board), and the scoresheet shows "✓ Sent". If sending fails (no internet), the candidate can press **Try again**; an interview from before the board was set up can be sent from its scoresheet with **Send it**. Each interview is stored once, however often it's sent, and a stored result can't be overwritten.
 
-Running it yourself with `npm start` (or `npm run lan`): the board works straight away. Results are saved in `.data/results/`, and the passcode is printed in the terminal (set your own with `ADMIN_KEY=… npm start`). On GitHub Pages or another static host there's no server, so there's no board: results stay in each candidate's browser.
+Running it yourself with `npm start` (or `npm run lan`): the board works straight away, with the same passcode. Results are saved in `.data/results/` (set your own passcode with `ADMIN_KEY=… npm start`). On GitHub Pages or another static host there's no server, so there's no board: results stay in each candidate's browser.
 
 ### Install it as an app
 
