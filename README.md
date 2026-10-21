@@ -73,6 +73,22 @@ vercel --prod       # build and deploy to production
 
 To check the build locally: `npm run build`, then serve `dist/`, e.g. `python3 -m http.server 8080 -d dist`.
 
+### See every candidate's result: the Results board
+
+Every finished interview can be sent to a **Results board** on your website: press **📊 Results** at the top of the page to see every candidate, their score, verdict, skills and integrity, search and sort them, open anyone's full scoresheet (transcript included), print it, delete it, or export them all to a spreadsheet (CSV). Recordings and proctoring photos never leave the candidate's device; only the scoresheet is sent.
+
+It's free on Vercel, and takes three steps (once):
+
+1. **Add storage.** Vercel → your project → **Storage** → **Create Database** → **Upstash for Redis** (the free plan) → **Connect** it to this project. This adds `KV_REST_API_URL` and `KV_REST_API_TOKEN` to the project by itself.
+2. **Choose who can see the board.** Project → **Settings** → **Environment Variables** → add:
+   - `ADMIN_KEY` = a passcode only you know (the board asks for it; the browser remembers it), **or**
+   - `PUBLIC_RESULTS` = `1` to let **everyone** who opens the site see every result. Deleting a result always needs `ADMIN_KEY`.
+3. **Redeploy:** **Deployments** → ⋯ on the latest one → **Redeploy**.
+
+From then on the setup page tells candidates that their scoresheet goes to the recruiter (or the public board), and the scoresheet shows "✓ Sent". If sending fails (no internet), the candidate can press **Try again**; an interview from before the board was set up can be sent from its scoresheet with **Send it**. Each interview is stored once, however often it's sent, and a stored result can't be overwritten.
+
+Running it yourself with `npm start` (or `npm run lan`): the board works straight away. Results are saved in `.data/results/`, and the passcode is printed in the terminal (set your own with `ADMIN_KEY=… npm start`). On GitHub Pages or another static host there's no server, so there's no board: results stay in each candidate's browser.
+
 ### Install it as an app
 
 On the hosted site (HTTPS) or `localhost`, the app can be installed:
@@ -278,7 +294,8 @@ The camera tile on the right of the call is read about eight times a second by G
 
 ## Privacy
 
-- All analysis and scoring runs locally in your browser. Nothing is sent to any server of this project; there is no server.
+- All analysis and scoring runs locally in your browser.
+- **Results board:** if the site owner has set one up (see *See every candidate's result* above), the finished scoresheet (scores, transcript, verdict, integrity) is sent to the site's own storage when the interview ends, and the setup page says so before the interview starts. Without it, nothing is sent to any server of this project.
 - **Speech recognition:** with the built-in engine, Chrome and Edge transcribe speech through their own cloud speech service (that's what makes it free and keyless). With the offline Whisper engine, audio never leaves your device.
 - **Recordings** of your answers are stored only in this browser (IndexedDB) so you can replay them. Turn recording off in the settings, or delete them with the history.
 - **Camera:** required, for the AI proctoring. The face and phone checks run on your device; the video is never recorded or uploaded. When something is flagged, a small photo of that moment is saved with the scoresheet in this browser only (and deleted with the history). The proctoring models come from Google's and jsDelivr's CDNs.
@@ -334,6 +351,9 @@ js/llm.js             Optional Ollama integration
 js/report.js          Scoresheet rendering
 js/demo.js            Scripted candidates (sample report, demo, tests)
 js/app.js             UI controller
+js/board.js           The Results page: every interview on the site, search, sort, CSV, full scoresheets
+api/results.js        Vercel function for the Results board (send, list, open, delete)
+lib/results.js        Results board logic and storage (Upstash Redis on Vercel, files for npm start)
 sw.js                 Service worker: install as an app, open offline
 manifest.webmanifest  App name, icons and colours for installing
 icons/                App icons (drawn by tools/icons.js)

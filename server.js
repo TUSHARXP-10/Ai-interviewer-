@@ -17,6 +17,41 @@ const os = require('os');
 const path = require('path');
 
 const ROOT = __dirname;
+const Results = require('./lib/results.js');
+// The results board: saved in .data/results. Its passcode is ADMIN_KEY, or one made up now
+// (printed below) so the board is never open to everyone on the Wi-Fi by accident.
+const RESULTS_STORE = (() => {
+  try {
+    return Results.fileStore(path.join(ROOT, '.data', 'results'));
+  } catch (e) {
+    return Results.memoryStore(); // a read-only folder: results last until the server stops
+  }
+})();
+const RESULTS_ENV = {
+  ADMIN_KEY: process.env.ADMIN_KEY || String(require('crypto').randomInt(100000, 1000000)),
+  PUBLIC_RESULTS: process.env.PUBLIC_RESULTS || '',
+};
+
+function apiResults(req, res, query) {
+  const chunks = [];
+  let size = 0;
+  req.on('data', (c) => {
+    size += c.length;
+    if (size > Results.MAX_BYTES + 1024) req.destroy();
+    else chunks.push(c);
+  });
+  req.on('end', async () => {
+    try {
+      const body = chunks.length ? Buffer.concat(chunks).toString('utf8') : undefined;
+      const headers = {};
+      for (const [k, v] of Object.entries(req.headers)) headers[k.toLowerCase()] = v;
+      const out = await Results.handle({ method: req.method, query, headers, body, ip: req.socket.remoteAddress }, RESULTS_STORE, RESULTS_ENV);
+      res.writeHead(out.status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }).end(JSON.stringify(out.body));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' }).end(JSON.stringify({ error: 'server', message: String(err && err.message) }));
+    }
+  });
+}
 const LAN = process.argv.includes('--lan') || process.env.LAN === '1';
 const PORT = Number(process.env.PORT) || (LAN ? 8443 : 8080);
 const HOST = process.env.HOST || (LAN ? '0.0.0.0' : '127.0.0.1');
@@ -39,6 +74,10 @@ function handler(req, res) {
     urlPath = decodeURIComponent(new URL(req.url, 'http://localhost').pathname);
   } catch (e) {
     res.writeHead(400).end('Bad request');
+    return;
+  }
+  if (urlPath === '/api/results') {
+    apiResults(req, res, Object.fromEntries(new URL(req.url, 'http://localhost').searchParams));
     return;
   }
   if (urlPath === '/') urlPath = '/index.html';
@@ -119,6 +158,7 @@ if (LAN) {
       console.log('  "Private networks"), and check both are on the same Wi-Fi. Guest and office');
       console.log('  Wi-Fi often block devices from seeing each other: use your phone\'s hotspot.\n');
     }
+    console.log('  Results of every interview: open the site → Results, passcode ' + RESULTS_ENV.ADMIN_KEY + (process.env.ADMIN_KEY ? ' (your ADMIN_KEY)' : '') + '.\n');
     console.log('  On this computer: https://localhost:' + PORT + '   ·   Press Ctrl+C to stop.\n');
   });
 } else {
@@ -128,6 +168,7 @@ if (LAN) {
     console.log('\n  AI Interviewer is running →  http://localhost:' + PORT + '\n');
     console.log('  Open it in Chrome or Edge, allow the microphone and camera, and good luck!');
     console.log('  To use it on your phone over Wi-Fi, run: npm run lan');
+    console.log('  Results of every interview: open the site → Results, passcode ' + RESULTS_ENV.ADMIN_KEY + (process.env.ADMIN_KEY ? ' (your ADMIN_KEY)' : '') + '.');
     console.log('  Press Ctrl+C to stop.\n');
   });
 }

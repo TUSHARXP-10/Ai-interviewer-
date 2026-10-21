@@ -12,7 +12,7 @@
  * switches to the offline Whisper engine by itself once its model has been downloaded.
  */
 'use strict';
-const VERSION = 'aii-2026-10-19';
+const VERSION = 'aii-2026-10-21';
 const SHELL_CACHE = VERSION + '-shell';
 const LIB_CACHE = 'aii-libs-v1'; // versioned URLs: kept across app updates
 
@@ -25,6 +25,7 @@ const SHELL = [
   'js/app.js',
   'js/audio.js',
   'js/backup.js',
+  'js/board.js',
   'js/callContent.js',
   'js/callsim.js',
   'js/coach.js',
@@ -115,6 +116,7 @@ if (typeof module === 'object' && module.exports) {
     const url = new URL(req.url);
     if (url.origin === self.location.origin) {
       if (url.pathname.endsWith('/sw.js')) return;
+      if (/\/api\//.test(url.pathname)) return; // results are private and always fresh: never cached
       event.respondWith(networkFirst(req));
     } else if (LIB_HOSTS.includes(url.hostname)) {
       event.respondWith(cacheFirst(req));

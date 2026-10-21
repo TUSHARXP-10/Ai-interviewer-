@@ -133,9 +133,10 @@
   });
 
   // ------------------------------------------------------------ screens
-  const SCREENS = ['home', 'interview', 'processing', 'report', 'drill'];
+  const SCREENS = ['home', 'interview', 'processing', 'report', 'drill', 'results'];
   function show(name) {
     for (const s of SCREENS) $('#screen-' + s).hidden = s !== name;
+    if (name !== 'results') $('#results-root').innerHTML = ''; // one scoresheet in the page at a time
     document.body.classList.toggle('in-call', name === 'interview');
     window.scrollTo({ top: 0 });
   }
@@ -151,6 +152,7 @@
 
   function goHome() {
     document.title = 'Tushar AI Interviewer';
+    if (location.hash === '#results') history.replaceState(null, '', location.pathname + location.search);
     // A recording left playing would otherwise carry on, hidden, into the next call's microphone.
     $$('#report-root audio').forEach((a) => a.pause());
     $('#report-root').innerHTML = '';
@@ -3244,6 +3246,7 @@
       .map((e) => ({ qid: '__proctor', kind: 'photo', index: e.id, blob: e.blob, mimeType: 'image/jpeg', durationMs: 0 }));
     const allClips = clips.concat(photos);
     const saved = await saveSheet(sheet, allClips);
+    shareSheet(sheet); // to the results board, while the candidate reads the scoresheet
     if (!alive()) {
       if (!$('#screen-home').hidden) renderHistory();
       return;
@@ -3307,11 +3310,138 @@
     banner.hidden = !o.sample && !o.clipsNotSaved;
     if (o.sample) banner.textContent = 'This is a sample scoresheet from a simulated "' + o.sample + '" candidate. Start your own voice interview to get yours.';
     else if (o.clipsNotSaved) banner.textContent = 'Your browser would not store the recordings, so they can be replayed only until you close this tab.';
+    renderShare(sheet);
     show('report');
     document.title = 'Scoresheet · ' + (sheet.candidate.name || 'Candidate') + ' · Tushar AI Interviewer';
     // Only if the candidate is still looking at this scoresheet.
     if (o.speak) setTimeout(() => { if (state.sheet === sheet && !$('#screen-report').hidden) playFeedback(); }, 500);
   }
+
+  // ------------------------------------------------------------ results board
+  // Every finished interview is sent to this site's results board (when the site has one),
+  // so the recruiter — or everyone, if the board is public — sees every candidate's
+  // scoresheet on the Results page. Recordings and photos never leave this device.
+  const Board = AII.Board;
+  let boardInfo = { enabled: false, public: false };
+  const boardReady = (Board ? Board.status() : Promise.resolve(boardInfo)).then((b) => {
+    boardInfo = b;
+    renderBoardNotice();
+    return b;
+  });
+  const sharing = new Map(); // sheet id -> 'sending' | an error message
+
+  function renderBoardNotice() {
+    const note = $('#board-notice');
+    if (note) {
+      note.hidden = !boardInfo.enabled;
+      note.textContent = boardInfo.public
+        ? '📊 When you finish, your scoresheet appears on this site\'s public Results page. Recordings and photos stay on this device.'
+        : '📊 When you finish, your scoresheet is sent to the recruiter. Recordings and photos stay on this device.';
+    }
+    const foot = $('footer');
+    if (foot && boardInfo.enabled) {
+      foot.textContent = 'Runs in your browser. Recordings stay on this device; each finished scoresheet is sent to this site\'s results board' +
+        (boardInfo.public ? ', which everyone can see.' : ' for the recruiter.');
+    }
+  }
+
+  /** Send a finished interview to the board once; the scoresheet shows how it went. */
+  async function shareSheet(sheet) {
+    const b = await boardReady;
+    if (!Board || !b.enabled || sheet.shared || sharing.get(sheet.id) === 'sending') return;
+    sharing.set(sheet.id, 'sending');
+    renderShare(sheet);
+    const res = await Board.send(sheet);
+    if (res.ok) {
+      sharing.delete(sheet.id);
+      sheet.shared = { id: res.id, at: new Date().toISOString() };
+      // Mark the stored copy too (if it is still stored), so it is never sent twice.
+      const stored = store.get(SHEET_PREFIX + sheet.id, null);
+      if (stored) {
+        stored.shared = sheet.shared;
+        store.set(SHEET_PREFIX + sheet.id, stored);
+      }
+    } else {
+      sharing.set(sheet.id, res.message || 'it could not be sent');
+    }
+    renderShare(sheet);
+  }
+
+  /** The line above the scoresheet: sent / sending / failed (with a retry). */
+  function renderShare(sheet) {
+    const el = $('#share-status');
+    if (!el || state.sheet !== sheet) return;
+    const sample = state.reportOpts && state.reportOpts.sample;
+    const st = sharing.get(sheet.id);
+    el.className = 'share-status no-print';
+    el.innerHTML = '';
+    el.hidden = !!sample || !boardInfo.enabled;
+    if (el.hidden) return;
+    const where = boardInfo.public ? 'the Results page' : 'the recruiter\'s results board';
+    const text = document.createElement('span');
+    let action = null;
+    if (sheet.shared) {
+      el.classList.add('ok');
+      text.textContent = '✓ Sent to ' + where + '.';
+    } else if (st === 'sending') {
+      text.textContent = 'Sending this scoresheet to ' + where + '…';
+    } else if (st) {
+      el.classList.add('err');
+      text.textContent = 'Not sent to ' + where + ': ' + st + '.';
+      action = 'Try again';
+    } else {
+      text.textContent = 'This interview is not on ' + where + ' yet.';
+      action = 'Send it';
+    }
+    el.appendChild(text);
+    if (action) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'btn btn-small';
+      btn.textContent = action;
+      btn.addEventListener('click', () => {
+        sharing.delete(sheet.id);
+        shareSheet(sheet);
+      });
+      el.appendChild(btn);
+    }
+  }
+
+  // The Results page: every interview on this site, its scores and its full scoresheet.
+  const escHtml = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  function openResults() {
+    if (!Board) return;
+    if (state.running && !confirm('Leave the interview? Your answers so far will be lost.')) {
+      if (location.hash === '#results') history.replaceState(null, '', location.pathname + location.search);
+      return;
+    }
+    if (!$('#screen-processing').hidden) state.skipLlm = true; // its scoresheet is still saved and sent
+    abortInterview();
+    stopFeedbackAudio();
+    $$('#report-root audio').forEach((a) => a.pause());
+    $('#report-root').innerHTML = '';
+    clipMap([]);
+    state.sheet = null;
+    show('results');
+    if (location.hash !== '#results') history.pushState(null, '', '#results');
+    document.title = 'Results · Tushar AI Interviewer';
+    Board.open({
+      container: $('#results-root'),
+      esc: escHtml,
+      Report,
+      Backup: AII.Backup,
+      onClose: goHome,
+      setTitle: (t) => { document.title = t + ' · Tushar AI Interviewer'; },
+    });
+  }
+  $('#nav-results').addEventListener('click', (e) => {
+    e.preventDefault();
+    if ($('#screen-results').hidden) openResults();
+  });
+  window.addEventListener('hashchange', () => {
+    if (location.hash === '#results' && $('#screen-results').hidden) openResults();
+    else if (!location.hash && !$('#screen-results').hidden) goHome(); // the browser's Back button
+  });
 
   // The interviewer reads the result aloud — the interview ends the way it started: in audio.
   let feedbackPlaying = false;
@@ -3468,6 +3598,7 @@
   fillSetup();
   populateVoices();
   renderHistory();
+  if (location.hash === '#results') openResults();
   // Remove recordings whose scoresheet is gone (e.g. storage was full or a tab crashed).
   Recorder.pruneExcept(store.get(HISTORY_KEY, []).map((h) => h.id));
   // Tell the candidate up front if the microphone is already blocked for this site.
