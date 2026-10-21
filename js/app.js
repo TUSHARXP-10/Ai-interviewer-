@@ -3338,6 +3338,9 @@
         ? '📊 When you finish, your scoresheet appears on this site\'s public Results page. Recordings and photos stay on this device.'
         : '📊 When you finish, your scoresheet is sent to the recruiter. Recordings and photos stay on this device.';
     }
+    // A public results board: the scoresheets aren't private any more, so don't say they are.
+    const pill = $('.pill-note');
+    if (pill && boardInfo.enabled && boardInfo.public && pill.lastChild) pill.lastChild.textContent = 'Free · no sign-up';
     const foot = $('footer');
     if (foot && boardInfo.enabled) {
       foot.textContent = 'Runs in your browser. Recordings stay on this device; each finished scoresheet is sent to this site\'s results board' +

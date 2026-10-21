@@ -12,12 +12,17 @@ const sheetOf = (profile, name) => {
   const s = Demo.runScripted(profile, { name }).sheet;
   return JSON.parse(JSON.stringify(s));
 };
-const ENV = { ADMIN_KEY: 'letmein' };
+const PRIVATE = { PUBLIC_RESULTS: '0' }; // the board is public unless the owner makes it private
+const ENV = { ADMIN_KEY: 'letmein', PUBLIC_RESULTS: '0' };
 const call = (store, method, opts, env) => R.handle(Object.assign({ method, query: {}, headers: {}, ip: '1.2.3.4' }, opts), store, env || ENV);
 
 test('the status check says whether the board is set up and public', async () => {
-  assert.deepEqual((await call(null, 'GET', { query: { status: '1' } }, { BUILT_IN_KEY: null })).body, { enabled: false, public: false, passcodeSet: false });
-  assert.equal((await call(null, 'GET', { query: { status: '1' } }, {})).body.passcodeSet, true, 'the built-in passcode counts');
+  assert.deepEqual((await call(null, 'GET', { query: { status: '1' } }, { BUILT_IN_KEY: null, PUBLIC_RESULTS: '0' })).body, { enabled: false, public: false, passcodeSet: false });
+  assert.deepEqual((await call(null, 'GET', { query: { status: '1' } }, {})).body, { enabled: false, public: true, passcodeSet: true }, 'public by default; the built-in passcode counts');
+  assert.equal(R.isPublic({}), true);
+  assert.equal(R.isPublic({ PUBLIC_RESULTS: '0' }), false);
+  assert.equal(R.isPublic({ PUBLIC_RESULTS: 'false' }), false);
+  assert.equal(R.isPublic({ PUBLIC_RESULTS: 'true' }), true);
   const st = await call(R.memoryStore(), 'GET', { query: { status: '1' } }, { ADMIN_KEY: 'x', PUBLIC_RESULTS: '1' });
   assert.deepEqual(st.body, { enabled: true, public: true, passcodeSet: true });
   const none = await call(null, 'POST', { body: sheetOf('strong', 'A') });
@@ -35,8 +40,11 @@ test('anyone can send a result; only the passcode can read or delete', async () 
 
   assert.equal((await call(store, 'GET', {})).status, 401);
   assert.equal((await call(store, 'GET', { headers: { 'x-admin-key': 'nope' } })).status, 401);
-  assert.equal((await call(store, 'GET', {}, { BUILT_IN_KEY: null })).status, 403, 'no passcode at all');
-  assert.equal((await call(store, 'GET', {}, {})).status, 401, 'the built-in passcode is asked for');
+  assert.equal((await call(store, 'GET', {}, { BUILT_IN_KEY: null, PUBLIC_RESULTS: '0' })).status, 403, 'private, and no passcode at all');
+  assert.equal((await call(store, 'GET', {}, PRIVATE)).status, 401, 'private: the built-in passcode is asked for');
+  assert.equal((await call(store, 'GET', {}, {})).status, 200, 'public by default');
+  assert.equal((await call(store, 'GET', {}, { BUILT_IN_KEY: null })).status, 200, 'public even with no passcode');
+  assert.equal((await call(store, 'DELETE', { query: { id: a.body.id } }, { BUILT_IN_KEY: null })).status, 403, 'but nobody can delete without one');
 
   const list = await call(store, 'GET', { headers: { 'x-admin-key': 'letmein' } });
   assert.equal(list.status, 200);
@@ -72,7 +80,7 @@ test('sending the same interview twice keeps one copy, and never overwrites it',
 test('a public board can be read by everyone', async () => {
   const store = R.memoryStore();
   await call(store, 'POST', { body: sheetOf('average', 'Ankit') });
-  const list = await call(store, 'GET', {}, { PUBLIC_RESULTS: '1' });
+  const list = await call(store, 'GET', {}, {});
   assert.equal(list.status, 200);
   assert.equal(list.body.public, true);
   assert.equal(list.body.results.length, 1);
@@ -198,21 +206,21 @@ const SPEC = (() => {
 test('the built-in passcode opens the board; ADMIN_KEY replaces it', async () => {
   const store = R.memoryStore();
   await call(store, 'POST', { body: sheetOf('strong', 'Built In') });
-  const env = { BUILT_IN_KEY: SPEC };
+  const env = { BUILT_IN_KEY: SPEC, PUBLIC_RESULTS: '0' };
   assert.equal((await call(store, 'GET', { headers: { 'x-admin-key': 'open-sesame' } }, env)).status, 200);
   assert.equal((await call(store, 'GET', { headers: { 'x-admin-key': 'open-sesame' } }, env)).status, 200, 'cached the second time');
   assert.equal((await call(store, 'GET', { headers: { 'x-admin-key': 'Open-sesame' } }, env)).status, 401);
-  assert.equal((await call(store, 'GET', { headers: { 'x-admin-key': 'open-sesame' } }, { BUILT_IN_KEY: SPEC, ADMIN_KEY: 'mine' })).status, 401, 'ADMIN_KEY wins');
-  assert.equal((await call(store, 'GET', { headers: { 'x-admin-key': 'mine' } }, { BUILT_IN_KEY: SPEC, ADMIN_KEY: 'mine' })).status, 200);
+  assert.equal((await call(store, 'GET', { headers: { 'x-admin-key': 'open-sesame' } }, Object.assign({ ADMIN_KEY: 'mine' }, env))).status, 401, 'ADMIN_KEY wins');
+  assert.equal((await call(store, 'GET', { headers: { 'x-admin-key': 'mine' } }, Object.assign({ ADMIN_KEY: 'mine' }, env))).status, 200);
   const one = await call(store, 'GET', { headers: { 'x-admin-key': 'open-sesame' } }, env);
-  const del = await call(store, 'DELETE', { query: { id: one.body.results[0].id }, headers: { 'x-admin-key': 'open-sesame' } }, Object.assign({ PUBLIC_RESULTS: '1' }, env));
+  const del = await call(store, 'DELETE', { query: { id: one.body.results[0].id }, headers: { 'x-admin-key': 'open-sesame' } }, { BUILT_IN_KEY: SPEC });
   assert.equal(del.status, 200, 'the built-in passcode can delete');
   assert.ok(R.builtInMatches, 'exported for a manual check');
 });
 
 test('guessing the passcode is stopped after a few wrong tries', async () => {
   const store = R.memoryStore();
-  const env = { BUILT_IN_KEY: SPEC };
+  const env = { BUILT_IN_KEY: SPEC, PUBLIC_RESULTS: '0' };
   const get = (key, ip) => call(store, 'GET', { headers: key ? { 'x-admin-key': key } : {}, ip }, env);
   for (let i = 0; i < R.WRONG_TRIES; i++) assert.equal((await get('guess' + i, '5.5.5.5')).status, 401);
   const locked = await get('open-sesame', '5.5.5.5');
@@ -227,4 +235,27 @@ test('guessing the passcode is stopped after a few wrong tries', async () => {
   const burst = await Promise.all(Array.from({ length: 40 }, (_, i) => get(i === 39 ? 'open-sesame' : 'g' + i, '8.8.4.4')));
   assert.ok(burst.filter((r) => r.status === 401).length <= R.WRONG_TRIES, 'at most ' + R.WRONG_TRIES + ' guesses checked');
   assert.equal(burst[39].status, 429);
+});
+
+test('on the public board the passcode signs the owner in (to delete), and is limited too', async () => {
+  const store = R.memoryStore();
+  const a = await call(store, 'POST', { body: sheetOf('average', 'Public One') });
+  const env = { BUILT_IN_KEY: SPEC };
+  const list = (key, ip) => call(store, 'GET', { headers: key ? { 'x-admin-key': key } : {}, ip }, env);
+  const anon = await list('', '1.1.1.1');
+  assert.equal(anon.status, 200);
+  assert.deepEqual([anon.body.public, anon.body.owner, anon.body.ownerError], [true, false, undefined]);
+  const owner = await list('open-sesame', '1.1.1.1');
+  assert.deepEqual([owner.status, owner.body.owner], [200, true]);
+  const wrong = await list('nope', '1.1.1.1');
+  assert.deepEqual([wrong.status, wrong.body.owner, wrong.body.ownerError], [200, false, 'Wrong passcode.'], 'still readable, but not the owner');
+  for (let i = 0; i < R.WRONG_TRIES; i++) await list('nope' + i, '2.2.2.2');
+  const locked = await list('open-sesame', '2.2.2.2');
+  assert.equal(locked.status, 200, 'everyone can still read');
+  assert.equal(locked.body.owner, false);
+  assert.match(locked.body.ownerError, /15 minutes/);
+  assert.equal((await call(store, 'DELETE', { query: { id: a.body.id }, headers: { 'x-admin-key': 'open-sesame' }, ip: '2.2.2.2' }, env)).status, 429, 'and deleting is locked too');
+  assert.equal((await call(store, 'DELETE', { query: { id: a.body.id }, ip: '3.3.3.3' }, env)).status, 401);
+  assert.equal((await call(store, 'DELETE', { query: { id: a.body.id }, headers: { 'x-admin-key': 'nope' }, ip: '3.3.3.3' }, env)).status, 401);
+  assert.equal((await call(store, 'DELETE', { query: { id: a.body.id }, headers: { 'x-admin-key': 'open-sesame' }, ip: '3.3.3.3' }, env)).status, 200);
 });

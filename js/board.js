@@ -143,17 +143,22 @@
     };
 
     function shell(inner) {
+      const btn = (act, label) => '<button class="btn btn-glass btn-small" type="button" data-act="' + act + '">' + label + '</button>';
+      // A public board: everyone reads it; the owner signs in only to delete results.
+      const actions = pub ? (key ? btn('lock', 'Sign out') : btn('owner', '🔑 Owner')) : key ? btn('lock', 'Lock') : '';
       el.innerHTML = '<div class="board-head"><div><span class="eyebrow">Results board</span><h1 class="display-2">Every interview, every score</h1>' +
-        '<p class="muted">' + (pub ? 'This board is public: anyone with the link can see it.' : 'Only people with the passcode can see this page.') + '</p></div>' +
-        '<div class="board-head-actions">' + (key && !pub ? '<button class="btn btn-glass btn-small" type="button" data-act="lock">Lock</button>' : '') +
-        '<button class="btn btn-glass btn-small" type="button" data-act="close">← Home</button></div></div>' + inner;
+        '<p class="muted">' + (pub ? 'Public: everyone who opens this site can see every result.' + (key ? ' You are signed in as the owner.' : '')
+          : 'Only people with the passcode can see this page.') + '</p></div>' +
+        '<div class="board-head-actions">' + actions + btn('close', '← Home') + '</div></div>' + inner;
     }
 
     function passcodeForm(message) {
-      shell('<form class="card board-login" data-form="login"><label for="board-key"><strong>Passcode</strong></label>' +
-        '<p class="muted small">Only the site owner can see every result. Enter your passcode; this browser remembers it until you press Lock.</p>' +
+      shell('<form class="card board-login" data-form="login"><label for="board-key"><strong>' + (pub ? 'Owner sign-in' : 'Passcode') + '</strong></label>' +
+        '<p class="muted small">' + (pub ? 'Everyone can already see the results. Sign in with your passcode to delete them; this browser remembers it until you sign out.'
+          : 'Only the site owner can see every result. Enter your passcode; this browser remembers it until you press Lock.') + '</p>' +
         '<div class="board-login-row"><input id="board-key" type="password" autocomplete="current-password" required placeholder="Enter passcode">' +
-        '<button class="btn btn-primary" type="submit">Open results</button></div>' +
+        '<button class="btn btn-primary" type="submit">' + (pub ? 'Sign in' : 'Open results') + '</button>' +
+        (pub ? '<button class="btn btn-glass" type="button" data-act="back">Cancel</button>' : '') + '</div>' +
         (message ? '<p class="board-error" role="alert">' + esc(message) + '</p>' : '') + '</form>');
       const input = el.querySelector('#board-key');
       if (input) input.focus();
@@ -161,9 +166,9 @@
 
     function notReady(message) {
       shell('<div class="card board-setup"><h2>Set up the results board</h2><p>' + esc(message) + '</p>' +
-        '<ol><li>Vercel → your project → <strong>Storage</strong> → <strong>Create Database</strong> → <strong>Upstash for Redis</strong> (free) → connect it to this project.</li>' +
-        '<li><strong>Settings → Environment Variables</strong> → add <code>ADMIN_KEY</code> with a passcode only you know. (Or <code>PUBLIC_RESULTS</code> = <code>1</code> to let everyone see the board.)</li>' +
-        '<li><strong>Deployments</strong> → ⋯ → <strong>Redeploy</strong>. New interviews then appear here.</li></ol></div>');
+        '<p class="muted small">The site needs somewhere to keep everyone\'s results. It is free, and works from a phone\'s browser too:</p>' +
+        '<ol><li>Open <strong>vercel.com</strong> → your project → <strong>Storage</strong> → <strong>Create Database</strong> → <strong>Upstash for Redis</strong> (free) → <strong>Connect</strong> it to this project.</li>' +
+        '<li><strong>Deployments</strong> → ⋯ on the latest one → <strong>Redeploy</strong>. New interviews then appear here, for everyone to see.</li></ol></div>');
     }
 
     async function load() {
@@ -197,6 +202,15 @@
       }
       rows = res.body.results || [];
       pub = !!res.body.public;
+      if (pub && key && !res.body.owner) {
+        // A public board still says whether the owner's passcode was right.
+        const typed = savedKeyTried;
+        saveKey('');
+        key = '';
+        savedKeyTried = false;
+        if (typed) return passcodeForm(res.body.ownerError || 'Wrong passcode. Try again.');
+      }
+      savedKeyTried = false;
       renderList();
     }
 
@@ -293,12 +307,22 @@
       if (act === 'refresh' || act === 'back') { if (d.setTitle) d.setTitle('Results'); return load(); }
       if (act === 'csv') return exportCsv();
       if (act === 'print') return root.print();
-      if (act === 'lock') { saveKey(''); key = ''; return passcodeForm(''); }
+      if (act === 'owner') return passcodeForm('');
+      if (act === 'lock') {
+        saveKey('');
+        key = '';
+        return pub ? load() : passcodeForm('');
+      }
       if (act === 'delete') {
         if (!root.confirm('Delete this interview from the results board? This cannot be undone.')) return;
         if (!key) return passcodeForm('Enter the passcode to delete results.');
         const res = await api('DELETE', 'id=' + encodeURIComponent(btn.getAttribute('data-id')), key).catch(() => null);
-        if (!res || res.status !== 200) return root.alert('Could not delete it' + (res && res.status === 401 ? ': wrong passcode.' : '.'));
+        if (res && (res.status === 401 || res.status === 429)) {
+          saveKey('');
+          key = '';
+          return passcodeForm(res.status === 429 ? (res.body && res.body.message) || 'Too many wrong passcodes. Wait 15 minutes, then try again.' : 'Wrong passcode. Sign in again to delete.');
+        }
+        if (!res || res.status !== 200) return root.alert('Could not delete it. Check your internet connection and try again.');
         return load();
       }
     };

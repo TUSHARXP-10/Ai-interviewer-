@@ -77,14 +77,14 @@ To check the build locally: `npm run build`, then serve `dist/`, e.g. `python3 -
 
 Every finished interview can be sent to a **Results board** on your website: press **📊 Results** at the top of the page to see every candidate, their score, verdict, skills and integrity, search and sort them, open anyone's full scoresheet (transcript included), print it, delete it, or export them all to a spreadsheet (CSV). Recordings and proctoring photos never leave the candidate's device; only the scoresheet is sent.
 
-It's free on Vercel. Set it up once:
+The website needs somewhere to keep everyone's results, so it needs a free database. It takes a minute, and works from a phone's browser too:
 
-1. **Add storage.** Vercel → your project → **Storage** → **Create Database** → **Upstash for Redis** (the free plan) → **Connect** it to this project. This adds `KV_REST_API_URL` and `KV_REST_API_TOKEN` to the project by itself.
-2. **Redeploy:** **Deployments** → ⋯ on the latest one → **Redeploy**.
+1. **Add storage.** [vercel.com](https://vercel.com) → your project → **Storage** → **Create Database** → **Upstash for Redis** (the free plan) → **Connect** it to this project. This adds `KV_REST_API_URL` and `KV_REST_API_TOKEN` to the project by itself.
+2. **Redeploy:** **Deployments** → ⋯ on the latest one → **Redeploy** (or push any commit).
 
-**The passcode.** The board asks for the site owner's passcode, which is built in: `lib/results.js` keeps only a salted scrypt hash of it (this repository is public), never the passcode itself. The browser remembers it until you press **Lock**. After 10 wrong passcodes, that address must wait 15 minutes. Optional, in Project → **Settings** → **Environment Variables** (then redeploy):
+**Who can see it.** The board is **public**: everyone who opens the site sees every result, and the setup page tells candidates so. **Deleting** a result needs the site owner's passcode (**🔑 Owner** on the Results page). The passcode is built in: `lib/results.js` keeps only a salted scrypt hash of it (this repository is public), never the passcode itself. After 10 wrong passcodes, that address must wait 15 minutes. Optional, in Project → **Settings** → **Environment Variables** (then redeploy):
+- `PUBLIC_RESULTS` = `0` makes the board private: then only the passcode opens it.
 - `ADMIN_KEY` = a different passcode: it replaces the built-in one.
-- `PUBLIC_RESULTS` = `1` to let **everyone** who opens the site see every result. Deleting a result always needs the passcode.
 
 From then on the setup page tells candidates that their scoresheet goes to the recruiter (or the public board), and the scoresheet shows "✓ Sent". If sending fails (no internet), the candidate can press **Try again**; an interview from before the board was set up can be sent from its scoresheet with **Send it**. Each interview is stored once, however often it's sent, and a stored result can't be overwritten.
 
@@ -296,7 +296,7 @@ The camera tile on the right of the call is read about eight times a second by G
 ## Privacy
 
 - All analysis and scoring runs locally in your browser.
-- **Results board:** if the site owner has set one up (see *See every candidate's result* above), the finished scoresheet (scores, transcript, verdict, integrity) is sent to the site's own storage when the interview ends, and the setup page says so before the interview starts. Without it, nothing is sent to any server of this project.
+- **Results board:** if the site owner has set one up (see *See every candidate's result* above), the finished scoresheet (scores, transcript, verdict, integrity) is sent to the site's own storage when the interview ends, and the setup page says so before the interview starts. The board is public unless the owner makes it private, so everyone who opens the site can see it. Without a board, nothing is sent to any server of this project.
 - **Speech recognition:** with the built-in engine, Chrome and Edge transcribe speech through their own cloud speech service (that's what makes it free and keyless). With the offline Whisper engine, audio never leaves your device.
 - **Recordings** of your answers are stored only in this browser (IndexedDB) so you can replay them. Turn recording off in the settings, or delete them with the history.
 - **Camera:** required, for the AI proctoring. The face and phone checks run on your device; the video is never recorded or uploaded. When something is flagged, a small photo of that moment is saved with the scoresheet in this browser only (and deleted with the history). The proctoring models come from Google's and jsDelivr's CDNs.

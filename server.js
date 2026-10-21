@@ -18,8 +18,8 @@ const path = require('path');
 
 const ROOT = __dirname;
 const Results = require('./lib/results.js');
-// The results board: saved in .data/results. Its passcode is the site owner's built-in one
-// (see lib/results.js), or ADMIN_KEY if set.
+// The results board: saved in .data/results. Public unless PUBLIC_RESULTS=0; deleting needs
+// the site owner's built-in passcode (see lib/results.js), or ADMIN_KEY if set.
 const RESULTS_STORE = (() => {
   try {
     return Results.fileStore(path.join(ROOT, '.data', 'results'));
@@ -158,7 +158,7 @@ if (LAN) {
       console.log('  "Private networks"), and check both are on the same Wi-Fi. Guest and office');
       console.log('  Wi-Fi often block devices from seeing each other: use your phone\'s hotspot.\n');
     }
-    console.log('  Results of every interview: open the site → Results (passcode: ' + (process.env.ADMIN_KEY ? 'your ADMIN_KEY' : 'the site owner\'s') + ').\n');
+    console.log('  Results of every interview: open the site → Results.\n');
     console.log('  On this computer: https://localhost:' + PORT + '   ·   Press Ctrl+C to stop.\n');
   });
 } else {
@@ -168,7 +168,7 @@ if (LAN) {
     console.log('\n  AI Interviewer is running →  http://localhost:' + PORT + '\n');
     console.log('  Open it in Chrome or Edge, allow the microphone and camera, and good luck!');
     console.log('  To use it on your phone over Wi-Fi, run: npm run lan');
-    console.log('  Results of every interview: open the site → Results (passcode: ' + (process.env.ADMIN_KEY ? 'your ADMIN_KEY' : 'the site owner\'s') + ').');
+    console.log('  Results of every interview: open the site → Results.');
     console.log('  Press Ctrl+C to stop.\n');
   });
 }
