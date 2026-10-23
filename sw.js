@@ -12,7 +12,7 @@
  * switches to the offline Whisper engine by itself once its model has been downloaded.
  */
 'use strict';
-const VERSION = 'aii-2026-10-21';
+const VERSION = 'aii-2026-10-21b';
 const SHELL_CACHE = VERSION + '-shell';
 const LIB_CACHE = 'aii-libs-v1'; // versioned URLs: kept across app updates
 
@@ -41,6 +41,7 @@ const SHELL = [
   'js/recorder.js',
   'js/report.js',
   'js/scoring.js',
+  'js/share.js',
   'js/speech.js',
   'js/techBank.js',
   'js/textUtils.js',

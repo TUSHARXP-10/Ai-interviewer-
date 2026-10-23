@@ -20,8 +20,12 @@
 
   /** The short history entry the home page lists, built from a full scoresheet. */
   function entryOf(sheet) {
+    // Only plain skill names and real numbers: a restored file (or a received link) is untrusted.
     const dims = {};
-    for (const d of sheet.dimensions || []) dims[d.key] = d.score;
+    for (const d of Array.isArray(sheet.dimensions) ? sheet.dimensions : []) {
+      if (!d || typeof d.key !== 'string' || !/^[A-Za-z][A-Za-z0-9_]{0,39}$/.test(d.key) || d.key in Object.prototype) continue;
+      dims[d.key] = typeof d.score === 'number' && Number.isFinite(d.score) ? d.score : null;
+    }
     return {
       id: sheet.id,
       name: (sheet.candidate && sheet.candidate.name) || 'Candidate',
@@ -188,7 +192,7 @@
       'Integrity', 'English level', 'Minutes', 'Answered', 'Skipped', 'Red flags'].concat(dimCols.map((d) => d.label));
     const lines = [head.map(cell).join(',')];
     for (const { h, s } of rows) {
-      const dims = {};
+      const dims = Object.create(null); // a skill named "constructor" must not read Object's own
       if (s && s.dimensions) for (const d of s.dimensions) dims[d.key] = d.score;
       else Object.assign(dims, h.dims || {});
       const integ = (s && s.integrity) || {};

@@ -73,22 +73,26 @@ vercel --prod       # build and deploy to production
 
 To check the build locally: `npm run build`, then serve `dist/`, e.g. `python3 -m http.server 8080 -d dist`.
 
-### See every candidate's result: the Results board
+### See every candidate's result (no database needed)
 
-Every finished interview can be sent to a **Results board** on your website: press **📊 Results** at the top of the page to see every candidate, their score, verdict, skills and integrity, search and sort them, open anyone's full scoresheet (transcript included), print it, delete it, or export them all to a spreadsheet (CSV). Recordings and proctoring photos never leave the candidate's device; only the scoresheet is sent.
+When a candidate finishes, their scoresheet shows **📤 Send my result**. They tap it and pick WhatsApp (or any app), or copy the link, and send it to the recruiter. The link holds the whole scoresheet, compressed (about 7–10 KB of text); it lives after the `#`, so it never reaches any server, and there is nothing to set up. Recordings and proctoring photos are never in it.
 
-The website needs somewhere to keep everyone's results, so it needs a free database. It takes a minute, and works from a phone's browser too:
+The recruiter opens the link on their phone or computer: the full scoresheet opens, and it's kept on that device under **📊 Results**. There they see every result they've received: score, verdict, skills and integrity at a glance, search, filter and sort, the full scoresheet (transcript included), print, remove, and **Export CSV** for a spreadsheet. A link that doesn't open from the chat can be pasted (the whole message is fine) into **Add a result**, and a scoresheet file ("Download data (JSON)") can be added with **Add a file**.
 
-1. **Add storage.** [vercel.com](https://vercel.com) → your project → **Storage** → **Create Database** → **Upstash for Redis** (the free plan) → **Connect** it to this project. This adds `KV_REST_API_URL` and `KV_REST_API_TOKEN` to the project by itself.
-2. **Redeploy:** **Deployments** → ⋯ on the latest one → **Redeploy** (or push any commit).
+- **Kept on that device, in that browser** (`localStorage`). Opening the same link twice keeps one copy. Export CSV now and then as a backup.
+- **Edited links are flagged.** Each link carries a check: if someone changes the score in it, the scoresheet says *"⚠️ This result was changed after the interview"*, the list marks it, and it isn't counted in the totals. It's a light check, not a signature: the code is public, so a determined person could forge one.
+- **Anyone with a link can open that result**, so share links only with the recruiter.
+- If a link is cut off on the way, the page says so; the candidate can send it again, or send the JSON file.
 
-**Who can see it.** The board is **public**: everyone who opens the site sees every result, and the setup page tells candidates so. **Deleting** a result needs the site owner's passcode (**🔑 Owner** on the Results page). The passcode is built in: `lib/results.js` keeps only a salted scrypt hash of it (this repository is public), never the passcode itself. After 10 wrong passcodes, that address must wait 15 minutes. Optional, in Project → **Settings** → **Environment Variables** (then redeploy):
-- `PUBLIC_RESULTS` = `0` makes the board private: then only the passcode opens it.
-- `ADMIN_KEY` = a different passcode: it replaces the built-in one.
+#### Optional: an automatic results board (needs a free database)
 
-From then on the setup page tells candidates that their scoresheet goes to the recruiter (or the public board), and the scoresheet shows "✓ Sent". If sending fails (no internet), the candidate can press **Try again**; an interview from before the board was set up can be sent from its scoresheet with **Send it**. Each interview is stored once, however often it's sent, and a stored result can't be overwritten.
+If you'd rather have every interview arrive by itself, connect a database; the site then sends each finished scoresheet to a shared **Results board** instead of asking the candidate to send a link:
 
-Running it yourself with `npm start` (or `npm run lan`): the board works straight away, with the same passcode. Results are saved in `.data/results/` (set your own passcode with `ADMIN_KEY=… npm start`). On GitHub Pages or another static host there's no server, so there's no board: results stay in each candidate's browser.
+1. [vercel.com](https://vercel.com) → your project → **Storage** → **Create Database** → **Upstash for Redis** (the free plan) → **Connect** it to this project (this adds `KV_REST_API_URL` and `KV_REST_API_TOKEN`).
+2. Optional, in **Settings → Environment Variables**: `ADMIN_KEY` = a passcode. Without one the board is public and nobody can delete results; with one, only the passcode opens the board (unless `PUBLIC_RESULTS` = `1`) and deletes results. The passcode lives only in Vercel's settings, never in this public code. After 10 wrong passcodes, that address must wait 15 minutes.
+3. **Deployments** → ⋯ → **Redeploy**.
+
+Each interview is stored once, however often it's sent, and a stored result can't be overwritten. `npm start` / `npm run lan` run a board in `.data/results/` with a passcode printed in the terminal (`RESULTS_BOARD=0 npm start` turns it off, to use links instead).
 
 ### Install it as an app
 
@@ -296,7 +300,8 @@ The camera tile on the right of the call is read about eight times a second by G
 ## Privacy
 
 - All analysis and scoring runs locally in your browser.
-- **Results board:** if the site owner has set one up (see *See every candidate's result* above), the finished scoresheet (scores, transcript, verdict, integrity) is sent to the site's own storage when the interview ends, and the setup page says so before the interview starts. The board is public unless the owner makes it private, so everyone who opens the site can see it. Without a board, nothing is sent to any server of this project.
+- **Sending a result:** nothing is sent unless the candidate taps **Send my result**. The link they send holds their scoresheet (scores, transcript, verdict, integrity, no recordings or photos); anyone with the link can open it, and it never passes through a server of this project.
+- **Results board (optional):** if the site owner connected a database (see *See every candidate's result* above), the finished scoresheet is sent to the site's own storage when the interview ends, and the setup page says so before the interview starts.
 - **Speech recognition:** with the built-in engine, Chrome and Edge transcribe speech through their own cloud speech service (that's what makes it free and keyless). With the offline Whisper engine, audio never leaves your device.
 - **Recordings** of your answers are stored only in this browser (IndexedDB) so you can replay them. Turn recording off in the settings, or delete them with the history.
 - **Camera:** required, for the AI proctoring. The face and phone checks run on your device; the video is never recorded or uploaded. When something is flagged, a small photo of that moment is saved with the scoresheet in this browser only (and deleted with the history). The proctoring models come from Google's and jsDelivr's CDNs.
@@ -352,9 +357,10 @@ js/llm.js             Optional Ollama integration
 js/report.js          Scoresheet rendering
 js/demo.js            Scripted candidates (sample report, demo, tests)
 js/app.js             UI controller
-js/board.js           The Results page: every interview on the site, search, sort, CSV, full scoresheets
-api/results.js        Vercel function for the Results board (send, list, open, delete)
-lib/results.js        Results board logic and storage (Upstash Redis on Vercel, files for npm start)
+js/share.js           Results without a database: a scoresheet packed into a link; results received on this device
+js/board.js           The Results page: results received (or the optional board), search, sort, CSV, full scoresheets
+api/results.js        Vercel function for the optional Results board (send, list, open, delete)
+lib/results.js        Optional Results board logic and storage (Upstash Redis on Vercel, files for npm start)
 sw.js                 Service worker: install as an app, open offline
 manifest.webmanifest  App name, icons and colours for installing
 icons/                App icons (drawn by tools/icons.js)

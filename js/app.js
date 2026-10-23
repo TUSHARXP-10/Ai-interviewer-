@@ -640,13 +640,13 @@
       ? '<span class="pg-delta ' + (p.change > 0 ? 'up' : p.change < 0 ? 'down' : '') + '">' + sign(p.change) + ' since your first interview</span>'
       : '<span class="pg-delta">Your first interview. Do another to see your progress.</span>';
     const meta = [p.streak ? '🔥 ' + p.streak + '-day streak' : null, p.count + (p.count === 1 ? ' interview' : ' interviews'), p.drills ? p.drills + (p.drills === 1 ? ' drill' : ' drills') : null, 'best ' + p.best].filter(Boolean).join(' · ');
-    const skills = p.skills.map((s) => '<li><span class="pg-k">' + esc(s.label) + '</span><span class="pg-bar"><i style="width:' + Math.max(2, Math.min(100, s.latest)) + '%"></i></span><b>' + s.latest + '</b>' +
+    const skills = p.skills.map((s) => '<li><span class="pg-k">' + esc(s.label) + '</span><span class="pg-bar"><i style="width:' + Math.max(2, Math.min(100, Number(s.latest) || 0)) + '%"></i></span><b>' + esc(s.latest) + '</b>' +
       (p.count > 1 && s.change ? '<em class="' + (s.change > 0 ? 'up' : 'down') + '">' + sign(s.change) + '</em>' : '<em></em>') + '</li>').join('');
     box.innerHTML = '<div class="pg-main"><span class="eyebrow">' + (p.track === 'tech' ? 'Engineering interviews' : 'Customer service interviews') + '</span>' +
-      '<div class="pg-score"><strong>' + p.latest + '</strong>' + delta + '</div>' + AII.Progress.sparkline(p.trend, 240, 60) +
+      '<div class="pg-score"><strong>' + esc(p.latest) + '</strong>' + delta + '</div>' + AII.Progress.sparkline(p.trend, 240, 60) +
       '<div class="pg-meta">' + esc(meta) + '</div></div>' +
       '<ul class="pg-skills">' + skills + '</ul>' +
-      (p.weakest ? '<div class="pg-cta"><span>Weakest right now: <strong>' + esc(p.weakest.label) + ' (' + p.weakest.latest + ')</strong></span>' +
+      (p.weakest ? '<div class="pg-cta"><span>Weakest right now: <strong>' + esc(p.weakest.label) + ' (' + esc(p.weakest.latest) + ')</strong></span>' +
         '<button class="btn btn-small btn-drill" type="button" id="pg-practise">🎯 Practise your weakest answers</button></div>' : '');
     const btn = $('#pg-practise');
     if (btn) {
@@ -2971,11 +2971,12 @@
 
   function renderDrillResult(drill, now, clips) {
     const root = $('#drill-root');
-    const before = drill.prev.skipped ? 0 : drill.prev.quality;
-    const after = now.skipped ? 0 : now.quality;
+    const num = (x) => (typeof x === 'number' && Number.isFinite(x) ? Math.round(x) : 0); // the sheet may be a restored file
+    const before = drill.prev.skipped ? 0 : num(drill.prev.quality);
+    const after = now.skipped ? 0 : num(now.quality);
     const delta = after - before;
     const attempts = drillsFor(drill.sheet.id)[drill.qid] || [];
-    const best = Math.max.apply(null, attempts.map((a) => a.quality || 0));
+    const best = Math.max.apply(null, [0].concat(attempts.map((a) => num(a.quality))));
     const verdict = delta >= 15 ? 'Big improvement. That is how it should sound.'
       : delta >= 5 ? 'Better than last time. Keep going.'
         : delta > -5 ? 'About the same. Look at the gaps below and try once more.'
@@ -2986,7 +2987,7 @@
       const a = drill.prev.scores[d.key];
       const b = now.scores[d.key];
       const cls = b - a >= 5 ? 'up' : b - a <= -5 ? 'down' : '';
-      return '<span class="dr-chip ' + cls + '"><span class="chip-k">' + esc(d.short) + '</span> ' + a + ' → <strong>' + b + '</strong></span>';
+      return '<span class="dr-chip ' + cls + '"><span class="chip-k">' + esc(d.short) + '</span> ' + num(a) + ' → <strong>' + num(b) + '</strong></span>';
     };
     const fb = now.feedback || { good: [], improve: [] };
     const clip = (clips || []).find((c) => c.qid === drill.qid && c.kind === 'main' && c.blob);
@@ -3317,11 +3318,13 @@
     if (o.speak) setTimeout(() => { if (state.sheet === sheet && !$('#screen-report').hidden) playFeedback(); }, 500);
   }
 
-  // ------------------------------------------------------------ results board
-  // Every finished interview is sent to this site's results board (when the site has one),
-  // so the recruiter — or everyone, if the board is public — sees every candidate's
-  // scoresheet on the Results page. Recordings and photos never leave this device.
+  // ------------------------------------------------------------ results: by link, or a board
+  // No database (the usual case): the candidate taps "Send my result" and sends a link that
+  // holds the whole scoresheet (WhatsApp or any app); the recruiter opens it, and it is kept
+  // on their Results page. If the site owner connected a database, every finished interview
+  // goes to the site's results board instead. Recordings and photos never leave this device.
   const Board = AII.Board;
+  const Share = AII.Share;
   let boardInfo = { enabled: false, public: false };
   const boardReady = (Board ? Board.status() : Promise.resolve(boardInfo)).then((b) => {
     boardInfo = b;
@@ -3333,10 +3336,12 @@
   function renderBoardNotice() {
     const note = $('#board-notice');
     if (note) {
-      note.hidden = !boardInfo.enabled;
-      note.textContent = boardInfo.public
-        ? '📊 When you finish, your scoresheet appears on this site\'s public Results page. Recordings and photos stay on this device.'
-        : '📊 When you finish, your scoresheet is sent to the recruiter. Recordings and photos stay on this device.';
+      note.hidden = !boardInfo.enabled && !Share;
+      note.textContent = !boardInfo.enabled
+        ? '📤 When you finish, tap “Send my result” to send your scoresheet to the recruiter (for example on WhatsApp).'
+        : boardInfo.public
+          ? '📊 When you finish, your scoresheet appears on this site\'s public Results page. Recordings and photos stay on this device.'
+          : '📊 When you finish, your scoresheet is sent to the recruiter. Recordings and photos stay on this device.';
     }
     // A public results board: the scoresheets aren't private any more, so don't say they are.
     const pill = $('.pill-note');
@@ -3345,6 +3350,8 @@
     if (foot && boardInfo.enabled) {
       foot.textContent = 'Runs in your browser. Recordings stay on this device; each finished scoresheet is sent to this site\'s results board' +
         (boardInfo.public ? ', which everyone can see.' : ' for the recruiter.');
+    } else if (foot && Share) {
+      foot.textContent = 'Runs in your browser. Recordings and scores stay on this device; your scoresheet goes only to whoever you send its link to.';
     }
   }
 
@@ -3370,7 +3377,85 @@
     renderShare(sheet);
   }
 
-  /** The line above the scoresheet: sent / sending / failed (with a retry). */
+  // ---- by link: the scoresheet, packed into a link, ready before the button is pressed (a
+  // phone's share sheet only opens straight from a tap, with no waiting in between).
+  const links = new WeakMap(); // sheet -> { link, text } | { error }
+  function prepareLink(sheet) {
+    if (links.has(sheet)) return;
+    links.set(sheet, {});
+    Share.pack(sheet).then((packed) => {
+      const name = (sheet.candidate && sheet.candidate.name) || 'Candidate';
+      const text = 'Interview result: ' + name + ' – ' + sheet.overall + '/100 (' + ((sheet.verdict && sheet.verdict.label) || '') + '). Open it here:';
+      links.set(sheet, { link: Share.linkFor(packed), text });
+    }, () => links.set(sheet, { error: true })).then(() => renderShare(sheet));
+  }
+
+  function copyText(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(text).then(() => true, () => false);
+    return Promise.resolve(false);
+  }
+
+  function renderLinkShare(sheet, el) {
+    const p = links.get(sheet);
+    if (!p) prepareLink(sheet);
+    el.classList.add('share-link');
+    const text = document.createElement('span');
+    text.className = 'share-text';
+    const status = links.get(sheet) && links.get(sheet).status;
+    text.innerHTML = '<strong>📤 Send your result to the recruiter.</strong> ' + (status ? '' : 'Tap Send and choose WhatsApp (or any app), or copy the link.');
+    if (status) text.appendChild(document.createTextNode(status));
+    el.appendChild(text);
+    const ready = p && p.link;
+    if (p && p.error) {
+      text.appendChild(document.createTextNode(' The link could not be made in this browser; use “Download data (JSON)” and send that file instead.'));
+      return;
+    }
+    const send = document.createElement('button');
+    send.type = 'button';
+    send.className = 'btn btn-small btn-primary';
+    send.textContent = ready ? 'Send my result' : 'Preparing…';
+    send.disabled = !ready;
+    const copy = document.createElement('button');
+    copy.type = 'button';
+    copy.className = 'btn btn-small';
+    copy.textContent = 'Copy link';
+    copy.disabled = !ready;
+    const done = (msg) => {
+      const q = links.get(sheet);
+      if (q) q.status = msg;
+      renderShare(sheet);
+    };
+    const fallback = (q) => copyText(q.text + ' ' + q.link).then((ok) => {
+      if (ok) return done(' ✓ Link copied. Paste it in WhatsApp (or any app) to the recruiter.');
+      // No clipboard: show the link to copy by hand.
+      const box = document.createElement('textarea');
+      box.className = 'share-raw';
+      box.readOnly = true;
+      box.value = q.text + ' ' + q.link;
+      el.appendChild(box);
+      box.focus();
+      box.select();
+    });
+    send.addEventListener('click', () => {
+      const q = links.get(sheet);
+      if (!q || !q.link) return;
+      if (navigator.share) {
+        navigator.share({ title: 'Interview result', text: q.text, url: q.link })
+          .then(() => done(' ✓ Sent. You can send it again any time from this scoresheet.'))
+          .catch((e) => { if (!e || e.name !== 'AbortError') fallback(q); });
+      } else {
+        fallback(q);
+      }
+    });
+    copy.addEventListener('click', () => {
+      const q = links.get(sheet);
+      if (q && q.link) fallback(q);
+    });
+    el.appendChild(send);
+    el.appendChild(copy);
+  }
+
+  /** The line above the scoresheet: send by link, or the board's sent / sending / failed. */
   function renderShare(sheet) {
     const el = $('#share-status');
     if (!el || state.sheet !== sheet) return;
@@ -3378,8 +3463,9 @@
     const st = sharing.get(sheet.id);
     el.className = 'share-status no-print';
     el.innerHTML = '';
-    el.hidden = !!sample || !boardInfo.enabled;
+    el.hidden = !!sample || (!boardInfo.enabled && !Share);
     if (el.hidden) return;
+    if (!boardInfo.enabled) return renderLinkShare(sheet, el);
     const where = boardInfo.public ? 'the Results page' : 'the recruiter\'s results board';
     const text = document.createElement('span');
     let action = null;
@@ -3412,7 +3498,8 @@
 
   // The Results page: every interview on this site, its scores and its full scoresheet.
   const escHtml = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  function openResults() {
+  function openResults(opts) {
+    const o = opts || {};
     if (!Board) return;
     if (state.running && !confirm('Leave the interview? Your answers so far will be lost.')) {
       if (location.hash === '#results') history.replaceState(null, '', location.pathname + location.search);
@@ -3426,23 +3513,29 @@
     clipMap([]);
     state.sheet = null;
     show('results');
-    if (location.hash !== '#results') history.pushState(null, '', '#results');
+    // A result link becomes #results, so reloading or going back doesn't open it again.
+    if (location.hash !== '#results') history[o.receive ? 'replaceState' : 'pushState'](null, '', '#results');
     document.title = 'Results · Tushar AI Interviewer';
     Board.open({
       container: $('#results-root'),
       esc: escHtml,
       Report,
       Backup: AII.Backup,
+      Share,
+      receive: o.receive || null,
       onClose: goHome,
       setTitle: (t) => { document.title = t + ' · Tushar AI Interviewer'; },
     });
   }
+  const linkedResult = () => (Share && /^#result=/.test(location.hash) ? Share.find(location.hash) : null);
   $('#nav-results').addEventListener('click', (e) => {
     e.preventDefault();
     if ($('#screen-results').hidden) openResults();
   });
   window.addEventListener('hashchange', () => {
-    if (location.hash === '#results' && $('#screen-results').hidden) openResults();
+    const linked = linkedResult();
+    if (linked) openResults({ receive: linked });
+    else if (location.hash === '#results' && $('#screen-results').hidden) openResults();
     else if (!location.hash && !$('#screen-results').hidden) goHome(); // the browser's Back button
   });
 
@@ -3601,7 +3694,8 @@
   fillSetup();
   populateVoices();
   renderHistory();
-  if (location.hash === '#results') openResults();
+  if (linkedResult()) openResults({ receive: linkedResult() }); // someone sent this device a result
+  else if (location.hash === '#results') openResults();
   // Remove recordings whose scoresheet is gone (e.g. storage was full or a tab crashed).
   Recorder.pruneExcept(store.get(HISTORY_KEY, []).map((h) => h.id));
   // Tell the candidate up front if the microphone is already blocked for this site.

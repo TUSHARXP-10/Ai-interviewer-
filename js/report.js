@@ -6,7 +6,20 @@
   const AII = root.AII;
   const esc = AII.Text.escapeHtml;
 
+  // A sheet can come from a share link or a backup file, so any value in it may be hostile.
+  // Text goes through esc(); numbers through num() (anything else shows the fallback);
+  // tones and kinds through oneOf(); lookups by a value from the sheet through own().
+  const num = (x, d) => {
+    const n = typeof x === 'number' ? x : typeof x === 'string' ? Number(x) : NaN;
+    return Number.isFinite(n) ? n : d === undefined ? 0 : d;
+  };
+  const percent = (x) => Math.max(0, Math.min(100, num(x)));
+  const oneOf = (x, allowed, fallback) => (allowed.indexOf(x) !== -1 ? x : fallback);
+  const own = (map, key) => (map && Object.prototype.hasOwnProperty.call(map, key) ? map[key] : undefined);
+  const isText = (x) => typeof x === 'string' && x.trim() !== '';
+
   const STATUS_ICON = { good: '✓', warning: '!', serious: '!', critical: '✕' };
+  const TONES = Object.keys(STATUS_ICON);
   const KIND_LABEL = { filler: 'Filler word', hedge: 'Hedging', strong: 'Strong phrase', grammar: 'Grammar slip', vocab: 'Word choice', flag: 'Red flag' };
   // The transcript marks only language: what to fix in how something was said.
   const LANGUAGE_KINDS = ['grammar', 'vocab', 'filler'];
@@ -20,13 +33,14 @@
   }
 
   function fmtDuration(sec) {
+    sec = num(sec);
     const m = Math.floor(sec / 60);
     const s = sec % 60;
     return m ? m + ' min ' + (s ? s + ' s' : '') : s + ' s';
   }
 
   function highlighted(text, ignoreFlags, kinds) {
-    if (!text || !text.trim()) return '<em class="muted">No answer.</em>';
+    if (!isText(text)) return '<em class="muted">No answer.</em>';
     return AII.Analyzer.segments(text, { ignoreFlags, kinds })
       .map((s) => (s.kind ? '<mark class="hl hl-' + s.kind + '" title="' + esc(KIND_LABEL[s.kind] + (s.note ? ' — ' + s.note : '')) + '">' + esc(s.text) + '</mark>' : esc(s.text)))
       .join('');
@@ -47,7 +61,7 @@
 
   /** The candidate's words, as a caption, with grammar and word-choice marks. */
   function trSaid(text, empty, q, clip) {
-    const said = text && text.trim()
+    const said = isText(text)
       ? '<p class="tr-caption">' + highlighted(text, q.ignoreFlags, LANGUAGE_KINDS) + '</p>'
       : '<p class="tr-caption tr-none">' + esc(clip ? 'No words were recognised. Play the recording to hear what you said.' : empty) + '</p>';
     return '<div class="tr-line tr-said"><span class="tr-who">You</span><div>' + said + clipPlayer(clip) + '</div></div>';
@@ -56,7 +70,7 @@
   /** Grammar, word choice and fillers for everything said in one question. */
   function languageCheck(texts, q) {
     if (q.type === 'listening') return ''; // names and numbers: nothing to coach
-    const all = texts.filter((t) => t && t.trim());
+    const all = texts.filter(isText);
     if (!all.length) return '';
     const n = AII.Analyzer.languageNotes(all.join(' . '));
     const items = [];
@@ -99,7 +113,7 @@
         }
       }
       return '<li class="tr-item" id="tr-q' + (i + 1) + '"><div class="tr-head"><span class="qa-num">Q' + (i + 1) + '</span><span class="qa-stage">' + esc(q.stage) + '</span>' +
-        '<span class="tr-score">' + (q.skipped ? 'Skipped' : q.quality + '/100') + '</span></div>' + parts.join('') + languageCheck(said, q) + '</li>';
+        '<span class="tr-score">' + (q.skipped ? 'Skipped' : num(q.quality) + '/100') + '</span></div>' + parts.join('') + languageCheck(said, q) + '</li>';
     }).join('');
     const legend = '<div class="legend" aria-label="Highlight legend">' +
       LANGUAGE_KINDS.map((k) => '<span><mark class="hl hl-' + k + '">' + KIND_LABEL[k].toLowerCase() + '</mark></span>').join('') + '</div>';
@@ -113,8 +127,8 @@
     if (!sheet.rounds || !sheet.rounds.length) return '';
     const tone = (v) => (v == null ? 'none' : v >= 80 ? 'good' : v >= 66 ? 'ok' : v >= 52 ? 'warn' : 'bad');
     return '<section class="card rounds-card"><h2>Round by round</h2><div class="round-grid">' + sheet.rounds.map((r) =>
-      '<article class="round round-' + tone(r.score) + '"><div class="round-head"><span class="round-n">Round ' + r.n + '</span>' +
-      '<span class="round-score">' + (r.score == null ? '—' : r.score) + '<small>/100</small></span></div>' +
+      '<article class="round round-' + tone(r.score) + '"><div class="round-head"><span class="round-n">Round ' + num(r.n) + '</span>' +
+      '<span class="round-score">' + (r.score == null ? '—' : num(r.score)) + '<small>/100</small></span></div>' +
       '<h3>' + esc(r.title) + '</h3><p class="round-focus">' + esc(r.focus || '') + '</p>' +
       '<ul>' + r.notes.map((n) => '<li>' + esc(n) + '</li>').join('') + '</ul></article>').join('') + '</div></section>';
   }
@@ -128,13 +142,16 @@
   const WHY_TONE = { good: 'Strength', bad: 'Held back by', info: 'Note' };
 
   function meter(score, label, sub, extra, why) {
-    const v = score == null ? 0 : score;
+    const v = score == null ? 0 : percent(score);
     const reasons = why && why.length
-      ? '<ul class="why">' + why.map((l) => '<li class="why-' + esc(l.tone) + '"><span class="sr-only">' + (WHY_TONE[l.tone] || '') + ': </span>' + esc(l.text) + '</li>').join('') + '</ul>'
+      ? '<ul class="why">' + why.map((l) => {
+        const t = oneOf(l.tone, Object.keys(WHY_TONE), 'info');
+        return '<li class="why-' + t + '"><span class="sr-only">' + WHY_TONE[t] + ': </span>' + esc(l.text) + '</li>';
+      }).join('') + '</ul>'
       : '';
     return '<div class="meter-row">' +
       '<div class="meter-head"><span class="meter-label">' + esc(label) + '</span>' +
-      '<span class="meter-value">' + (score == null ? '—' : score) + '<span class="meter-band">' + esc(extra || '') + '</span></span></div>' +
+      '<span class="meter-value">' + (score == null ? '—' : num(score)) + '<span class="meter-band">' + esc(extra || '') + '</span></span></div>' +
       '<div class="meter" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + v + '" aria-label="' + esc(label) + '"><div class="meter-fill" style="width:' + v + '%"></div></div>' +
       (sub ? '<div class="meter-sub">' + esc(sub) + '</div>' : '') + reasons +
       '</div>';
@@ -145,16 +162,17 @@
   }
 
   function statusBadge(tone, label) {
+    tone = oneOf(tone, TONES, 'warning');
     return '<span class="status status-' + tone + '"><span class="status-icon" aria-hidden="true">' + STATUS_ICON[tone] + '</span>' + esc(label) + '</span>';
   }
 
   function questionChart(sheet) {
     const rows = sheet.questions.map((q, i) => {
-      const v = q.skipped ? 0 : q.quality;
+      const v = q.skipped ? 0 : num(q.quality);
       const label = 'Q' + (i + 1) + ' · ' + q.stage;
       return '<div class="qbar" tabindex="0" data-tip="' + esc('Q' + (i + 1) + ' — ' + (q.display || q.text)) + '" data-value="' + (q.skipped ? 'Skipped' : v + '/100') + '">' +
         '<span class="qbar-label">' + esc(label) + '</span>' +
-        '<span class="qbar-track"><span class="qbar-fill" style="width:' + Math.max(v, 0.5) + '%"></span></span>' +
+        '<span class="qbar-track"><span class="qbar-fill" style="width:' + Math.min(100, Math.max(v, 0.5)) + '%"></span></span>' +
         '<span class="qbar-value">' + (q.skipped ? 'skipped' : v) + '</span></div>';
     }).join('');
     return '<div class="qchart" role="list" aria-label="Score per question">' + rows +
@@ -165,20 +183,20 @@
   function dimChips(scores) {
     const D = AII.Scoring.DIMENSIONS;
     return '<div class="chips">' + D.filter((d) => scores[d.key] != null).map((d) =>
-      '<span class="chip"><span class="chip-k">' + esc(d.short) + '</span> ' + scores[d.key] + '</span>').join('') + '</div>';
+      '<span class="chip"><span class="chip-k">' + esc(d.short) + '</span> ' + num(scores[d.key]) + '</span>').join('') + '</div>';
   }
 
   /** A strong example answer, with a button to hear it (the app speaks it). */
   function modelBlock(q) {
     const text = AII.Demo && AII.Demo.modelAnswer ? AII.Demo.modelAnswer(q.id) : null;
-    if (!text || q.type === 'roleplay') return '';
+    if (typeof text !== 'string' || !text || q.type === 'roleplay') return ''; // q.id may name an Object.prototype key
     return '<div class="model"><div class="model-head"><span class="eyebrow">A strong answer could sound like this</span>' +
       '<button class="btn btn-small btn-glass no-print" type="button" data-say-model="' + esc(q.id) + '" aria-pressed="false">▶ Listen</button></div>' +
       '<p>' + esc(text) + '</p></div>';
   }
 
   function bestOf(attempts) {
-    return attempts && attempts.length ? Math.max.apply(null, attempts.map((a) => a.quality || 0)) : null;
+    return Array.isArray(attempts) && attempts.length ? Math.max.apply(null, attempts.map((a) => a.quality || 0)) : null;
   }
 
   function drillButton(q, label) {
@@ -187,7 +205,7 @@
 
   function questionDetail(q, i, o) {
     const parts = [];
-    const attempts = (o && o.drills && o.drills[q.id]) || null;
+    const attempts = own(o && o.drills, q.id) || null;
     // The words themselves (and the recordings) are in the transcript.
     parts.push('<p class="small"><a href="#tr-q' + (i + 1) + '">' + (q.skipped ? 'See this question in the transcript' : 'Read your answer in the transcript') + '</a></p>');
     if (q.listening) {
@@ -195,7 +213,7 @@
         '<li class="' + (it.hit ? 'ok' : 'miss') + '"><span aria-hidden="true">' + (it.hit ? '✓' : '✕') + '</span> ' + esc(it.label) + (it.hit ? '' : ' <span class="muted">(missed)</span>') + '</li>').join('') + '</ul>');
     }
     if (q.repeat) {
-      parts.push('<p class="correction"><span class="eyebrow">The sentence</span>“' + esc(q.repeat.target) + '” — <strong>' + esc(q.repeat.verdict) + ' (' + q.repeat.score + '%)</strong>' +
+      parts.push('<p class="correction"><span class="eyebrow">The sentence</span>“' + esc(q.repeat.target) + '” — <strong>' + esc(q.repeat.verdict) + ' (' + num(q.repeat.score) + '%)</strong>' +
         (q.repeat.missed.length ? '<span class="muted"> · missed: ' + esc(q.repeat.missed.slice(0, 8).join(', ')) + '</span>' : '') + '</p>');
     }
     if (q.correction) {
@@ -236,7 +254,7 @@
         (best != null ? '<span class="muted small">Practised ' + attempts.length + '× · best ' + best + '</span>' : '<span class="muted small">Answer it again out loud and see your score change.</span>') + '</div>');
     }
 
-    const score = q.skipped ? 'Skipped' : q.quality;
+    const score = q.skipped ? 'Skipped' : num(q.quality);
     const practised = best != null ? '<span class="qa-best" title="Best practice score">↗ ' + best + '</span>' : '';
     return '<details class="qa"' + (i === 0 ? ' open' : '') + '><summary>' +
       '<span class="qa-num">Q' + (i + 1) + '</span>' +
@@ -256,8 +274,8 @@
       (allGood ? 'Every answer scored 80 or more. Polish the lowest ones, or practise any question further down.'
         : 'Answer your weakest questions again, out loud. Each drill takes about two minutes and shows your score before and after.') +
       '</p></div><ol class="practice-list">' + ranked.map((r) => {
-        const best = bestOf(drills[r.q.id]);
-        const now = r.q.skipped ? 'Skipped' : r.q.quality;
+        const best = bestOf(own(drills, r.q.id));
+        const now = r.q.skipped ? 'Skipped' : num(r.q.quality);
         const tone = r.q.skipped || r.q.quality < 52 ? ' low' : r.q.quality < 66 ? ' mid' : '';
         return '<li><span class="pl-score' + tone + '">' + now + '</span>' +
           '<span class="pl-q"><span class="qa-stage">Q' + (r.i + 1) + ' · ' + esc(r.q.stage) + '</span><span class="pl-text">' + esc(r.q.display || r.q.text) + '</span>' +
@@ -268,7 +286,7 @@
 
   // ------------------------------------------------------------ AI proctoring
   const at = (ms) => {
-    const s = Math.max(0, Math.round((ms || 0) / 1000));
+    const s = Math.max(0, Math.round(num(ms) / 1000));
     return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
   };
 
@@ -280,25 +298,25 @@
     const st = p.stats || {};
     // The ending is already the banner at the top of the card.
     const reasons = (r.reasons || []).filter((x) => !(p.terminated && /ended after three/i.test(x)));
-    const pct = (v) => (v != null ? v + '<span class="tile-unit">%</span>' : '—');
+    const pct = (v) => (v != null ? num(v) + '<span class="tile-unit">%</span>' : '—');
     const tiles = [
       tile('Integrity', esc(r.label), r.key === 'clean' ? 'nothing to review' : r.key === 'high' ? 'verdict capped' : 'check the flagged moments'),
       tile('Face in view', pct(st.faceVisiblePct), 'of the interview'),
       tile('Eyes on screen', pct(st.eyesOnPct), st.awaySec ? st.awaySec + ' s looking away' : 'of the interview'),
-      tile('Warnings', (p.strikes || 0) + '<span class="tile-unit">/3</span>', p.terminated ? 'interview ended' : p.strikes ? 'given during the call' : 'none needed'),
+      tile('Warnings', num(p.strikes) + '<span class="tile-unit">/3</span>', p.terminated ? 'interview ended' : p.strikes ? 'given during the call' : 'none needed'),
     ].join('');
     const items = (p.incidents || []).map((i) => {
       const photo = photos && photos.get(i.id);
       const where = i.direction === 'down' ? ' (down)' : i.direction === 'side' ? ' (to the side)' : '';
       const what = i.severity === 'serious' ? (i.strike ? 'Warning ' + i.strike + ' of 3' : 'Serious') : 'Noted';
       return '<li class="pi pi-' + (i.severity === 'serious' ? 'serious' : 'minor') + '">' +
-        '<span class="pi-time">' + at(i.at) + (i.q ? '<small>Q' + i.q + '</small>' : '') + '</span>' +
+        '<span class="pi-time">' + at(i.at) + (i.q ? '<small>Q' + num(i.q) + '</small>' : '') + '</span>' +
         '<span class="pi-body"><strong>' + esc(i.label + where) + '</strong><span class="muted small">' + esc(what) +
         (i.durationMs ? ' · ' + Math.max(1, Math.round(i.durationMs / 1000)) + ' s' : '') + '</span></span>' +
         (photo ? '<a class="pi-photo" href="' + esc(photo) + '" target="_blank" rel="noopener" title="Open the photo"><img src="' + esc(photo) + '" alt="' + esc('Camera at ' + at(i.at) + ': ' + i.label) + '"></a>' : '') +
         '</li>';
     }).join('');
-    return '<section class="card proctor-card tone-' + esc(r.tone) + '" id="proctoring"><h2>AI proctoring</h2>' +
+    return '<section class="card proctor-card tone-' + oneOf(r.tone, TONES, 'warning') + '" id="proctoring"><h2>AI proctoring</h2>' +
       (p.terminated ? '<p class="proctor-ended">The interview was ended after three integrity warnings.</p>' : '') +
       '<div class="tiles small-tiles">' + tiles + '</div>' +
       (reasons.length ? '<ul class="proctor-reasons">' + reasons.map((x) => '<li>' + esc(x) + '</li>').join('') + '</ul>' : '') +
@@ -315,10 +333,10 @@
     const tone = sheet.verdict.tone;
     const kpis = [
       tile('English level (est.)', sheet.englishLevel ? esc(sheet.englishLevel.code) : '—', sheet.englishLevel ? sheet.englishLevel.label : ''),
-      tile('Answered', sheet.integrity.answered + '<span class="tile-unit">/' + sheet.questions.length + '</span>', sheet.integrity.skipped ? sheet.integrity.skipped + ' skipped' : 'questions'),
-      tile('Speaking pace', s.avgWpm ? s.avgWpm + '<span class="tile-unit">wpm</span>' : '—', s.avgWpm ? 'ideal 120–165' : 'voice mode only'),
-      tile('Time to answer', s.avgLatencySec != null ? s.avgLatencySec + '<span class="tile-unit">s</span>' : '—', s.avgLatencySec != null ? 'average start delay' : 'voice mode only'),
-      tile('Filler words', s.fillerPer100 + '<span class="tile-unit">/100 words</span>', s.fillerPer100 <= 2 ? 'fluent' : s.fillerPer100 <= 4 ? 'noticeable' : 'frequent'),
+      tile('Answered', num(sheet.integrity.answered) + '<span class="tile-unit">/' + sheet.questions.length + '</span>', sheet.integrity.skipped ? sheet.integrity.skipped + ' skipped' : 'questions'),
+      tile('Speaking pace', s.avgWpm ? num(s.avgWpm) + '<span class="tile-unit">wpm</span>' : '—', s.avgWpm ? 'ideal 120–165' : 'voice mode only'),
+      tile('Time to answer', s.avgLatencySec != null ? num(s.avgLatencySec) + '<span class="tile-unit">s</span>' : '—', s.avgLatencySec != null ? 'average start delay' : 'voice mode only'),
+      tile('Filler words', num(s.fillerPer100) + '<span class="tile-unit">/100 words</span>', s.fillerPer100 <= 2 ? 'fluent' : s.fillerPer100 <= 4 ? 'noticeable' : 'frequent'),
     ].join('');
 
     const flags = sheet.redFlags.length
@@ -341,13 +359,13 @@
         sheet.grammar.map((g) => '<tr><td>“' + esc(g.evidence) + '”</td><td>' + esc(g.fix) + '</td><td class="muted">' + esc(g.why) + '</td></tr>').join('') + '</tbody></table></div>'
       : '<p class="muted">No common grammar slips detected.</p>';
 
-    const chipsOf = (arr) => (arr.length ? arr.map((t) => '<span class="chip">“' + esc(t.term) + '” ×' + t.count + '</span>').join('') : '<span class="muted">none</span>');
+    const chipsOf = (arr) => (arr.length ? arr.map((t) => '<span class="chip">“' + esc(t.term) + '” ×' + num(t.count) + '</span>').join('') : '<span class="muted">none</span>');
     const speech = '<section class="card" id="rep-speech"><h2>Speech & language analytics</h2>' +
       '<div class="tiles small-tiles">' +
-      tile('Words spoken', String(s.words), s.speakingSec ? fmtDuration(s.speakingSec) + ' of speech' : '') +
-      tile('Hedging', s.hedgePer100 + '<span class="tile-unit">/100 words</span>', s.hedgePer100 <= 1.5 ? 'direct' : 'often unsure') +
-      tile('Long pauses', s.voiceAnswers ? String(s.longPauses) : '—', s.voiceAnswers ? 'pauses over 2 s' : 'voice mode only') +
-      tile('Voice modulation', s.pitchVariation != null ? s.pitchVariation + '<span class="tile-unit">st</span>' : '—', s.pitchVariation != null ? (s.pitchVariation < 1.2 ? 'flat' : s.pitchVariation < 2 ? 'moderate' : 'expressive') : 'voice mode only') +
+      tile('Words spoken', String(num(s.words)), s.speakingSec ? fmtDuration(s.speakingSec) + ' of speech' : '') +
+      tile('Hedging', num(s.hedgePer100) + '<span class="tile-unit">/100 words</span>', s.hedgePer100 <= 1.5 ? 'direct' : 'often unsure') +
+      tile('Long pauses', s.voiceAnswers ? String(num(s.longPauses)) : '—', s.voiceAnswers ? 'pauses over 2 s' : 'voice mode only') +
+      tile('Voice modulation', s.pitchVariation != null ? num(s.pitchVariation) + '<span class="tile-unit">st</span>' : '—', s.pitchVariation != null ? (s.pitchVariation < 1.2 ? 'flat' : s.pitchVariation < 2 ? 'moderate' : 'expressive') : 'voice mode only') +
       '</div>' +
       '<div class="chip-row"><span class="chip-title">Top fillers</span>' + chipsOf(s.topFillers) + '</div>' +
       '<div class="chip-row"><span class="chip-title">Top hedges</span>' + chipsOf(s.topHedges) + '</div>' +
@@ -355,10 +373,10 @@
 
     const integrity = sheet.integrity;
     const integ = '<section class="card"><h2>Integrity & engagement</h2><ul class="facts">' +
-      '<li><span>Left the interview tab</span><strong>' + integrity.tabSwitches + '×</strong></li>' +
-      (sheet.config.mode === 'voice' ? '' : '<li><span>Pasted answers</span><strong>' + integrity.pastes + '</strong></li>') +
-      '<li><span>Asked to repeat a question</span><strong>' + integrity.repeats + '×</strong></li>' +
-      '<li><span>Skipped questions</span><strong>' + integrity.skipped + '</strong></li></ul></section>';
+      '<li><span>Left the interview tab</span><strong>' + num(integrity.tabSwitches) + '×</strong></li>' +
+      (sheet.config.mode === 'voice' ? '' : '<li><span>Pasted answers</span><strong>' + num(integrity.pastes) + '</strong></li>') +
+      '<li><span>Asked to repeat a question</span><strong>' + num(integrity.repeats) + '×</strong></li>' +
+      '<li><span>Skipped questions</span><strong>' + num(integrity.skipped) + '</strong></li></ul></section>';
 
     return '<article class="report" id="report">' +
       '<header class="report-head card">' +
@@ -366,7 +384,7 @@
       '<p class="muted">' + esc(sheet.role.label) + (sheet.company ? ' · ' + esc(sheet.company.display || sheet.company.name) + ' style' : '') + ' · ' + esc(sheet.plan.label) + ' · ' + (sheet.candidate.experience === 'experienced' ? 'Experienced' : 'Fresher') +
       (sheet.config && sheet.config.job && sheet.config.job.skills && sheet.config.job.skills.length ? '<br>Tailored to the job: ' + esc(sheet.config.job.skills.slice(0, 5).map((s) => s.label).join(' · ')) : '') +
       '<br>' + esc(fmtDate(sheet.createdAt)) + ' · ' + esc(fmtDuration(sheet.durationSec)) + ' · ' + (sheet.config.mode === 'voice' ? 'Voice interview' : 'Typed interview') + '</p></div>' +
-      '<div class="hero"><div class="hero-num" style="--score:' + Math.max(0, Math.min(100, Number(sheet.overall) || 0)) + '"><span class="hero-val">' + sheet.overall + '</span><span class="hero-den">/100</span></div>' + statusBadge(tone, sheet.verdict.label) +
+      '<div class="hero"><div class="hero-num" style="--score:' + Math.max(0, Math.min(100, Number(sheet.overall) || 0)) + '"><span class="hero-val">' + num(sheet.overall) + '</span><span class="hero-den">/100</span></div>' + statusBadge(tone, sheet.verdict.label) +
       (sheet.proctoring && sheet.proctoring.rating ? statusBadge(sheet.proctoring.rating.tone, 'Integrity: ' + sheet.proctoring.rating.label) : '') +
       (sheet.terminated ? '<div class="muted small">Ended after three integrity warnings.</div>'
         : sheet.incomplete ? '<div class="muted small">Interview incomplete; treat with caution.</div>' : '') + '</div></header>' +
